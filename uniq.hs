@@ -10,12 +10,13 @@ module Main where
 
 import Data.Char (isSpace, toLower)
 import Data.List (sortOn)
+import Data.Maybe (fromMaybe)
 import System.Environment (getArgs)
 import System.Directory (doesFileExist)
 import Text.Printf (printf)
 import qualified Data.Map.Strict as Map
 
-helpText = 
+helpText =
     ["uniq [option ...] [files ...]"
     ,""
     ,"  -h     show this help"
@@ -32,13 +33,13 @@ type WordMap = Map.Map String Integer
 singleton = Map.fromList [] :: WordMap
 
 increment map word = Map.alter add word map
-  where 
+  where
         add :: Maybe Integer -> Maybe Integer
         add Nothing  = Just 1
         add (Just i) = Just $ i + 1
 
 mutateContent :: [Flag] -> String -> [String]
-mutateContent flags content = 
+mutateContent flags content =
   case flags of
     (Ignore  : fs) -> mutateContent fs $ map toLower content
     (Skip  n : fs) -> mutateContent fs $ apply (drop n) content
@@ -59,7 +60,7 @@ data Flag = Count | Ignore | Unique | Repeat | Skip Int | First Int
 countWords flags content
   | Count `elem` flags  = mapM_ printCount list
   | otherwise           = mapM_ printPlain list
-  where 
+  where
         list = extract $ mutateMap flags map
         map = foldl increment singleton $ mutateContent flags content
 
@@ -69,8 +70,8 @@ countWords flags content
         printCount (s, i) = putStrLn $ printf "% 5d %s" i s
         printPlain (s, _) = putStrLn s
 
-handle :: [Flag] -> [String] -> String -> IO ()
-handle flags arguments content = 
+handle :: [Flag] -> [String] -> Maybe String -> IO ()
+handle flags arguments content =
     case arguments of
       ("-h" : _   ) -> mapM_ putStrLn helpText
       ("-c" : args) -> handle (Count:flags)  args content
@@ -86,17 +87,21 @@ handle flags arguments content =
         if exists
           then do
             fileContent <- readFile file
-            handle flags args (fileContent ++ content)
-          else putStrLn $ "uniq: " ++ file ++ ": No such file or directory"
+            handle flags args $ Just (fileContent ++ fromMaybe "" content)
 
-      [] -> 
-        if null content
-          then do
+          else putStrLn $
+            "uniq: " ++ file ++ ": No such file or directory"
+
+      [] -> output content
+
+  where output :: Maybe String -> IO ()
+        output Nothing = do
             stdinContent <- getContents
             countWords flags stdinContent
-          else countWords flags content
+
+        output (Just c) = countWords flags c
 
 main :: IO ()
 main = do
     args <- getArgs
-    handle [] args ""
+    handle [] args Nothing
