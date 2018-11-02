@@ -1,6 +1,6 @@
 name:                coreutils
-version:             0.1.0.0
-synopsis:            Simple project template from stack
+version:             0.5.0.0
+synopsis:            Unix core utilities implemented in Haskell
 description:         Please see README.md
 homepage:            https://github.com/bitemyapp/hello#readme
 license:             BSD3
@@ -8,41 +8,38 @@ license-file:        LICENSE
 author:              Austin Voecks
 maintainer:          austin.voecks@gmail.com
 copyright:           2018, Austin Voecks
-category:            Network
+category:            Utility
 build-type:          Simple
 cabal-version:       >=1.10
 
 executable cat
-  hs-source-dirs:      .
   main-is:             cat.hs
   default-language:    Haskell2010
 
   ghc-options:
-    -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
+    -dynamic -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
 
   build-depends:
     base >= 4.7 && < 5,
     directory
 
 executable wc
-  hs-source-dirs:      .
   main-is:             wc.hs
   default-language:    Haskell2010
 
   ghc-options:
-    -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
+    -dynamic -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
 
   build-depends:
     base >= 4.7 && < 5,
     directory
 
 executable uniq
-  hs-source-dirs:      .
   main-is:             uniq.hs
   default-language:    Haskell2010
 
   ghc-options:
-    -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
+    -dynamic -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
 
   build-depends:
     base >= 4.7 && < 5,
@@ -50,12 +47,21 @@ executable uniq
     containers
 
 executable seq
-  hs-source-dirs:      .
   main-is:             seq.hs
   default-language:    Haskell2010
 
   ghc-options:
-    -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
+    -dynamic -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
+
+  build-depends:
+    base >= 4.7 && < 5
+
+executable sleep
+  main-is:             sleep.hs
+  default-language:    Haskell2010
+
+  ghc-options:
+    -dynamic -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
 
   build-depends:
     base >= 4.7 && < 5
