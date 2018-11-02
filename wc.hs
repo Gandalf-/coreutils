@@ -35,6 +35,7 @@ wc flags content
 help :: IO ()
 help = do
       putStrLn "usage: wc [option]"
+      putStrLn ""
       putStrLn "  -l  lines"
       putStrLn "  -w  words"
       putStrLn "  -c  characters"
