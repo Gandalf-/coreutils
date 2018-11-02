@@ -1,8 +1,8 @@
 module Main where
 
-import System.Environment (getArgs)
-import System.Directory (doesFileExist)
-import Data.Maybe (fromMaybe)
+import           Data.Maybe         (fromMaybe)
+import           System.Directory   (doesFileExist)
+import           System.Environment (getArgs)
 
 handle :: [String] -> Maybe String -> IO ()
 handle arguments content =
@@ -15,7 +15,8 @@ handle arguments content =
             fileContent <- readFile file
             handle args $ Just (fileContent ++ fromMaybe "" content)
 
-          else putStrLn $ "cat: " ++ file ++ ": No such file or directory"
+          else putStrLn $
+            "cat: " ++ file ++ ": No such file or directory"
 
       [] -> output content
 

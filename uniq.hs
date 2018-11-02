@@ -8,13 +8,14 @@ module Main where
 -- flags either control output, filtering before output, or modification
 -- before input
 
-import Data.Char (isSpace, toLower)
-import Data.List (sortOn)
-import Data.Maybe (fromMaybe)
-import System.Environment (getArgs)
-import System.Directory (doesFileExist)
-import Text.Printf (printf)
-import qualified Data.Map.Strict as Map
+import           Data.Char          (isSpace, toLower)
+import           Data.List          (sortOn)
+import qualified Data.Map.Strict    as Map
+import           Data.Maybe         (fromMaybe)
+import           Data.Ord           (Down (..))
+import           System.Directory   (doesFileExist)
+import           System.Environment (getArgs)
+import           Text.Printf        (printf)
 
 helpText =
     ["uniq [option ...] [files ...]"
@@ -65,7 +66,7 @@ countWords flags content
         map = foldl increment singleton $ mutateContent flags content
 
         extract :: WordMap -> [(String, Integer)]
-        extract = reverse . sortOn snd . Map.toList
+        extract = sortOn (Down . snd) . Map.toList
 
         printCount (s, i) = putStrLn $ printf "% 5d %s" i s
         printPlain (s, _) = putStrLn s
