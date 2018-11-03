@@ -16,7 +16,7 @@ handle (first : increment : last : _) =
 
 handle (first : last : _) = handle [first, 1, last]
 handle [last]             = handle [1, 1, last]
-handle _                 = help
+handle _                  = help
 
 
 help :: IO ()

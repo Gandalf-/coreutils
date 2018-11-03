@@ -2,6 +2,9 @@
 Unix core utilities implemented in Haskell
 
 - cat
+- which
+- nologin
+- sleep
 
 - wc
 ```
