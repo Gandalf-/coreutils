@@ -6,13 +6,26 @@ module Main where
 
 import           Data.Maybe         (catMaybes, isJust)
 import           System.Environment (getArgs)
+import           System.Exit
 import           Text.Read          (readMaybe)
 
 
+main :: IO ()
+main = do
+      args <- map readMaybe <$> getArgs
+
+      if all isJust args
+        then handle $ catMaybes args
+        else do
+          putStrLn "seq: unable to parse arguments as numbers"
+          exitFailure
+
+
 handle :: [Integer] -> IO ()
+-- ^ produce a list of numbers, use pattern matching to represent the
+-- default values and error handling
 handle (first : increment : last : _) =
-      mapM_ print steps
-  where steps = [first, first + increment .. last]
+      mapM_ print [first, first + increment .. last]
 
 handle (first : last : _) = handle [first, 1, last]
 handle [last]             = handle [1, 1, last]
@@ -24,11 +37,3 @@ help = do
       putStrLn "usage: seq [last]"
       putStrLn "           [first] [last]"
       putStrLn "           [first] [increment] [last]"
-
-
-main :: IO ()
-main = do
-      args <- map readMaybe <$> getArgs
-      if all isJust args
-        then handle $ catMaybes args
-        else putStrLn "seq: unable to parse arguments as numbers"
