@@ -12,29 +12,16 @@ import           System.Environment
 import           System.Exit
 
 
-runnable :: FilePath -> IO Bool
--- ^ is this file executable? expects it to exist
-runnable path = executable <$> getPermissions path
+main :: IO ()
+-- ^ print the path to each argument if possible
+-- if anything didn't exist, exit failure
+main = do
+        paths <- getArgs >>= mapM which
+        mapM_ putStrLn $ catMaybes paths
 
-
-paths :: IO [FilePath]
--- ^ convert the PATH variable to a list of valid directories
-paths = splitOn ":" <$> getEnv "PATH" >>= filterM doesDirectoryExist
-
-
-find :: String -> FilePath -> IO Bool
--- ^ is this file in this directory?
-find file path = elem file <$> listDirectory path
-
-
-search :: String -> IO [FilePath]
--- ^ look for a file in the right directories, that's executable
-search file =
-        paths >>= onlyPathsWithFile >>= addFileToPath >>= onlyExecutables
-    where
-        onlyPathsWithFile = filterM (find file)
-        onlyExecutables   = filterM runnable
-        addFileToPath     = mapM (\c -> return $ c ++ "/" ++ file)
+        if all isJust paths
+          then exitSuccess
+          else exitFailure
 
 
 which :: String -> IO (Maybe String)
@@ -46,13 +33,26 @@ which file =
         maybeHead (x:_) = Just x
 
 
-main :: IO ()
--- ^ print the path to each argument if possible
--- if anything didn't exist, exit failure
-main = do
-        paths <- getArgs >>= mapM which
-        mapM_ putStrLn $ catMaybes paths
+search :: String -> IO [FilePath]
+-- ^ look for a file in the right directories, that's executable
+search file =
+        paths >>= onlyPathsWithFile >>= addFileToPath >>= onlyExecutables
+    where
+        onlyPathsWithFile = filterM (fileInDirectory file)
+        onlyExecutables   = filterM runnable
+        addFileToPath     = mapM (\c -> return $ c ++ "/" ++ file)
 
-        if all isJust paths
-          then exitSuccess
-          else exitFailure
+
+paths :: IO [FilePath]
+-- ^ convert the PATH variable to a list of valid directories
+paths = splitOn ":" <$> getEnv "PATH" >>= filterM doesDirectoryExist
+
+
+runnable :: FilePath -> IO Bool
+-- ^ is this file executable? expects it to exist
+runnable file = executable <$> getPermissions file
+
+
+fileInDirectory :: String -> FilePath -> IO Bool
+-- ^ is this file in this directory?
+fileInDirectory file path = elem file <$> listDirectory path
