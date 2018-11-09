@@ -17,21 +17,6 @@ import           System.Exit        (exitFailure)
 import           Text.Read          (readMaybe)
 
 
-parse :: String -> Maybe Int
-parse [] = Nothing
-parse value
-        | isAlpha suffix = (*) <$> adjust suffix <*> parse (init value)
-        | otherwise      = readMaybe value
-    where
-        suffix = last value
-
-        adjust :: Char -> Maybe Int
-        adjust 's' = Just 1
-        adjust 'm' = Just 60
-        adjust 'd' = Just $ 60 * 24
-        adjust _   = Nothing
-
-
 main :: IO ()
 main = do
         values <- map parse <$> getArgs
@@ -44,3 +29,20 @@ main = do
     where
         sleep :: Int -> IO ()
         sleep time = threadDelay $ time * 1000000
+
+
+parse :: String -> Maybe Int
+-- ^ take strings in the format <number>(s|m|d) and try to convert them
+-- into a Int
+parse [] = Nothing
+parse value
+        | isAlpha suffix = (*) <$> adjust suffix <*> parse (init value)
+        | otherwise      = readMaybe value
+    where
+        suffix = last value
+
+        adjust :: Char -> Maybe Int
+        adjust 's' = Just 1
+        adjust 'm' = Just 60
+        adjust 'd' = Just $ 60 * 24
+        adjust _   = Nothing

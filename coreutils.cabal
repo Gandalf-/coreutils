@@ -87,3 +87,24 @@ executable which
     base >= 4.7 && < 5,
     split,
     directory
+
+executable tr
+  main-is:             tr.hs
+  default-language:    Haskell2010
+
+  ghc-options:
+    -dynamic -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
+
+  build-depends:
+    base >= 4.7 && < 5,
+    containers
+
+executable echo
+  main-is:             echo.hs
+  default-language:    Haskell2010
+
+  ghc-options:
+    -dynamic -Wall -Wno-type-defaults -Wno-missing-signatures -Wno-name-shadowing
+
+  build-depends:
+    base >= 4.7 && < 5
