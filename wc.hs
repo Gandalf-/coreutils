@@ -9,6 +9,7 @@ module Main where
 import           Data.Maybe         (fromMaybe)
 import           System.Directory   (doesFileExist)
 import           System.Environment (getArgs)
+import           System.Exit        (die)
 
 data Flag = Lines
           | Words
@@ -56,7 +57,7 @@ handle flags arguments content =
               fileContent <- readFile file
               handle flags args $ Just (fileContent ++ fromMaybe "" content)
 
-            else putStrLn $
+            else die $
               "wc: " ++ file ++ ": No such file or directory"
 
         [] -> output content

@@ -43,4 +43,4 @@ display (Right content) =
     putStr content
 
 display (Left file)  =
-    putStrLn $ "cat: " ++ file ++ ": No such file or directory"
+    die $ "cat: " ++ file ++ ": No such file or directory"

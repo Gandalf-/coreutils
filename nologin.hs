@@ -4,8 +4,6 @@ module Main where
 --
 -- just say no
 
-import           System.Exit
+import           System.Exit (die)
 
-main = do
-      putStrLn "This account is currently not available."
-      exitFailure
+main = die "This account is currently not available."

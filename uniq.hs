@@ -17,6 +17,7 @@ import           Data.Maybe         (fromMaybe)
 import           Data.Ord           (Down (..))
 import           System.Directory   (doesFileExist)
 import           System.Environment (getArgs)
+import           System.Exit        (die)
 import           Text.Printf        (printf)
 
 
@@ -104,7 +105,7 @@ handle flags arguments content =
               fileContent <- readFile file
               handle flags args $ Just (fileContent ++ fromMaybe "" content)
 
-            else putStrLn $
+            else die $
               "uniq: " ++ file ++ ": No such file or directory"
 
         [] -> output content

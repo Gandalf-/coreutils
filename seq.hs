@@ -6,7 +6,7 @@ module Main where
 
 import           Data.Maybe         (catMaybes, isJust)
 import           System.Environment (getArgs)
-import           System.Exit
+import           System.Exit        (die)
 import           Text.Read          (readMaybe)
 
 
@@ -16,9 +16,7 @@ main = do
 
       if all isJust args
         then handle $ catMaybes args
-        else do
-          putStrLn "seq: unable to parse arguments as numbers"
-          exitFailure
+        else die "seq: unable to parse arguments as numbers"
 
 
 handle :: [Integer] -> IO ()

@@ -13,7 +13,7 @@ import           Control.Concurrent (threadDelay)
 import           Data.Char          (isAlpha)
 import           Data.Maybe         (catMaybes, isJust)
 import           System.Environment (getArgs)
-import           System.Exit        (exitFailure)
+import           System.Exit        (die)
 import           Text.Read          (readMaybe)
 
 
@@ -23,9 +23,7 @@ main = do
 
         if all isJust values
             then mapM_ sleep $ catMaybes values
-            else do
-                putStrLn "sleep: [number](s|m|d)"
-                exitFailure
+            else die "sleep: [number](s|m|d)"
     where
         sleep :: Int -> IO ()
         sleep time = threadDelay $ time * 1000000
