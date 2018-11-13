@@ -4,6 +4,7 @@ module Main where
 --
 -- replace characters, supports -d and -c
 
+import           Data.Char          (chr)
 import qualified Data.Map.Strict    as Map
 import           Data.Maybe         (fromMaybe)
 import           System.Environment (getArgs)
@@ -93,10 +94,30 @@ invertSearch table c =
                 else head $ Map.elems table
 
 
-parseFlags :: String -> Argument
-parseFlags "-c" = Complement
-parseFlags "-d" = Delete
-parseFlags arg  = Set arg
+parse :: String -> Argument
+parse "-c"           = Complement
+parse "-C"           = Complement
+parse "--complement" = Complement
+
+parse "-d"           = Delete
+parse "--delete"     = Delete
+
+parse "[:alnum:]"    = Set $ upper ++ lower ++ digit
+parse "[:alpha:]"    = Set $ upper ++ lower
+parse "[:lower:]"    = Set lower
+parse "[:upper:]"    = Set upper
+parse "[:digit:]"    = Set digit
+parse "[:blank:]"    = Set " \t"
+parse "[:cntrl:]"    = Set $ map chr [0..31]
+
+parse [a, '-', b]    = Set [a..b]
+
+parse arg            = Set arg
+
+
+upper = ['A'..'Z']
+lower = ['a'..'a']
+digit = ['0'..'9']
 
 
 sets :: [Argument] -> [String]
@@ -107,7 +128,7 @@ sets (_ : xs)    = sets xs
 
 main :: IO ()
 main = do
-        arguments <- map parseFlags <$> getArgs
+        arguments <- map parse <$> getArgs
         content <- getContents
         validate arguments
 
