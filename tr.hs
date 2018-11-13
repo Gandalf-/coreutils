@@ -4,7 +4,8 @@ module Main where
 --
 -- replace characters, supports -d and -c
 
-import           Data.Char          (chr)
+import           Data.Char          (chr, isControl, isPrint, isPunctuation,
+                                     isSpace)
 import qualified Data.Map.Strict    as Map
 import           Data.Maybe         (fromMaybe)
 import           System.Environment (getArgs)
@@ -104,11 +105,14 @@ parse "--delete"     = Delete
 
 parse "[:alnum:]"    = Set $ upper ++ lower ++ digit
 parse "[:alpha:]"    = Set $ upper ++ lower
-parse "[:lower:]"    = Set lower
 parse "[:upper:]"    = Set upper
+parse "[:lower:]"    = Set lower
 parse "[:digit:]"    = Set digit
-parse "[:blank:]"    = Set " \t"
-parse "[:cntrl:]"    = Set $ map chr [0..31]
+
+parse "[:blank:]"    = Set $ filter isSpace ascii
+parse "[:cntrl:]"    = Set $ filter isControl ascii
+parse "[:graph:]"    = Set $ filter isPrint ascii
+parse "[:punct:]"    = Set $ filter isPunctuation ascii
 
 parse [a, '-', b]    = Set [a..b]
 
@@ -118,6 +122,7 @@ parse arg            = Set arg
 upper = ['A'..'Z']
 lower = ['a'..'a']
 digit = ['0'..'9']
+ascii = map chr [0..127]
 
 
 sets :: [Argument] -> [String]
