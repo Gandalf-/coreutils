@@ -70,11 +70,13 @@ run args content
         second = head $ tail sets'
 
 
-validate :: [Argument] -> IO ()
+data ValidationResult = NoErrors | Error String
+
+validate :: [Argument] -> ValidationResult
 validate args
-        | checkDelete = die "tr: -d requires one set"
-        | checkTransl = die "tr: requires two sets"
-        | otherwise   = return ()
+        | checkDelete = Error "tr: -d requires one set"
+        | checkTransl = Error "tr: requires two sets"
+        | otherwise   = NoErrors
     where
         sets' = sets args
         checkDelete = Delete `elem`    args && length sets' /= 1
@@ -119,9 +121,16 @@ parse [a, '-', b]    = Set [a..b]
 parse arg            = Set arg
 
 
+upper :: String
 upper = ['A'..'Z']
+
+lower :: String
 lower = ['a'..'z']
+
+digit :: String
 digit = ['0'..'9']
+
+ascii :: String
 ascii = map chr [0..127]
 
 
@@ -135,6 +144,7 @@ main :: IO ()
 main = do
         arguments <- map parse <$> getArgs
         content <- getContents
-        validate arguments
 
-        putStr $ run arguments content
+        case validate arguments of
+            NoErrors  -> putStr $ run arguments content
+            Error msg -> die msg

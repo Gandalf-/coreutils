@@ -22,16 +22,16 @@ main = do
 handle :: [Integer] -> IO ()
 -- ^ produce a list of numbers, use pattern matching to represent the
 -- default values and error handling
-handle (first : increment : last : _) =
-      mapM_ print [first, first + increment .. last]
+handle (start : increment : end : _) =
+      mapM_ print [start, start + increment .. end]
 
-handle (first : last : _) = handle [first, 1, last]
-handle [last]             = handle [1, 1, last]
-handle _                  = help
+handle (start : end : _) = handle [start, 1, end]
+handle [end]             = handle [1, 1, end]
+handle _                 = help
 
 
 help :: IO ()
 help = do
-      putStrLn "usage: seq [last]"
-      putStrLn "           [first] [last]"
-      putStrLn "           [first] [increment] [last]"
+      putStrLn "usage: seq [end]"
+      putStrLn "           [start] [end]"
+      putStrLn "           [start] [increment] [end]"

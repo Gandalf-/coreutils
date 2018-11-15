@@ -21,6 +21,7 @@ import           System.Exit        (die)
 import           Text.Printf        (printf)
 
 
+helpText :: [String]
 helpText =
     ["uniq [option ...] [files ...]"
     ,""
@@ -36,12 +37,13 @@ helpText =
 type WordMap = Map.Map String Integer
 
 
+singleton :: WordMap
 singleton = Map.fromList [] :: WordMap
 
 
 increment :: WordMap -> String -> WordMap
-increment map word =
-      Map.alter add word map
+increment wm word =
+      Map.alter add word wm
   where
       add :: Maybe Integer -> Maybe Integer
       add Nothing  = Just 1
@@ -61,10 +63,10 @@ mutateContent flags content =
 
 
 mutateMap :: [Flag] -> WordMap -> WordMap
-mutateMap flags map
-      | Unique `elem` flags = Map.filter (== 1) map
-      | Repeat `elem` flags = Map.filter (/= 1) map
-      | otherwise           = map
+mutateMap flags wm
+      | Unique `elem` flags = Map.filter (== 1) wm
+      | Repeat `elem` flags = Map.filter (/= 1) wm
+      | otherwise           = wm
 
 
 data Flag = Count | Ignore | Unique | Repeat | Skip Int | First Int
@@ -76,8 +78,8 @@ countWords flags content
       | Count `elem` flags  = mapM_ printCount list
       | otherwise           = mapM_ printPlain list
   where
-      list = extract $ mutateMap flags map
-      map = foldl increment singleton $ mutateContent flags content
+      list = extract $ mutateMap flags wm
+      wm = foldl increment singleton $ mutateContent flags content
 
       extract :: WordMap -> [(String, Integer)]
       extract = sortOn (Down . snd) . Map.toList

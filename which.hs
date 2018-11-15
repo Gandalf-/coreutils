@@ -36,16 +36,19 @@ which file =
 search :: String -> IO [FilePath]
 -- ^ look for a file in the right directories, that's executable
 search file =
-        paths >>= onlyPathsWithFile >>= addFileToPath >>= onlyExecutables
+        getPaths
+            >>= onlyPathsWithFile
+            >>= addFileToPath
+            >>= onlyExecutables
     where
         onlyPathsWithFile = filterM (fileInDirectory file)
         onlyExecutables   = filterM runnable
         addFileToPath     = mapM (\c -> return $ c ++ "/" ++ file)
 
 
-paths :: IO [FilePath]
+getPaths :: IO [FilePath]
 -- ^ convert the PATH variable to a list of valid directories
-paths = splitOn ":" <$> getEnv "PATH" >>= filterM doesDirectoryExist
+getPaths = splitOn ":" <$> getEnv "PATH" >>= filterM doesDirectoryExist
 
 
 runnable :: FilePath -> IO Bool

@@ -6,4 +6,5 @@ module Main where
 
 import           System.Exit (die)
 
+main :: IO ()
 main = die "This account is currently not available."

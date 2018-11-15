@@ -16,8 +16,14 @@ data Flag = Lines
           | Chars
           deriving (Show)
 
+
+nlines :: String -> String
 nlines c = show $ length (lines c)
+
+nchars :: String -> String
 nchars c = show $ length c
+
+nwords :: String -> String
 nwords c = show $ length $ words c
 
 
