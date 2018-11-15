@@ -5,6 +5,6 @@ module Main where
 -- read lines from stdin, print them out reversed
 
 main :: IO ()
-main = rev <$> getContents >>= putStr
+main = interact rev
     where
         rev = unlines . map reverse . lines

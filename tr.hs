@@ -20,29 +20,29 @@ newtype Deleter = Deleter String
 
 class Action a where
 
-        translate' :: a -> Bool -> String -> String
+        translate :: a -> Bool -> String -> String
 
 
 instance Action Translator where
 
-        translate' (Translator from to) False s =
-                        map (search table) s
+        translate (Translator from to) False s =
+                    map (search table) s
                 where table = buildTable from to
 
         -- complement
-        translate' (Translator from to) True s =
-                        map (invertSearch table) s
+        translate (Translator from to) True s =
+                    map (invertSearch table) s
                 where table = buildTable from to
 
 
 instance Action Deleter where
 
-        translate' (Deleter f) False s  =
-                filter (`notElem` f) s
+        translate (Deleter word) False s  =
+                    filter (`notElem` word) s
 
         -- complement
-        translate' (Deleter f) True s =
-                filter (`elem` f) s
+        translate (Deleter word) True s =
+                    filter (`elem` word) s
 
 
 data Argument = Complement
@@ -57,10 +57,10 @@ run args content
         | otherwise          = translatorResult
     where
         deleterResult =
-          translate' (Deleter first) complement content
+          translate (Deleter first) complement content
 
         translatorResult =
-          translate' (Translator first second) complement content
+          translate (Translator first second) complement content
 
         complement = Complement `elem` args
 
@@ -143,8 +143,7 @@ sets (_ : xs)    = sets xs
 main :: IO ()
 main = do
         arguments <- map parse <$> getArgs
-        content <- getContents
 
         case validate arguments of
-            NoErrors  -> putStr $ run arguments content
+            NoErrors  -> interact (run arguments)
             Error msg -> die msg

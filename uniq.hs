@@ -92,13 +92,17 @@ handle :: [Flag] -> [String] -> Maybe String -> IO ()
 handle flags arguments content =
       case arguments of
         ("-h" : _   ) -> mapM_ putStrLn helpText
-        ("-c" : args) -> handle (Count:flags)  args content
-        ("-u" : args) -> handle (Unique:flags) args content
-        ("-d" : args) -> handle (Repeat:flags) args content
-        ("-i" : args) -> handle (Ignore:flags) args content
 
-        ("-s" : n : args) -> handle (Skip (read n :: Int):flags) args content
-        ("-w" : n : args) -> handle (First (read n :: Int):flags) args content
+        ("-c" : args) -> handle (Count  : flags) args content
+        ("-u" : args) -> handle (Unique : flags) args content
+        ("-d" : args) -> handle (Repeat : flags) args content
+        ("-i" : args) -> handle (Ignore : flags) args content
+
+        ("-s" : n : args) ->
+            handle (Skip (read n :: Int) : flags) args content
+
+        ("-w" : n : args) ->
+            handle (First (read n :: Int) : flags) args content
 
         (file : args) -> do
           exists <- doesFileExist file
