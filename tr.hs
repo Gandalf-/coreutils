@@ -120,7 +120,7 @@ parse arg            = Set arg
 
 
 upper = ['A'..'Z']
-lower = ['a'..'a']
+lower = ['a'..'z']
 digit = ['0'..'9']
 ascii = map chr [0..127]
 
