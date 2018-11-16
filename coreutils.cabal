@@ -118,3 +118,13 @@ executable rev
 
   build-depends:
     base >= 4.7 && < 5
+
+executable yes
+  main-is:             yes.hs
+  default-language:    Haskell2010
+
+  ghc-options:
+    -dynamic -Wall
+
+  build-depends:
+    base >= 4.7 && < 5

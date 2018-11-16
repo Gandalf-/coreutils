@@ -11,3 +11,4 @@ Unix core utilities implemented in Haskell
 - uniq
 - wc
 - which
+- yes

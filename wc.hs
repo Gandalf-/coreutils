@@ -69,10 +69,7 @@ handle flags arguments content =
         [] -> output content
   where
       output :: Maybe String -> IO ()
-      output Nothing  = do
-        stdinContent <- getContents
-        putStrLn $ wc flags stdinContent
-
+      output Nothing  = getContents >>= putStrLn . wc flags
       output (Just c) = putStrLn $ wc flags c
 
 

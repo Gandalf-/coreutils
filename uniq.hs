@@ -105,22 +105,19 @@ handle flags arguments content =
             handle (First (read n :: Int) : flags) args content
 
         (file : args) -> do
-          exists <- doesFileExist file
-          if exists
-            then do
-              fileContent <- readFile file
-              handle flags args $ Just (fileContent ++ fromMaybe "" content)
+            exists <- doesFileExist file
+            if exists
+              then do
+                fileContent <- readFile file
+                handle flags args $ Just (fileContent ++ fromMaybe "" content)
 
-            else die $
-              "uniq: " ++ file ++ ": No such file or directory"
+              else die $
+                "uniq: " ++ file ++ ": No such file or directory"
 
         [] -> output content
   where
       output :: Maybe String -> IO ()
-      output Nothing = do
-          stdinContent <- getContents
-          countWords flags stdinContent
-
+      output Nothing  = getContents >>= countWords flags
       output (Just c) = countWords flags c
 
 
