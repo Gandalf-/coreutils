@@ -5,26 +5,22 @@ module Main where
 -- read files from the command line or echo stdin
 
 import           Control.Exception  (IOException, try)
-import           Data.Either        (isRight)
+import           Control.Monad      (when)
+import           Data.Either        (isLeft)
 import           System.Environment (getArgs)
-import           System.Exit
-
+import           System.Exit        (exitFailure)
 
 type ErrorOrFile = Either IOException String
-
+type ErrorsOrFiles = [ErrorOrFile]
 
 main :: IO ()
 main = getArgs >>= mapM (try . readFile) >>= cat
 
-
-cat :: [ErrorOrFile] -> IO ()
+cat :: ErrorsOrFiles -> IO ()
 cat [] = getContents >>= putStr
 cat xs = do
-      mapM_ display xs
-
-      if all isRight xs
-        then exitSuccess
-        else exitFailure
+        mapM_ display xs
+        when (any isLeft xs) exitFailure
     where
-        display (Right content) = putStr content
-        display (Left e)        = print e
+        display (Left exception) = print exception
+        display (Right content)  = putStr content
