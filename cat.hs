@@ -4,30 +4,20 @@ module Main where
 --
 -- read files from the command line or echo stdin
 
+import           Control.Exception  (IOException, try)
 import           Data.Either        (isRight)
-import           System.Directory   (doesFileExist)
 import           System.Environment (getArgs)
 import           System.Exit
 
 
-type ErrorOrFile = Either FilePath String
+type ErrorOrFile = Either IOException String
 
 
 main :: IO ()
-main = getArgs >>= mapM collect >>= cat
-
-
-collect :: FilePath -> IO ErrorOrFile
--- ^ if the file exists grab it's contents, otherwise just keep the name
-collect file = do
-    exists <- doesFileExist file
-    if exists
-      then Right <$> readFile file
-      else return $ Left file
+main = getArgs >>= mapM (try . readFile) >>= cat
 
 
 cat :: [ErrorOrFile] -> IO ()
--- ^ if there are any files display them, otherwise read from stdin
 cat [] = getContents >>= putStr
 cat xs = do
       mapM_ display xs
@@ -35,12 +25,6 @@ cat xs = do
       if all isRight xs
         then exitSuccess
         else exitFailure
-
-
-display :: ErrorOrFile -> IO ()
--- ^ print the contents, or the error
-display (Right content) =
-    putStr content
-
-display (Left file)  =
-    die $ "cat: " ++ file ++ ": No such file or directory"
+    where
+        display (Right content) = putStr content
+        display (Left e)        = print e
