@@ -128,3 +128,13 @@ executable yes
 
   build-depends:
     base >= 4.7 && < 5
+
+executable head
+  main-is:             head.hs
+  default-language:    Haskell2010
+
+  ghc-options:
+    -dynamic -Wall
+
+  build-depends:
+    base >= 4.7 && < 5
