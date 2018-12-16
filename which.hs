@@ -18,10 +18,7 @@ main :: IO ()
 main = do
         paths <- getArgs >>= mapM which
         mapM_ putStrLn $ catMaybes paths
-
-        if all isJust paths
-          then exitSuccess
-          else exitFailure
+        when (any isNothing paths) exitFailure
 
 
 which :: String -> IO (Maybe String)

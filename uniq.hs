@@ -21,8 +21,8 @@ import           System.Exit        (die)
 import           Text.Printf        (printf)
 
 
-helpText :: [String]
-helpText =
+helpText :: String
+helpText = concat
     ["uniq [option ...] [files ...]"
     ,""
     ,"  -h     show this help"
@@ -91,7 +91,7 @@ countWords flags content
 handle :: [Flag] -> [String] -> Maybe String -> IO ()
 handle flags arguments content =
       case arguments of
-        ("-h" : _   ) -> mapM_ putStrLn helpText
+        ("-h" : _   ) -> putStrLn helpText
 
         ("-c" : args) -> handle (Count  : flags) args content
         ("-u" : args) -> handle (Unique : flags) args content

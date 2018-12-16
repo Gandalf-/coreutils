@@ -101,9 +101,9 @@ parseFlag f argument =
 
 
 parse :: [String] -> [Argument]
-parse []               = []
-parse ("-n":x:xs)      = parseFlag FlagLines x : parse xs
-parse ("--lines":x:xs) = parseFlag FlagLines x : parse xs
-parse ("-c":x:xs)      = parseFlag FlagChars x : parse xs
-parse ("--bytes":x:xs) = parseFlag FlagChars x : parse xs
-parse (x:xs)           = File x : parse xs
+parse []                   = []
+parse ("-n" : x : xs)      = parseFlag FlagLines x : parse xs
+parse ("-c" : x : xs)      = parseFlag FlagChars x : parse xs
+parse ("--lines" : x : xs) = parseFlag FlagLines x : parse xs
+parse ("--bytes" : x : xs) = parseFlag FlagChars x : parse xs
+parse (x : xs)             = File x : parse xs
