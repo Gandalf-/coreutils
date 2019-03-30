@@ -10,19 +10,23 @@ import           Control.Monad      (when)
 import           Data.Either        (isLeft)
 import           System.Environment (getArgs)
 import           System.Exit        (exitFailure)
+import           System.IO          (hPutStrLn, stderr)
 
+type Argument    = String
+type FileContent = String
 
-main :: IO ()
--- ^ attempt to use all arguments as files
-main = getArgs >>= mapM (try . readFile) >>= cat
+collect :: [Argument] -> IO [Either IOException FileContent]
+collect = mapM (try . readFile)
 
+display :: [Either IOException FileContent] -> IO ()
+display [] = getContents >>= putStr
 
-cat :: [Either IOException String] -> IO ()
-cat [] = getContents >>= putStr
-
-cat files = do
-        mapM_ display files
+display files = do
+        mapM_ toConsole files
         when (any isLeft files) exitFailure
     where
-        display (Left exception) = print exception
-        display (Right content)  = putStr content
+        toConsole (Left exception) = hPutStrLn stderr $ show exception
+        toConsole (Right content)  = putStr content
+
+main :: IO ()
+main = getArgs >>= collect >>= display
