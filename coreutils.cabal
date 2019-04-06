@@ -26,8 +26,9 @@ executable cat
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -44,8 +45,9 @@ executable wc
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -61,8 +63,9 @@ executable uniq
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -79,8 +82,9 @@ executable seq
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -95,8 +99,9 @@ executable sleep
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -111,8 +116,9 @@ executable nologin
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -127,8 +133,9 @@ executable which
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -145,8 +152,9 @@ executable tr
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -162,8 +170,9 @@ executable echo
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -178,8 +187,9 @@ executable rev
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -194,8 +204,9 @@ executable yes
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 
@@ -210,8 +221,9 @@ executable head
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static
-    ld-options: -static
+    ghc-options: -O2 -static -threaded
+    ld-options: -static -pthread
+    cc-options: -static
   else
     ghc-options: -O0 -dynamic
 

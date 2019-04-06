@@ -23,8 +23,9 @@ display :: [Either IOException FileContent] -> IO ()
 display [] = L.getContents >>= L.putStr
 
 display files = do
+        let !failure = any isLeft files
         mapM_ toConsole files
-        when (any isLeft files) exitFailure
+        when failure exitFailure
     where
         toConsole (Left exception) = hPutStrLn stderr $ show exception
         toConsole (Right content)  = L.putStr content
