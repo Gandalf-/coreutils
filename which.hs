@@ -4,12 +4,13 @@ module Main where
 --
 -- look for the arguments on $PATH
 
-import           Control.Monad
+import           Control.Monad      (filterM, when)
 import           Data.List.Split    (splitOn)
 import           Data.Maybe
 import           System.Directory
-import           System.Environment
-import           System.Exit
+import           System.Environment (getArgs, getEnv)
+import           System.Exit        (exitFailure)
+import           System.Info        (os)
 
 
 main :: IO ()
@@ -17,8 +18,8 @@ main :: IO ()
 -- if anything didn't exist, exit failure
 main = do
         paths <- getArgs >>= mapM which
-        mapM_ putStrLn $ catMaybes paths
         when (any isNothing paths) exitFailure
+        mapM_ putStrLn $ catMaybes paths
 
 
 which :: String -> IO (Maybe String)
@@ -38,14 +39,33 @@ search file =
             >>= addFileToPath
             >>= onlyExecutables
     where
-        onlyPathsWithFile = filterM (fileInDirectory file)
+        onlyPathsWithFile = filterM $ fileInDirectory file
+        addFileToPath     = mapM (\directory -> pure $ pathJoin directory file)
         onlyExecutables   = filterM runnable
-        addFileToPath     = mapM (\c -> return $ c ++ "/" ++ file)
+
+
+pathJoin :: FilePath -> String -> FilePath
+-- ^ join a directory path and filename, platform aware
+pathJoin []   file = file
+pathJoin base file =
+        if last base == separator
+            then base <> file
+            else base <> [separator] <> file
+    where
+        separator = case os of
+            "mingw32" -> '\\'
+            _         -> '/'
 
 
 getPaths :: IO [FilePath]
 -- ^ convert the PATH variable to a list of valid directories
-getPaths = splitOn ":" <$> getEnv "PATH" >>= filterM doesDirectoryExist
+getPaths =
+        splitOn separator <$> getEnv "PATH"
+            >>= filterM doesDirectoryExist
+    where
+        separator = case os of
+            "mingw32" -> ";"
+            _         -> ":"
 
 
 runnable :: FilePath -> IO Bool
