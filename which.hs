@@ -35,17 +35,16 @@ search :: String -> IO [FilePath]
 -- ^ look for a file in the right directories, that's executable
 search file =
         getPaths
-            >>= onlyPathsWithFile
-            >>= addFileToPath
-            >>= onlyExecutables
+            >>= mapM    addFileToPath
+            >>= filterM doesFileExist
+            >>= filterM runnable
     where
-        onlyPathsWithFile = filterM $ fileInDirectory file
-        addFileToPath     = mapM (\directory -> pure $ pathJoin directory file)
-        onlyExecutables   = filterM runnable
+        addFileToPath directory = pure $ pathJoin directory file
 
 
 pathJoin :: FilePath -> String -> FilePath
 -- ^ join a directory path and filename, platform aware
+-- could have used System.FilePath.Posix (filePath) here
 pathJoin []   file = file
 pathJoin base file =
         if last base == separator
@@ -71,8 +70,3 @@ getPaths =
 runnable :: FilePath -> IO Bool
 -- ^ is this file executable? expects it to exist
 runnable file = executable <$> getPermissions file
-
-
-fileInDirectory :: String -> FilePath -> IO Bool
--- ^ is this file in this directory?
-fileInDirectory file path = elem file <$> listDirectory path
