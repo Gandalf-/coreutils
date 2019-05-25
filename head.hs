@@ -5,105 +5,111 @@ module Main where
 -- show some number of lines or characters from the top or bottom of files
 -- or stdin
 
-import           Control.Exception  (IOException, try)
-import           System.Environment (getArgs)
+import           Control.Monad
+import           System.Console.GetOpt
+import           System.Environment
 import           System.Exit
-import           Text.Read          (readMaybe)
+
+data Options = Options  { optQuiet :: Bool
+                        , optLines :: Int
+                        , optChars :: Maybe Int
+                        }
+
+startOptions :: Options
+startOptions = Options  { optQuiet = False
+                        , optLines = 10
+                        , optChars = Nothing
+                        }
+
+options :: [ OptDescr (Options -> Either String Options) ]
+options =
+    [ Option "l" ["lines"]
+        (ReqArg
+            (\arg opt -> case reads arg of
+              [(nlines, "")] -> Right opt { optLines = nlines }
+              _              -> Left $ "parse error on " <> arg)
+            "LINES")
+        "Number of lines"
+
+    , Option "c" ["chars"]
+        (ReqArg
+            (\arg opt -> case reads arg of
+              [(nchars, "")] -> Right opt { optChars = Just nchars }
+              _              -> Left $ "parse error on " <> arg)
+            "LINES")
+        "Number of characters"
+
+    , Option "q" ["quiet", "silent"]
+        (NoArg
+            (\opt -> Right opt { optQuiet = True }))
+        "Do not show headers for files"
+
+    , Option "h" ["help"]
+        (NoArg
+            (\_ -> Left $ usageInfo "head" options))
+        "Show help"
+    ]
+
+type HeadF = FilePath -> IO ()
+
+charsOp :: Int -> String -> String
+charsOp n content
+    | n >= 0    = take n content
+    | otherwise = drop (length content - (negate n)) content
+
+stdinCharHead :: Int -> IO ()
+stdinCharHead n = interact (charsOp n)
+
+charHead :: Int -> FilePath -> IO ()
+charHead n f = charsOp n <$> readFile f >>= putStr
 
 
-data Argument = FlagLines Int
-              | FlagChars Int
-              | ParseError String
-              | File String
-        deriving (Show)
+linesOp :: Int -> String -> String
+linesOp n
+    | n >= 0    = unlines . take n . lines
+    | otherwise = unlines . take (negate n) . reverse . lines
 
-type HeadFunction = (String -> String)
+stdinLineHead :: Int -> IO ()
+stdinLineHead n = interact (linesOp n)
+
+lineHead :: Int -> FilePath -> IO ()
+lineHead n f = linesOp n <$> readFile f >>= putStr
+
+
+switch :: (HeadF -> FilePath -> IO ()) -> Int -> Maybe Int -> [FilePath] -> IO ()
+switch _ _ (Just c) []  = stdinCharHead c
+switch _ n _ []         = stdinLineHead n
+
+switch _ _ (Just c) [f] = charHead c f
+switch _ n _ [f]        = lineHead n f
+
+switch f _ (Just c) fs  = mapM_ (f (charHead c)) fs
+switch f n _ fs         = mapM_ (f (lineHead n)) fs
+
+header :: HeadF -> FilePath -> IO ()
+header f s = do
+    putStrLn $ "==> " <> s <> " <==="
+    f s
+    putStrLn ""
 
 
 main :: IO ()
--- ^ parse command line arguments, extract components, run
 main = do
-        args <- parse <$> getArgs
+    args <- getArgs
+    let (actions, files, errors) = getOpt RequireOrder options args
 
-        let function = getHeadFunction args
-            errors = getErrors args
-            files = getFiles args
+    when (not . null $ errors) $
+        die $ show errors
 
-        if null errors
-            then mapM_ (runHeadFunction function) files
-            else mapM_ die errors
+    case foldM (flip id) startOptions actions of
+        Left   err -> die err
+        Right opts -> do
+            let Options { optChars = nChars
+                        , optLines = nLines
+                        , optQuiet = quiet
+                        } = opts
 
-
-runHeadFunction :: HeadFunction -> FilePath -> IO ()
--- ^ get the content of the file, and apply the head function to it
-runHeadFunction result path = do
-       errorOrFile <- collectFile path
-
-       case errorOrFile of
-           Left _        -> die $ "Unable to read file " ++ path
-           Right content -> putStr $ result content
-
-
-collectFile :: FilePath -> IO (Either IOException String)
--- ^ read a file or stdin, account for possibility of exceptions
-collectFile "-"  = Right <$> getContents
-collectFile path = (try . readFile) path
-
-
-getErrors :: [Argument] -> [String]
--- ^ extract parse errors from the arguments
-getErrors args = [e | ParseError e <- args ]
-
-
-getFiles :: [Argument] -> [FilePath]
--- ^ extract file paths from the arguments, if there aren't any use stdin
-getFiles args = if null files then ["-"] else files
-    where
-        files = [f | File f <- args]
-
-
-type Lines = Maybe Int
-type Chars = Maybe Int
-
-getHeadFunction :: [Argument] -> HeadFunction
-getHeadFunction args = choose linesFlag charsFlag
-    where
-        -- get the first of each type, may not exist
-        linesFlag = first [l | FlagLines l <- args]
-        charsFlag = first [c | FlagChars c <- args]
-
-        first []    = Nothing
-        first (a:_) = Just a
-
-        choose :: Lines -> Chars -> HeadFunction
-        -- default, 10 lines
-        choose Nothing Nothing = unlines . take 10 . lines
-
-        -- lines from the top or bottom
-        choose (Just l) _
-            | l >= 0    = unlines . take l . lines
-            | otherwise = unlines . take (negate l) . reverse . lines
-
-        -- characters from the top or bottom
-        choose _ (Just c)
-            | c >= 0    = take c
-            | otherwise = take (negate c) . reverse
-
-
-parseFlag :: (Int -> Argument) -> String -> Argument
-parseFlag f argument =
-            case parsed of
-                Just number -> f number
-                _           -> ParseError $ message argument
-        where
-            parsed = readMaybe argument :: Maybe Int
-            message m = unwords ["Unable to use", m, "as a number"]
-
-
-parse :: [String] -> [Argument]
-parse []                   = []
-parse ("-n" : x : xs)      = parseFlag FlagLines x : parse xs
-parse ("-c" : x : xs)      = parseFlag FlagChars x : parse xs
-parse ("--lines" : x : xs) = parseFlag FlagLines x : parse xs
-parse ("--bytes" : x : xs) = parseFlag FlagChars x : parse xs
-parse (x : xs)             = File x : parse xs
+            let headerFunc = if quiet
+                                 then id
+                                 else header
+            switch headerFunc nLines nChars files

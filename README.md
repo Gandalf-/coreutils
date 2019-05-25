@@ -1,16 +1,19 @@
 # coreutils
 Unix core utilities implemented in Haskell
 
+### polished
 - cat
 - echo
-- head
 - nologin
 - pwd
-- rev
 - seq
 - sleep
+- yes
+
+### rough
+- head
+- rev
 - tr
 - uniq
 - wc
 - which
-- yes
