@@ -228,7 +228,8 @@ executable head
     ghc-options: -O0 -dynamic
 
   build-depends:
-    base >= 4.7 && < 5
+    base >= 4.7 && < 5,
+    bytestring
 
 executable pwd
   main-is:             pwd.hs

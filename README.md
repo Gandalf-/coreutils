@@ -4,6 +4,7 @@ Unix core utilities implemented in Haskell
 ### polished
 - cat
 - echo
+- head
 - nologin
 - pwd
 - seq
@@ -11,7 +12,6 @@ Unix core utilities implemented in Haskell
 - yes
 
 ### rough
-- head
 - rev
 - tr
 - uniq
