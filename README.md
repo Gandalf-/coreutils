@@ -5,6 +5,7 @@ Unix core utilities implemented in Haskell
 - echo
 - head
 - nologin
+- pwd
 - rev
 - seq
 - sleep
