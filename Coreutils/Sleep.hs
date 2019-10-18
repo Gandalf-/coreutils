@@ -1,4 +1,4 @@
-module Main where
+module Coreutils.Sleep where
 
 -- sleep
 --
@@ -12,21 +12,23 @@ module Main where
 import           Control.Concurrent (threadDelay)
 import           Data.Char          (isAlpha)
 import           Data.Maybe         (catMaybes, isJust)
-import           System.Environment (getArgs)
 import           System.Exit        (die)
 import           Text.Read          (readMaybe)
 
+import           Coreutils.Util
 
-main :: IO ()
-main = do
-        values <- map parse <$> getArgs
+data Sleep = Sleep
 
-        if all isJust values
-            then mapM_ sleep $ catMaybes values
-            else die "sleep: [number](s|m|d)"
-    where
-        sleep :: Int -> IO ()
-        sleep time = threadDelay $ time * 1000000
+instance Util Sleep where
+    run _ args =
+            if all isJust values
+                then mapM_ sleep $ catMaybes values
+                else die "sleep: [number](s|m|d)"
+        where
+            sleep :: Int -> IO ()
+            sleep time = threadDelay $ time * 1000000
+
+            values = map parse args
 
 
 parse :: String -> Maybe Int

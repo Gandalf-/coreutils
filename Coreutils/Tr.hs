@@ -1,16 +1,16 @@
-module Main where
+module Coreutils.Tr where
 
 -- tr
 --
 -- replace characters, supports -d and -c
 
-import           Data.Char          (chr, isControl, isPrint, isPunctuation,
-                                     isSpace)
-import qualified Data.Map.Strict    as Map
-import           Data.Maybe         (fromMaybe)
-import           System.Environment (getArgs)
+import           Data.Char       (chr, isControl, isPrint, isPunctuation,
+                                  isSpace)
+import qualified Data.Map.Strict as Map
+import           Data.Maybe      (fromMaybe)
 import           System.Exit
 
+import           Coreutils.Util
 
 type Table = Map.Map Char Char
 
@@ -51,8 +51,8 @@ data Argument = Complement
               deriving (Eq, Show)
 
 
-run :: [Argument] -> String -> String
-run args content
+runner :: [Argument] -> String -> String
+runner args content
         | Delete `elem` args = deleterResult
         | otherwise          = translatorResult
     where
@@ -139,11 +139,12 @@ sets []          = []
 sets (Set s: xs) = s : sets xs
 sets (_ : xs)    = sets xs
 
+data Tr = Tr
 
-main :: IO ()
-main = do
-        arguments <- map parse <$> getArgs
-
-        case validate arguments of
-            NoErrors  -> interact (run arguments)
-            Error msg -> die msg
+instance Util Tr where
+     run _ args =
+            case validate arguments of
+                NoErrors  -> interact (runner arguments)
+                Error msg -> die msg
+        where
+            arguments = map parse args

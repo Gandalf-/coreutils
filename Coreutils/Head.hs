@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module Coreutils.Head where
 
 -- head
 --
@@ -16,8 +16,9 @@ import           Data.ByteString.Lazy  (ByteString)
 import qualified Data.ByteString.Lazy  as L
 import           GHC.Int               (Int64)
 import           System.Console.GetOpt
-import           System.Environment
 import           System.Exit
+
+import           Coreutils.Util
 
 type NumLines = Int
 type NumChars = Int64
@@ -120,23 +121,23 @@ switch h _ (Just n) fs  = mapM_ (h (charHead n)) fs
 switch h n _        fs  = mapM_ (h (lineHead n)) fs
 
 
-main :: IO ()
-main = do
-    args <- getArgs
+data Head = Head
 
-    let (actions, files, errors) = getOpt RequireOrder options args
+instance Util Head where
+    run _ args = do
+        let (actions, files, errors) = getOpt RequireOrder options args
 
-    unless (null errors) $ do
-        mapM_ putStr errors
-        exitFailure
+        unless (null errors) $ do
+            mapM_ putStr errors
+            exitFailure
 
-    case foldM (flip id) defaults actions of
-        Left   err -> die err
-        Right opts -> do
-            let Options { optChars = nChars
-                        , optLines = nLines
-                        , optQuiet = quiet
-                        } = opts
-                hFunc = if quiet then id else header
+        case foldM (flip id) defaults actions of
+            Left   err -> die err
+            Right opts -> do
+                let Options { optChars = nChars
+                            , optLines = nLines
+                            , optQuiet = quiet
+                            } = opts
+                    hFunc = if quiet then id else header
 
-            switch hFunc nLines nChars files
+                switch hFunc nLines nChars files

@@ -1,4 +1,4 @@
-module Main where
+module Coreutils.Wc where
 
 -- wc, word count
 --
@@ -6,10 +6,11 @@ module Main where
 --  -w words
 --  -c chars
 
-import           Data.Maybe         (fromMaybe)
-import           System.Directory   (doesFileExist)
-import           System.Environment (getArgs)
-import           System.Exit        (die)
+import           Data.Maybe       (fromMaybe)
+import           System.Directory (doesFileExist)
+import           System.Exit      (die)
+
+import           Coreutils.Util
 
 data Flag = Lines
           | Words
@@ -72,8 +73,7 @@ handle flags arguments content =
       output Nothing  = getContents >>= putStrLn . wc flags
       output (Just c) = putStrLn $ wc flags c
 
+data Wc = Wc
 
-main :: IO ()
-main = do
-  args <- getArgs
-  handle [] args Nothing
+instance Util Wc where
+      run _ args = handle [] args Nothing

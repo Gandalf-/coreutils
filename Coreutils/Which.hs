@@ -1,4 +1,4 @@
-module Main where
+module Coreutils.Which where
 
 -- which
 --
@@ -8,16 +8,19 @@ import           Control.Monad      (filterM, when)
 import           Data.List.Split    (splitOn)
 import           Data.Maybe
 import           System.Directory
-import           System.Environment (getArgs, getEnv)
+import           System.Environment (getEnv)
 import           System.Exit        (exitFailure)
 import           System.Info        (os)
 
+import           Coreutils.Util
 
-main :: IO ()
--- ^ print the path to each argument if possible
--- if anything didn't exist, exit failure
-main = do
-        paths <- getArgs >>= mapM which
+data Which = Which
+
+instance Util Which where
+    run _ args = do
+        -- ^ print the path to each argument if possible
+        -- if anything didn't exist, exit failure
+        paths <- mapM which args
         when (any isNothing paths) exitFailure
         mapM_ putStrLn $ catMaybes paths
 

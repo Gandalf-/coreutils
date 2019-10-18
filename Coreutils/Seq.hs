@@ -1,22 +1,24 @@
-module Main where
+module Coreutils.Seq where
 
 -- seq
 --
 -- produce a sequence of numbers
 
-import           Data.Maybe         (catMaybes, isJust)
-import           System.Environment (getArgs)
-import           System.Exit        (die)
-import           Text.Read          (readMaybe)
+import           Data.Maybe     (catMaybes, isJust)
+import           System.Exit    (die)
+import           Text.Read      (readMaybe)
 
+import           Coreutils.Util
 
-main :: IO ()
-main = do
-      args <- map readMaybe <$> getArgs
+data Seq = Seq
 
-      if all isJust args
-        then handle $ catMaybes args
-        else die "seq: unable to parse arguments as numbers"
+instance Util Seq where
+      run _ args =
+            if all isJust arguments
+                  then handle $ catMaybes arguments
+                  else die "seq: unable to parse arguments as numbers"
+         where
+            arguments = map readMaybe args
 
 
 handle :: [Integer] -> IO ()

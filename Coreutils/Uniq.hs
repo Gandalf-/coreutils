@@ -1,4 +1,4 @@
-module Main where
+module Coreutils.Uniq where
 
 -- uniq
 --
@@ -10,16 +10,16 @@ module Main where
 -- flags either control output, filtering before output, or modification
 -- before input
 
-import           Data.Char          (isSpace, toLower)
-import           Data.List          (sortOn)
-import qualified Data.Map.Strict    as Map
-import           Data.Maybe         (fromMaybe)
-import           Data.Ord           (Down (..))
-import           System.Directory   (doesFileExist)
-import           System.Environment (getArgs)
-import           System.Exit        (die)
-import           Text.Printf        (printf)
+import           Data.Char        (isSpace, toLower)
+import           Data.List        (sortOn)
+import qualified Data.Map.Strict  as Map
+import           Data.Maybe       (fromMaybe)
+import           Data.Ord         (Down (..))
+import           System.Directory (doesFileExist)
+import           System.Exit      (die)
+import           Text.Printf      (printf)
 
+import           Coreutils.Util
 
 helpText :: String
 helpText = concat
@@ -121,7 +121,7 @@ handle flags arguments content =
       output (Just c) = countWords flags c
 
 
-main :: IO ()
-main = do
-    args <- getArgs
-    handle [] args Nothing
+data Uniq = Uniq
+
+instance Util Uniq where
+    run _ args = handle [] args Nothing
