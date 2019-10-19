@@ -3,6 +3,7 @@ Unix core utilities implemented in Haskell
 
 ### polished
 - cat
+- cut
 - echo
 - head
 - nologin

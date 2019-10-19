@@ -28,6 +28,7 @@ library
     Coreutils.Util
 
     Coreutils.Cat
+    Coreutils.Cut
     Coreutils.Echo
     Coreutils.Head
     Coreutils.Nologin
