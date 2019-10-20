@@ -20,9 +20,15 @@ flag release
 library
   hs-source-dirs:
     .
+  default-language:    Haskell2010
 
   ghc-options:
     -Wall
+
+  if flag(release)
+    ghc-options: -O2
+  else
+    ghc-options: -O0
 
   exposed-modules:
     Coreutils.Util
@@ -47,7 +53,8 @@ library
     directory,
     bytestring,
     split,
-    containers
+    containers,
+    text
 
 executable utils
   hs-source-dirs:      src
@@ -58,14 +65,29 @@ executable utils
     -Wall
 
   if flag(release)
-    ghc-options: -O2 -static -threaded
-    ld-options: -static -pthread
-    cc-options: -static
+    ghc-options: -O2
+    -- ghc-options: -O2 -static -threaded
+    -- ld-options: -static -pthread
+    -- cc-options: -static
   else
     ghc-options: -O0
 
   build-depends:
     base >= 4.7 && < 5,
-    directory,
-    bytestring,
     coreutils
+
+test-suite test
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  type:                exitcode-stdio-1.0
+
+  default-language:    Haskell2010
+  build-depends:
+    base >= 4.7 && < 5,
+    coreutils,
+    hspec
+
+  other-modules:
+    CutSpec
+
+  build-tool-depends: hspec-discover:hspec-discover == 2.*

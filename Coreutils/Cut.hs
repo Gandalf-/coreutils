@@ -1,18 +1,22 @@
 module Coreutils.Cut where
 
 import           Data.List
-import           Data.List.Split (splitOn)
+import           Data.List.Split   (splitOn)
 import           Data.Maybe
-import           System.Exit     (die)
+import qualified Data.Text.Lazy    as T
+import qualified Data.Text.Lazy.IO as T
+import           System.Exit       (die)
 import           System.IO
-import           Text.Read       (readMaybe)
+import           Text.Read         (readMaybe)
 
 import           Coreutils.Util
 
 
 -- | Data types
 
-data Field = Field Double Double
+data Field =
+          Range Double Double
+        | Exact Double
     deriving (Show, Eq)
 
 data Selector =
@@ -32,30 +36,93 @@ data Options = Options
         }
     deriving (Show, Eq)
 
+instance Ord Field where
+    compare (Exact a)   (Exact b)   = compare a b
+    compare (Exact a)   (Range b _) = compare a b
+    compare (Range a _) (Exact b)   = compare a b
+    compare (Range a _) (Range b _) = compare a b
+
 
 -- | Business logic
 
 cut :: [Field] -> [a] -> [a]
 -- ^ an element is accepted if its index falls within the range of any of the fields
 -- provided. all other elements are discarded
-cut fields elements =
-        map fst . filter anyInbounds $ zip elements [1..]
+cut fs = fastCut (sort fs) 1
+
+
+fastCut :: [Field] -> Double -> [a] -> [a]
+fastCut [] _ _ = []
+fastCut _ _ [] = []
+fastCut (Range low high:fs) i (x:xs)
+        | low > i   =
+            -- jump ahead to the lower bound
+            fastCut (Range low high:fs) low $ drop jump (x:xs)
+
+        | low == i  =
+            if high == infinity
+                -- everything else!
+                then x:xs
+
+                -- grab `high - low + 1` elements
+                else take (shift + 1) (x:xs) <> fastCut fs (high + 1) (drop shift xs)
+
+        | high < i  =
+            -- this range is irrelevant
+            fastCut fs i (x:xs)
+
+        | otherwise =
+            -- low < i <= high, truncate the range's lower bound to our current position
+            fastCut (Range i high:fs) i (x:xs)
     where
-        anyInbounds element =
-            any (\ field -> inbounds field $ snd element) fields
+        shift = round high - round low :: Int
+        jump  = round low  - round i   :: Int
+
+fastCut (Exact e:fs) i (x:xs)
+        | i < e     =
+            -- jump ahead to the exact value
+            fastCut (Exact e:fs) e $ drop jump (x:xs)
+
+        | i == e    =
+            -- match
+            x : fastCut fs (i + 1) xs
+
+        | otherwise =
+            -- this exact field is irrelevant, we've already passed it
+            fastCut fs i (x:xs)
+    where
+        jump = round (e - i)
 
 
-cutComplement :: [Field] -> [a] -> [a]
+cut' :: [Field] -> [a] -> [a]
+-- ^ cut complement
+-- if there's only one field, we can be clever by inverting it and using the fast
+-- implementation. if there are multiple fields, we're stuck with the slow
+-- implementation for now
+cut' [f] = cut $ fieldInvert f
+cut' fs  = slowCut' fs
+
+
+fieldInvert :: Field -> [Field]
+fieldInvert (Exact 1)   = [Range 2 infinity]
+fieldInvert (Exact e)   = [Range 1 (e - 1), Range (e + 1) infinity]
+fieldInvert (Range 1 b) = [Range (b + 1) infinity]
+fieldInvert (Range a b)
+        | b == infinity = [Range 1 (a - 1)]
+        | otherwise     = [Range 1 (a - 1), Range (b + 1) infinity]
+
+
+slowCut' :: [Field] -> [a] -> [a]
 -- ^ an element is rejected if its index falls within the range of any of the fields
 -- provided. all other elements are kept
-cutComplement fs xs =
+slowCut' fs xs =
         map fst . filter allOutbounds $ zip xs [1..]
     where
         allOutbounds x = all (\f -> not . inbounds f $ snd x) fs
 
-
-inbounds :: Field -> Double -> Bool
-inbounds (Field fmin fmax) x = x >= fmin && x <= fmax
+        inbounds :: Field -> Double -> Bool
+        inbounds (Range fmin fmax) x = x >= fmin && x <= fmax
+        inbounds (Exact fval) x      = x == fval
 
 
 -- | IO
@@ -89,7 +156,7 @@ cutInput o h =
                 >>= mapM_ (putStrLn . runChars field)
 
             (Fields field) ->
-                (lines <$> hGetContents h)
+                (T.lines <$> T.hGetContents h)
                 >>= mapM_ (filterPrint . runFields field)
 
             (Bytes _) ->
@@ -98,25 +165,30 @@ cutInput o h =
             _ ->
                 die "exactly one of: bytes, characters, or fields must be provided"
     where
-        runFields f =
-            intercalate (fromMaybe [delimiter o] $ outputDelimiter o)
-            . cutFunction f
-            . splitOn [delimiter o]
-
+        runChars :: [Field] -> String -> String
         runChars f =
             intercalate (fromMaybe "" $ outputDelimiter o)
             . groupBy (const . const False)
             . cutFunction f
 
+        runFields :: [Field] -> T.Text -> T.Text
+        runFields f =
+            T.intercalate (maybe tDelimiter T.pack (outputDelimiter o))
+            . cutFunction f
+            . T.splitOn tDelimiter
+
+        tDelimiter = T.pack [delimiter o]
+
+        filterPrint :: T.Text -> IO ()
         filterPrint s
             | onlyDelimited o =
-                if delimiter o `elem` s
-                    then putStrLn s
+                if T.count (T.pack [delimiter o]) s > 1
+                    then T.putStrLn s
                     else pure ()
-            | otherwise = putStrLn s
+            | otherwise = T.putStrLn s
 
         cutFunction
-            | complement o = cutComplement
+            | complement o = cut'
             | otherwise    = cut
 
 
@@ -124,13 +196,13 @@ cutInput o h =
 
 defaultOptions :: Options
 defaultOptions = Options
-    { delimiter = '\t'
-    , selector = Invalid
-    , complement = False
-    , onlyDelimited = False
-    , outputDelimiter = Nothing
-    , inputs = []
-    }
+        { delimiter = '\t'
+        , selector = Invalid
+        , complement = False
+        , onlyDelimited = False
+        , outputDelimiter = Nothing
+        , inputs = []
+        }
 
 parseOptions :: Options -> [String] -> Either String Options
 -- ^ argument parsing. first argument is the previous options state, since we're just
@@ -226,19 +298,31 @@ parseField :: String -> Maybe Field
 --   n   == [n]
 parseField f
         | null f                     = Nothing
-        | splitOkay && head f == '-' = Field 1 <$> second
-        | splitOkay && last f == '-' = (`Field` infinity) <$> first
-        | splitOkay                  = Field <$> first <*> second
-        | otherwise                  = (\ c -> Field c c) <$> num
+        | splitOkay && head f == '-' = checkOrdering $ Range 1 <$> second
+        | splitOkay && last f == '-' = (`Range` infinity) <$> first
+        | splitOkay                  = checkOrdering $ Range <$> first <*> second
+        | otherwise                  = Exact <$> num
     where
         -- try taking the input as a whole
-        num = readMaybe f
+        num = checkPositive $ readMaybe f
 
         -- try breaking it up
         parts     = splitOn "-" f
-        first     = readMaybe (head parts)
-        second    = readMaybe (last parts)
+        first     = checkPositive $ readMaybe (head parts)
+        second    = checkPositive $ readMaybe (last parts)
         splitOkay = length parts == 2
 
-        -- infinity is a cheap alternative to infinite lists
-        infinity = read "Infinity" :: Double
+        checkPositive Nothing  = Nothing
+        checkPositive (Just n)
+            | n > 0     = Just n
+            | otherwise = Nothing
+
+        checkOrdering j@(Just (Range a b))
+            | a < b     = j
+            | otherwise = Nothing
+        checkOrdering _ = Nothing
+
+
+infinity :: Double
+-- infinity is a nice alternative to infinite lists for our fields
+infinity = read "Infinity"
