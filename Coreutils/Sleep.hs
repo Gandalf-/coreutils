@@ -44,5 +44,5 @@ parse value
         adjust :: Char -> Maybe Int
         adjust 's' = Just 1
         adjust 'm' = Just 60
-        adjust 'd' = Just $ 60 * 24
+        adjust 'd' = Just $ 60 * 60 * 24
         adjust _   = Nothing

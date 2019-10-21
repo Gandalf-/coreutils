@@ -13,27 +13,29 @@ import           Coreutils.Util
 data Seq = Seq
 
 instance Util Seq where
-      run _ args =
+    run _ args =
             if all isJust arguments
-                  then handle $ catMaybes arguments
-                  else die "seq: unable to parse arguments as numbers"
-         where
+                then case runSeq $ catMaybes arguments of
+                    (Just s) -> mapM_ print s
+                    Nothing  -> die help
+
+                else die "seq: unable to parse arguments as numbers"
+        where
             arguments = map readMaybe args
 
 
-handle :: [Integer] -> IO ()
+runSeq :: [Integer] -> Maybe [Integer]
 -- ^ produce a list of numbers, use pattern matching to represent the
 -- default values and error handling
-handle (start : increment : end : _) =
-      mapM_ print [start, start + increment .. end]
-
-handle (start : end : _) = handle [start, 1, end]
-handle [end]             = handle [1, 1, end]
-handle _                 = help
+runSeq [start, increment, end] = Just [start, start + increment .. end]
+runSeq [start, end]            = runSeq [start, 1, end]
+runSeq [end]                   = runSeq [1, 1, end]
+runSeq _                       = Nothing
 
 
-help :: IO ()
-help = do
-      putStrLn "usage: seq [end]"
-      putStrLn "           [start] [end]"
-      putStrLn "           [start] [increment] [end]"
+help :: String
+help = unlines [
+      "usage: seq [end]"
+    , "           [start] [end]"
+    , "           [start] [increment] [end]"
+    ]

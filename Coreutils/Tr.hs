@@ -19,36 +19,34 @@ newtype Deleter = Deleter String
 
 
 class Action a where
-
-        translate :: a -> Bool -> String -> String
+    translate :: a -> Bool -> String -> String
 
 
 instance Action Translator where
+    translate (Translator from to) False s =
+                map (search table) s
+            where table = buildTable from to
 
-        translate (Translator from to) False s =
-                    map (search table) s
-                where table = buildTable from to
-
-        -- complement
-        translate (Translator from to) True s =
-                    map (invertSearch table) s
-                where table = buildTable from to
+    -- complement
+    translate (Translator from to) True s =
+                map (invertSearch table) s
+            where table = buildTable from to
 
 
 instance Action Deleter where
+    translate (Deleter word) False s  =
+                filter (`notElem` word) s
 
-        translate (Deleter word) False s  =
-                    filter (`notElem` word) s
-
-        -- complement
-        translate (Deleter word) True s =
-                    filter (`elem` word) s
+    -- complement
+    translate (Deleter word) True s =
+                filter (`elem` word) s
 
 
-data Argument = Complement
-              | Delete
-              | Set String
-              deriving (Eq, Show)
+data Argument =
+          Complement
+        | Delete
+        | Set String
+    deriving (Eq, Show)
 
 
 runner :: [Argument] -> String -> String
@@ -93,8 +91,8 @@ search t c = fromMaybe c $ Map.lookup c t
 invertSearch :: Table -> Char -> Char
 invertSearch table c =
         if Map.member c table
-                then c
-                else head $ Map.elems table
+            then c
+            else head $ Map.elems table
 
 
 parse :: String -> Argument

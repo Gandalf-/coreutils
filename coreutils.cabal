@@ -89,5 +89,8 @@ test-suite test
 
   other-modules:
     CutSpec
+    SeqSpec
+    TrSpec
+    SleepSpec
 
   build-tool-depends: hspec-discover:hspec-discover == 2.*

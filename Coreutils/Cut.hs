@@ -182,7 +182,7 @@ cutInput o h =
         filterPrint :: T.Text -> IO ()
         filterPrint s
             | onlyDelimited o =
-                if T.count (T.pack [delimiter o]) s > 1
+                if T.count tDelimiter s > 0
                     then T.putStrLn s
                     else pure ()
             | otherwise = T.putStrLn s
