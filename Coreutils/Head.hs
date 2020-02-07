@@ -29,42 +29,6 @@ data Options = Options
         , optChars :: Maybe NumChars
         }
 
-defaults :: Options
-defaults = Options
-        { optQuiet = False
-        , optLines = 10
-        , optChars = Nothing
-        }
-
-options :: [OptDescr (Options -> Either String Options)]
-options =
-    [ Option "n" ["lines"]
-        (ReqArg
-            (\arg opt -> case reads arg of
-              [(n, "")] -> Right opt { optLines = n }
-              _         -> Left $ "error: '" <> arg <> "' is not a number")
-            "LINES")
-        "Number of lines"
-
-    , Option "c" ["bytes"]
-        (ReqArg
-            (\arg opt -> case reads arg of
-              [(n, "")] -> Right opt { optChars = Just n }
-              _         -> Left $ "error: '" <> arg <> "' is not a number")
-            "LINES")
-        "Number of characters"
-
-    , Option "q" ["quiet", "silent"]
-        (NoArg
-            (\opt -> Right opt { optQuiet = True }))
-        "Do not show headers for files"
-
-    , Option "h" ["help"]
-        (NoArg
-            (\_ -> Left $ usageInfo "head" options))
-        "Show this help text"
-    ]
-
 
 charsOp :: NumChars -> ByteString -> ByteString
 -- ^ take or drop the required number of characters
@@ -77,17 +41,24 @@ linesOp :: NumLines -> ByteString -> ByteString
 -- ^ use lazy newline counting to determine how much of the file to process
 linesOp n content
         | n == 0    = ""
-        | n > 0     = case indices of
-                          [] -> content
-                          _  -> L.take (last indices + 1) content
-        | otherwise = case secidni of
-                          [] -> content
-                          _  -> L.drop (last secidni + 1) content
+        | n > 0     =
+            case indices of
+                [] -> content
+                _  -> L.take (last indices + 1) content
+
+        | otherwise =
+            case secidni of
+                [] -> content
+                _  ->
+                    if abs n > length positions
+                        then content
+                        else L.drop (last secidni + 1) content
     where
-        secidni = take (abs n + 1) $ reverse positions
         indices = take n positions
-        newline = 10
         positions = L.elemIndices newline content
+        newline = 10
+
+        secidni = take (abs n + 1) $ reverse positions
 
 
 charHead :: NumChars -> FilePath -> IO ()
@@ -124,7 +95,12 @@ switch h n _        fs  = mapM_ (h (lineHead n)) fs
 data Head = Head
 
 instance Util Head where
-    run _ args = do
+    -- ^ library hook
+    run _ = headMain
+
+
+headMain :: [String] -> IO ()
+headMain args = do
         let (actions, files, errors) = getOpt RequireOrder options args
 
         unless (null errors) $ do
@@ -141,3 +117,42 @@ instance Util Head where
                     hFunc = if quiet then id else header
 
                 switch hFunc nLines nChars files
+
+
+-- | Options
+
+defaults :: Options
+defaults = Options
+        { optQuiet = False
+        , optLines = 10
+        , optChars = Nothing
+        }
+
+options :: [OptDescr (Options -> Either String Options)]
+options =
+    [ Option "n" ["lines"]
+        (ReqArg
+            (\arg opt -> case reads arg of
+              [(n, "")] -> Right opt { optLines = n }
+              _         -> Left $ "error: '" <> arg <> "' is not a number")
+            "LINES")
+        "Number of lines"
+
+    , Option "c" ["bytes"]
+        (ReqArg
+            (\arg opt -> case reads arg of
+              [(n, "")] -> Right opt { optChars = Just n }
+              _         -> Left $ "error: '" <> arg <> "' is not a number")
+            "LINES")
+        "Number of characters"
+
+    , Option "q" ["quiet", "silent"]
+        (NoArg
+            (\opt -> Right opt { optQuiet = True }))
+        "Do not show headers for files"
+
+    , Option "h" ["help"]
+        (NoArg
+            (\_ -> Left $ usageInfo "head" options))
+        "Show this help text"
+    ]

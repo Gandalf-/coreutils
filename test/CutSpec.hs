@@ -8,6 +8,7 @@ import           Test.Hspec
 spec :: Spec
 spec = do
         testFieldParse
+        testParseExpand
         testExact
         testRange
         testMixed
@@ -100,11 +101,6 @@ testExact = do
         describe "exact" $
             it "start later on, multiple" $
                 cut [Exact 3, Exact 5, Exact 7] nums
-                `shouldBe` [3, 5, 7]
-
-        describe "exact" $
-            it "out of order" $
-                cut [Exact 5, Exact 3, Exact 7] nums
                 `shouldBe` [3, 5, 7]
 
         describe "exact" $
@@ -238,6 +234,26 @@ testMixed = do
             it "range, exact, exact, range" $
                 cut [Range 1 3, Exact 4, Exact 6, Range 9 infinity] nums
                 `shouldBe` [1, 2, 3, 4, 6, 9, 10]
+
+
+testParseExpand :: Spec
+-- ^ short flag expansion
+testParseExpand = do
+        describe "flag expand" $
+            it "one character following" $
+                parseExpand "-d " `shouldBe` ["-d", " "]
+
+        describe "flag expand" $
+            it "string following" $
+                parseExpand "-c1,2,3,4" `shouldBe` ["-c", "1,2,3,4"]
+
+        describe "flag expand" $
+            it "leave alone 1" $
+                parseExpand "--complement" `shouldBe` ["--complement"]
+
+        describe "flag expand" $
+            it "leave alone 2" $
+                parseExpand "-s" `shouldBe` ["-s"]
 
 
 testExactInvert :: Spec

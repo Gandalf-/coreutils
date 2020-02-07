@@ -7,16 +7,17 @@ Goals are:
 * fast, lazy IO
 * feature parity with GNU utils
 * fully tested
+* platform independent
 
 | Utility | Idiomatic | Complete | Fast | Lazy | Tests |
 |---------|-----------|----------|------|------|-------|
 | cat     | ✓         | ✓        | ✓    | ✓    |       |
 | cut     | ✓         | 90       | 75   | ✓    | 90    |
 | echo    | ✓         | ✓        | -    | -    | -     |
-| head    |           | 75       | 50   | 50   |       |
+| head    |           | 75       | 50   | 50   | ✓   |
 | nologin | ✓         | ✓        | -    | -    | -     |
 | pwd     | ✓         | ✓        | -    | -    | -     |
-| rev     | ✓         | ✓        | ✓    | ✓    |       |
+| rev     | ✓         | ✓        | ✓    | ✓    | ✓     |
 | seq     | ✓         | ✓        | ✓    | ✓    | ✓     |
 | sleep   | ✓         | ✓        | -    | -    | ✓     |
 | tr      |           | 70       | 40   | 40   | 30    |

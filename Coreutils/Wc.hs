@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Coreutils.Wc where
 
 -- wc, word count
@@ -6,16 +7,61 @@ module Coreutils.Wc where
 --  -w words
 --  -c chars
 
+import           Data.Char        (isSpace)
 import           Data.Maybe       (fromMaybe)
 import           System.Directory (doesFileExist)
 import           System.Exit      (die)
 
 import           Coreutils.Util
 
+
+data State = State
+        { charCount :: !Int
+        , lineCount :: !Int
+        , wordCount :: !Int
+        , prevSpace :: !Bool
+        }
+    deriving (Show, Eq)
+
+
+wc' :: String -> State
+wc' = foldr counter start
+
+start :: State
+start = State {
+          charCount = 0
+        , lineCount = 0
+        , wordCount = 0
+        , prevSpace = False
+    }
+
+counter :: Char -> State -> State
+counter c s =
+        State {
+              charCount = charCount'
+            , lineCount = lineCount'
+            , wordCount = wordCount'
+            , prevSpace = space
+        }
+    where
+        !charCount' = charCount s + 1
+
+        !lineCount'
+            | c == '\n' = lineCount s + 1
+            | otherwise = lineCount s
+
+        !wordCount'
+            | wordCount s == 0 && not space = 1
+            | not space && prevSpace s      = wordCount s + 1
+            | otherwise                     = wordCount s
+
+        !space = isSpace c
+
+
 data Flag = Lines
-          | Words
-          | Chars
-          deriving (Show)
+        | Words
+        | Chars
+        deriving (Show)
 
 
 nlines :: String -> String
@@ -30,14 +76,14 @@ nwords c = show $ length $ words c
 
 wc :: [Flag] -> String -> String
 wc flags content
-      | null flags = out content [Lines, Words, Chars]
-      | otherwise  = out content flags
+        | null flags = out content [Lines, Words, Chars]
+        | otherwise  = out content flags
   where
-      out :: String -> [Flag] -> String
-      out c (Lines : fs) = nlines c ++ " " ++ out c fs
-      out c (Words : fs) = nwords c ++ " " ++ out c fs
-      out c (Chars : fs) = nchars c ++ " " ++ out c fs
-      out _ []           = []
+        out :: String -> [Flag] -> String
+        out c (Lines : fs) = nlines c ++ " " ++ out c fs
+        out c (Words : fs) = nwords c ++ " " ++ out c fs
+        out c (Chars : fs) = nchars c ++ " " ++ out c fs
+        out _ []           = []
 
 
 help :: IO ()
@@ -76,4 +122,6 @@ handle flags arguments content =
 data Wc = Wc
 
 instance Util Wc where
-      run _ args = handle [] args Nothing
+        run _ _ = wc' <$> getContents >>= print
+
+        -- handle [] args Nothing

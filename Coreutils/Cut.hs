@@ -48,7 +48,7 @@ instance Ord Field where
 cut :: [Field] -> [a] -> [a]
 -- ^ an element is accepted if its index falls within the range of any of the fields
 -- provided. all other elements are discarded
-cut fs = fastCut (sort fs) 1
+cut fs = fastCut fs 1
 
 
 fastCut :: [Field] -> Double -> [a] -> [a]
@@ -132,9 +132,11 @@ data Cut = Cut
 instance Util Cut where
     -- ^ library hook
     run _ args =
-        case parseOptions defaultOptions args of
-            Left e  -> die e
-            Right o -> cutMain o
+            case parseOptions defaultOptions expandedArgs of
+                Left e  -> die e
+                Right o -> cutMain o
+        where
+            expandedArgs = concatMap parseExpand args
 
 cutMain :: Options -> IO ()
 -- ^ deals with collecting inputs
@@ -167,14 +169,18 @@ cutInput o h =
     where
         runChars :: [Field] -> String -> String
         runChars f =
-            intercalate (fromMaybe "" $ outputDelimiter o)
-            . groupBy (const . const False)
-            . cutFunction f
+            case outputDelimiter o of
+                Nothing ->
+                    cutFunction (sort f)
+                Just d  ->
+                    intercalate d
+                    . groupBy (const . const False)
+                    . cutFunction (sort f)
 
         runFields :: [Field] -> T.Text -> T.Text
         runFields f =
             T.intercalate (maybe tDelimiter T.pack (outputDelimiter o))
-            . cutFunction f
+            . cutFunction (sort f)
             . T.splitOn tDelimiter
 
         tDelimiter = T.pack [delimiter o]
@@ -235,6 +241,17 @@ parseOptions o (x:xs) =
         parseOptions (o { inputs = x : inputs o}) xs
 
 parseOptions base [] = Right base
+
+parseExpand :: String -> [String]
+-- ^ allows short hand usage of single character flags, like -d' ', -f1,2
+parseExpand o@('-':n:xs)
+        | short && more = [['-', n], xs]
+        | otherwise     = [o]
+    where
+        short = n `elem` "bcfds"
+        more  = (not . null) xs
+
+parseExpand s = [s]
 
 
 -- | Argument parsing helper functions

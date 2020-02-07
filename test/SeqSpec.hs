@@ -1,7 +1,6 @@
 module SeqSpec where
 
 import Coreutils.Seq
-
 import Test.Hspec
 
 spec :: Spec
