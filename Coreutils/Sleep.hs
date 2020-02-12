@@ -11,7 +11,7 @@ module Coreutils.Sleep where
 
 import           Control.Concurrent (threadDelay)
 import           Data.Char          (isAlpha)
-import           Data.Maybe         (catMaybes, isJust)
+import           Data.Maybe         (mapMaybe)
 import           System.Exit        (die)
 import           Text.Read          (readMaybe)
 
@@ -20,20 +20,19 @@ import           Coreutils.Util
 data Sleep = Sleep
 
 instance Util Sleep where
-    run _ args =
-            if all isJust values
-                then mapM_ sleep $ catMaybes values
-                else die "sleep: [number](s|m|d)"
+    run _ args
+            | null values = die "sleep: [number](s|m|d)"
+            | otherwise   = mapM_ sleep values
         where
-            sleep :: Int -> IO ()
-            sleep time = threadDelay $ time * 1000000
+            sleep :: Double -> IO ()
+            sleep time = threadDelay . round $ time * 1000000
 
-            values = map parse args
+            values :: [Double]
+            values = mapMaybe parse args
 
-
-parse :: String -> Maybe Int
+parse :: String -> Maybe Double
 -- ^ take strings in the format <number>(s|m|d) and try to convert them
--- into a Int
+-- into a double
 parse [] = Nothing
 parse value
         | isAlpha suffix = (*) <$> adjust suffix <*> parse (init value)
@@ -41,7 +40,7 @@ parse value
     where
         suffix = last value
 
-        adjust :: Char -> Maybe Int
+        adjust :: Char -> Maybe Double
         adjust 's' = Just 1
         adjust 'm' = Just 60
         adjust 'd' = Just $ 60 * 60 * 24

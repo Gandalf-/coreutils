@@ -17,86 +17,93 @@ import           System.Exit
 
 import           Coreutils.Util
 
+-- boilerplate
+
 data Wc = Wc
 
 instance Util Wc where
         run _ = wcMain
 
-type Counts = (Int64, Int64, Int64)
-
-totals :: L.ByteString -> Counts
--- accummulate totals from every line in the input stream
-totals = foldl' summation (0, 0, 0) . map accumulate . L.lines
-
-summation :: Counts -> Counts -> Counts
--- strict addition
-summation (!a, !b, !c) (!x, !y, !z) = (a + x, b + y, c + z)
-
-accumulate :: L.ByteString -> Counts
--- extract the line count, words, and byte count for a single line
-accumulate !s = (1, _words, _chars)
-    where
-        _chars = 1 + L.length s
-        _words = fromIntegral $! length $! L.words s
-
-runner :: [String] -> IO [(Counts, FilePath)]
--- run the totals function for each input, report totals together for
--- pretty presentation
-runner args
-        | null files = do
-            counts <- totals <$> L.getContents
-            return [(counts, "")]
-
-        | otherwise  = mapM wc files
-    where
-        files = filter (`notElem` ["-", "--"]) args
-
-        wc path = do
-            counts <- totals <$> L.readFile path
-            return (counts, path)
-
-display :: Options -> [(Counts, FilePath)] -> IO ()
--- produce a total if necessary
-display o xs
-        | length xs > 1 = pretty o $ xs ++ [(total, "total")]
-        | otherwise     = pretty o xs
-    where
-        total = foldl' summation (0, 0, 0) $ map fst xs
-
-pretty :: Options -> [(Counts, FilePath)] -> IO ()
--- padding aware columnar display for results
-pretty (Options ow ol oc) xs =
-        mapM_ putStrLn $
-        reverse $
-        map unwords $
-        rotate
-            [ smartBuffer Righty l
-            , smartBuffer Righty w
-            , smartBuffer Righty c
-            , smartBuffer Lefty  p
-            ]
-    where
-        l = if ol then map ((\(a, _, _) -> show a) . fst) xs else []
-        w = if ow then map ((\(_, a, _) -> show a) . fst) xs else []
-        c = if oc then map ((\(_, _, a) -> show a) . fst) xs else []
-        p = map snd xs
-
 wcMain :: [String] -> IO ()
--- parse arguments, do the work
+-- ^ parse arguments, do the work
 wcMain args = do
-        let (actions, files, errors) = getOpt RequireOrder options args
-
         unless (null errors) $ do
             mapM_ putStr errors
             exitFailure
 
         case foldM (flip id) defaults actions of
-            Left   err     -> die err
+            Left err -> die err
 
             Right (Options False False False) ->
+                -- sneak default behavior in here
                 runner files >>= display (Options True True True)
 
-            Right opts -> runner files >>= display opts
+            Right opts ->
+                -- main path
+                runner files >>= display opts
+    where
+        (actions, files, errors) = getOpt RequireOrder options args
+
+-- implementation
+--
+-- build a strict accumulation of counts over a lazy iteration of the input
+
+type Counts = (Int64, Int64, Int64)
+
+counter :: L.ByteString -> Counts
+-- ^ accummulate totals from every line in the input stream
+counter = summation . map accumulate . L.lines
+    where
+        accumulate !s = (1, _words, _chars)
+            where
+                _chars = 1 + L.length s
+                _words = fromIntegral $! length $! L.words s
+
+summation :: [Counts] -> Counts
+-- ^ sum for Counts
+summation = foldl' add (0, 0, 0)
+    where
+        add (!a, !b, !c) (!x, !y, !z) = (a + x, b + y, c + z)
+
+runner :: [String] -> IO [(Counts, FilePath)]
+-- ^ run the counter function for each input, report totals together for
+-- pretty presentation
+runner args
+        | null files = runner ["-"]
+        | otherwise  = mapM wc files
+    where
+        wc "-"  = go L.getContents "-"
+        wc path = go (L.readFile path) path
+
+        go f n = do
+            counts <- counter <$> f
+            return (counts, n)
+
+        files = filter (/= "--") args
+
+display :: Options -> [(Counts, FilePath)] -> IO ()
+-- ^ produce a total if necessary
+display o results
+        | length results > 1 = pretty o $ results ++ [(total, "total")]
+        | otherwise          = pretty o results
+    where
+        total = summation $ map fst results
+
+pretty :: Options -> [(Counts, FilePath)] -> IO ()
+-- ^ padding aware columnar display for results
+pretty (Options ow ol oc) counts =
+        mapM_ (putStrLn . unwords)
+        $ transpose
+            [ smartBuffer Righty lineCount
+            , smartBuffer Righty wordCount
+            , smartBuffer Righty charCount
+            , smartBuffer Lefty  paths
+            ]
+    where
+        lineCount = if ol then map ((\(a, _, _) -> show a) . fst) counts else []
+        wordCount = if ow then map ((\(_, a, _) -> show a) . fst) counts else []
+        charCount = if oc then map ((\(_, _, a) -> show a) . fst) counts else []
+        paths = map snd counts
 
 -- options
 
@@ -133,9 +140,6 @@ options =
     ]
 
 -- utility
-
-rotate :: [[a]] -> [[a]]
-rotate = reverse . transpose
 
 data Alignment = Lefty | Center | Righty
 

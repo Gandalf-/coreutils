@@ -5,17 +5,17 @@ module Coreutils.Rev where
 -- read lines from stdin or files, print them out with content reversed
 
 import           Coreutils.Util
+import qualified Data.ByteString.Lazy.Char8 as L
 
 data Rev = Rev
 
 instance Util Rev where
     run _ = runRev
 
-
 runRev :: [String] -> IO ()
 -- invoke rev on some number of input files. no files means stdin
-runRev [] = interact rev
-runRev fs = mapM_ (\ filename -> rev <$> readFile filename >>= putStr) fs
+runRev [] = L.interact rev
+runRev fs = mapM_ (\ filename -> rev <$> L.readFile filename >>= L.putStr) fs
 
-rev :: String -> String
-rev = unlines . map reverse . lines
+rev :: L.ByteString -> L.ByteString
+rev = L.unlines . map L.reverse . L.lines
