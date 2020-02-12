@@ -17,5 +17,6 @@ runner args
         | null files = L.getContents >>= L.putStr
         | otherwise  = mapM_ cat files
     where
-        files = filter (`notElem` ["-", "--"]) args
-        cat fn = L.readFile fn >>= L.putStr
+        files = filter (/= "--") args
+        cat "-" = L.getContents >>= L.putStr
+        cat fn  = L.readFile fn >>= L.putStr
