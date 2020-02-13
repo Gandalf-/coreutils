@@ -1,23 +1,23 @@
 module Main where
 
-import           Data.List          (isPrefixOf)
+import           Data.List          (isPrefixOf, sort)
 import           System.Environment (getArgs, getProgName)
 import           System.Exit        (die)
 
-import           Coreutils.Cat
-import           Coreutils.Cut
-import           Coreutils.Echo
-import           Coreutils.Head
-import           Coreutils.Nologin
-import           Coreutils.Pwd
-import           Coreutils.Rev
-import           Coreutils.Seq
-import           Coreutils.Sleep
-import           Coreutils.Tr
-import           Coreutils.Uniq
-import           Coreutils.Wc
-import           Coreutils.Which
-import           Coreutils.Yes
+import           Coreutils.Cat      (Cat (..))
+import           Coreutils.Cut      (Cut (..))
+import           Coreutils.Echo     (Echo (..))
+import           Coreutils.Head     (Head (..))
+import           Coreutils.Nologin  (Nologin (..))
+import           Coreutils.Pwd      (Pwd (..))
+import           Coreutils.Rev      (Rev (..))
+import           Coreutils.Seq      (Seq (..))
+import           Coreutils.Sleep    (Sleep (..))
+import           Coreutils.Tr       (Tr (..))
+import           Coreutils.Uniq     (Uniq (..))
+import           Coreutils.Wc       (Wc (..))
+import           Coreutils.Which    (Which (..))
+import           Coreutils.Yes      (Yes (..))
 
 import           Coreutils.Util
 
@@ -49,4 +49,24 @@ dispatch ("uniq":xs)    = run Uniq xs
 dispatch ("wc":xs)      = run Wc xs
 dispatch ("which":xs)   = run Which xs
 dispatch ("yes":xs)     = run Yes xs
-dispatch _              = die "usage: ..."
+dispatch _              = die usage
+
+usage :: String
+usage = unlines $ ["", "usage:"] <> commands
+    where
+        commands = map (\c -> "  " <> c) $ sort
+            [ "cat"
+            , "cut"
+            , "echo"
+            , "head"
+            , "nologin"
+            , "pwd"
+            , "rev"
+            , "seq"
+            , "sleep"
+            , "tr"
+            , "uniq"
+            , "wc"
+            , "which"
+            , "yes"
+            ]

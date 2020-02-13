@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Coreutils.Cut where
 
 import           Data.List
@@ -57,7 +59,7 @@ fastCut _ _ [] = []
 fastCut (Range low high:fs) i (x:xs)
         | low > i   =
             -- jump ahead to the lower bound
-            fastCut (Range low high:fs) low $ drop jump (x:xs)
+            fastCut (Range low high:fs) low $! drop jump (x:xs)
 
         | low == i  =
             if high == infinity
@@ -81,7 +83,7 @@ fastCut (Range low high:fs) i (x:xs)
 fastCut (Exact e:fs) i (x:xs)
         | i < e     =
             -- jump ahead to the exact value
-            fastCut (Exact e:fs) e $ drop jump (x:xs)
+            fastCut (Exact e:fs) e $! drop jump (x:xs)
 
         | i == e    =
             -- match
@@ -168,7 +170,7 @@ cutInput o h =
                 die "exactly one of: bytes, characters, or fields must be provided"
     where
         runChars :: [Field] -> String -> String
-        runChars f =
+        runChars !f =
             case outputDelimiter o of
                 Nothing ->
                     cutFunction (sort f)
@@ -178,7 +180,7 @@ cutInput o h =
                     . cutFunction (sort f)
 
         runFields :: [Field] -> T.Text -> T.Text
-        runFields f =
+        runFields !f =
             T.intercalate (maybe tDelimiter T.pack (outputDelimiter o))
             . cutFunction (sort f)
             . T.splitOn tDelimiter
@@ -186,7 +188,7 @@ cutInput o h =
         tDelimiter = T.pack [delimiter o]
 
         filterPrint :: T.Text -> IO ()
-        filterPrint s
+        filterPrint !s
             | onlyDelimited o =
                 if T.count tDelimiter s > 0
                     then T.putStrLn s
