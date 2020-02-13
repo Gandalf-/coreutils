@@ -69,7 +69,7 @@ runner :: [String] -> IO [(Counts, FilePath)]
 -- ^ run the counter function for each input, report totals together for
 -- pretty presentation
 runner args
-        | null files = runner ["-"]
+        | null files = (: []) <$> go L.getContents ""
         | otherwise  = mapM wc files
     where
         wc "-"  = go L.getContents "-"
@@ -91,7 +91,7 @@ display o results
 
 pretty :: Options -> [(Counts, FilePath)] -> IO ()
 -- ^ padding aware columnar display for results
-pretty (Options ow ol oc) counts =
+pretty (Options ol ow oc) counts =
         mapM_ (putStrLn . unwords)
         $ transpose
             [ smartBuffer Righty lineCount
@@ -130,7 +130,7 @@ options =
 
     , Option "w" ["words"]
         (NoArg
-            (\opt -> Right opt { optLines = True }))
+            (\opt -> Right opt { optWords = True }))
         "print the word count"
 
     , Option "h" ["help"]
