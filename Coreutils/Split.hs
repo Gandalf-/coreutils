@@ -159,13 +159,13 @@ filenameGenerator :: String -> Bool -> Int -> String -> [String]
 -- 9 and z aren't included in the 'main' body of results since they're needed to prefix
 -- the next group so we maintain ordering
 filenameGenerator prefix numeric width suffix =
-        intended <> additional
+        initial <> more
     where
-        intended =
+        initial =
             map (\i -> prefix <> i <> suffix)
             $ filter (\i -> head i /= next)
             $ replicateM width characters
-        additional = filenameGenerator (prefix <> [next]) numeric (width + 1) suffix
+        more = filenameGenerator (prefix <> [next]) numeric (width + 1) suffix
 
         characters
             | numeric   = concatMap show ([0..9] :: [Integer])
