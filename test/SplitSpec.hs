@@ -1,27 +1,38 @@
 module SplitSpec where
 
+import Data.List
 import Coreutils.Split
 
 import Test.Hspec
 
 spec :: Spec
 spec = do
-        -- suffix generator
-        describe "suffix" $
+        -- filenames generator
+        describe "filenames" $
             it "alpha 2 plain" $
-                take 3 (suffixGenerator False 2 "") `shouldBe` ["aa", "ab", "ac"]
+                take 3 (filenameGenerator "" False 2 "") `shouldBe` ["aa", "ab", "ac"]
 
-        describe "suffix" $
+        describe "filenames" $
             it "numeric 2 plain" $
-                take 3 (suffixGenerator True 2 "") `shouldBe` ["00", "01", "02"]
+                take 3 (filenameGenerator "" True 2 "") `shouldBe` ["00", "01", "02"]
 
-        describe "suffix" $
+        describe "filenames" $
             it "numeric 2 extra" $
-                take 3 (suffixGenerator True 2 "zip") `shouldBe` ["00zip", "01zip", "02zip"]
+                take 3 (filenameGenerator "" True 2 "zip") `shouldBe` ["00zip", "01zip", "02zip"]
 
-        describe "suffix" $
+        describe "filenames" $
             it "numeric 4 plain" $
-                take 3 (suffixGenerator True 4 "") `shouldBe` ["0000", "0001", "0002"]
+                take 3 (filenameGenerator "" True 4 "") `shouldBe` ["0000", "0001", "0002"]
+
+        describe "filenames" $
+            it "ordering during rollover alpha" $ do
+                let fns = take 20000 (filenameGenerator "" False 2 "")
+                fns `shouldBe` sort fns
+
+        describe "filenames" $
+            it "ordering during rollover numeric" $ do
+                let fns = take 20000 (filenameGenerator "" True 2 "")
+                fns `shouldBe` sort fns
 
         -- parsing
         describe "adjustment" $
