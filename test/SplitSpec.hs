@@ -53,12 +53,12 @@ spec = do
 
         describe "adjustment" $
             it "1k" $
-                adjustment "1k" `shouldBe` Just 1000
+                adjustment "1k" `shouldBe` Just 1024
 
         describe "adjustment" $
             it "1kb" $
-                adjustment "1kb" `shouldBe` Just 1024
+                adjustment "1kb" `shouldBe` Just 1000
 
         describe "adjustment" $
-            it "1024kb == 1mb" $
-                adjustment "1024kb" `shouldBe` adjustment "1mb"
+            it "1000kb == 1mb" $
+                adjustment "1000kb" `shouldBe` adjustment "1mb"

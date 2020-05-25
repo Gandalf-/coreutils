@@ -25,8 +25,7 @@ instance Util Split where
 
 data Runtime =
     -- what kinds of splits are we doing?
-          NoRuntime
-        | RunBytes Int
+          RunBytes Int
         | RunLines Int
         | RunChunk Int
     deriving (Show, Eq)
@@ -67,10 +66,9 @@ splitMain args = do
                 pure $ File h (Just size)
 
 runSplit :: Options -> File -> String -> IO ()
--- switchboard, this is where we apply the default runtime if needed too
-runSplit opts@(Options s e n r) file prefix =
+-- switchboard
+runSplit (Options s e n r) file prefix =
         case r of
-            NoRuntime  -> runSplit (opts { optRuntime = RunLines 1000}) file prefix
             RunBytes v -> splitBytes file v filenames
             RunLines v -> splitLines file v filenames
             RunChunk v -> splitChunk file v filenames
@@ -79,9 +77,7 @@ runSplit opts@(Options s e n r) file prefix =
 
 splitBytes :: File -> Int -> [FilePath] -> IO ()
 -- simplest split, just by byte ranges
-splitBytes _ _ [] =
-        die "split could not generate any more output filenames"
-
+splitBytes _ _ [] = outOfFilenames
 splitBytes f@(File h _) n (fn:fs) = do
         L.hGet h n >>= L.writeFile fn
         hIsEOF h   >>= flip unless (splitBytes f n fs)
@@ -92,11 +88,8 @@ splitLines (File h _) n paths =
         L.split newline <$> L.hGetContents h >>= go paths
     where
         go :: [FilePath] -> [L.ByteString] -> IO ()
+        go [] _ = outOfFilenames
         go _ [] = pure ()
-
-        go [] _ =
-            die "split could not generate any more output filenames"
-
         go (fn:fs) bs = do
             let elements = take n bs
             L.writeFile fn $
@@ -129,9 +122,7 @@ splitChunk (File h (Just s)) n paths = do
         fileSize  = fromIntegral s
 
 chunkWriter :: Int64 -> [FilePath] -> Int64 -> L.ByteString -> IO ()
-chunkWriter _ [] _ _ =
-        die "split could not generate any more output filenames"
-
+chunkWriter _ [] _ _ = outOfFilenames
 chunkWriter i (fn:fs) chunkSize bs
         -- last iteration, it gets everything remaining
         | i == 1    = L.writeFile fn bs
@@ -142,6 +133,8 @@ chunkWriter i (fn:fs) chunkSize bs
             chunkWriter (i - 1) fs chunkSize $ L.drop chunkSize bs
 
 -- | helpers
+outOfFilenames :: IO ()
+outOfFilenames = die "split could not generate any more output filenames"
 
 adjustment :: String -> Maybe Int
 -- convert 10K  to 10240 (10 * 1024), etc
@@ -149,8 +142,8 @@ adjustment :: String -> Maybe Int
 adjustment xs = case span isNumber characters of
         ("", _)       -> Nothing
         (ys, "")      -> Just $ read ys
-        (ys, [v,'b']) -> (* read ys) <$> adjust v 1024
-        (ys, [v])     -> (* read ys) <$> adjust v 1000
+        (ys, [v,'b']) -> (* read ys) <$> adjust v 1000
+        (ys, [v])     -> (* read ys) <$> adjust v 1024
         _             -> Nothing
     where
         characters = map toLower xs
@@ -165,19 +158,20 @@ filenameGenerator :: String -> Bool -> Int -> String -> [String]
 --
 -- 9 and z aren't included in the 'main' body of results since they're needed to prefix
 -- the next group so we maintain ordering
-filenameGenerator prefix numeric width extra =
+filenameGenerator prefix numeric width suffix =
         intended <> additional
     where
-        intended   = map (\i -> prefix <> i <> extra) $ replicateM width characters
-        additional = filenameGenerator (prefix <> next) numeric (width + 1) extra
+        intended =
+            map (\i -> prefix <> i <> suffix)
+            $ filter (\i -> head i /= next)
+            $ replicateM width characters
+        additional = filenameGenerator (prefix <> [next]) numeric (width + 1) suffix
 
         characters
-            | numeric   = concatMap show ([0..8] :: [Integer])
-            | otherwise = ['a'..'y']
+            | numeric   = concatMap show ([0..9] :: [Integer])
+            | otherwise = ['a'..'z']
 
-        next
-            | numeric   = "9"
-            | otherwise = "z"
+        next = last characters
 
 -- | options parsing
 
@@ -186,7 +180,7 @@ defaults = Options
         { optSuffixLength = 2
         , optExtraSuffix  = ""
         , optNumeric      = False
-        , optRuntime      = NoRuntime
+        , optRuntime      = RunLines 1000
         }
 
 options :: [OptDescr (Options -> Either String Options)]

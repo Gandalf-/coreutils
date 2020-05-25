@@ -66,7 +66,7 @@ executable utils
     -Wall
 
   if flag(release)
-    ghc-options: -O2
+    ghc-options: -O2 -threaded
     -- ghc-options: -O2 -static -threaded
     -- ld-options: -static -pthread
     -- cc-options: -static
