@@ -10,6 +10,7 @@
 * shuf
 * sort
 * strings
+* split
 * tee
 
 * expr
@@ -47,6 +48,7 @@
 ## head
 
 - [ ] No memory efficient implementation for 'tail' ranges like `-n -5`
+    - this is possible, but requires some clever fseek'ing, and is impossible for stdin
 - [X] Needs tests
 
 

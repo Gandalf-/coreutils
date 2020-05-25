@@ -42,6 +42,7 @@ library
     Coreutils.Rev
     Coreutils.Seq
     Coreutils.Sleep
+    Coreutils.Split
     Coreutils.Tr
     Coreutils.Uniq
     Coreutils.Wc
@@ -97,5 +98,6 @@ test-suite test
     TrSpec
     WcSpec
     SleepSpec
+    SplitSpec
 
   build-tool-depends: hspec-discover:hspec-discover == 2.*

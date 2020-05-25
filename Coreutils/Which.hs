@@ -18,7 +18,7 @@ data Which = Which
 
 instance Util Which where
     run _ args = do
-        -- ^ print the path to each argument if possible
+        -- print the path to each argument if possible
         -- if anything didn't exist, exit failure
         paths <- mapM which args
         when (any isNothing paths) exitFailure

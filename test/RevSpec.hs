@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module RevSpec where
 
 import Coreutils.Rev

@@ -13,6 +13,7 @@ import           Coreutils.Pwd      (Pwd (..))
 import           Coreutils.Rev      (Rev (..))
 import           Coreutils.Seq      (Seq (..))
 import           Coreutils.Sleep    (Sleep (..))
+import           Coreutils.Split    (Split (..))
 import           Coreutils.Tr       (Tr (..))
 import           Coreutils.Uniq     (Uniq (..))
 import           Coreutils.Wc       (Wc (..))
@@ -44,6 +45,7 @@ dispatch ("pwd":xs)     = run Pwd xs
 dispatch ("rev":xs)     = run Rev xs
 dispatch ("seq":xs)     = run Seq xs
 dispatch ("sleep":xs)   = run Sleep xs
+dispatch ("split":xs)   = run Split xs
 dispatch ("tr":xs)      = run Tr xs
 dispatch ("uniq":xs)    = run Uniq xs
 dispatch ("wc":xs)      = run Wc xs
@@ -64,6 +66,7 @@ usage = unlines $ ["", "usage:"] <> commands
             , "rev"
             , "seq"
             , "sleep"
+            , "split"
             , "tr"
             , "uniq"
             , "wc"

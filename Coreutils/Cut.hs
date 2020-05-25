@@ -239,7 +239,7 @@ parseOptions _ ("-h":_) = Left usage
 parseOptions _ ("--help":_) = Left usage
 
 parseOptions o (x:xs) =
-        -- ^ treat these unknown things as input files
+        -- treat these unknown things as input files
         parseOptions (o { inputs = x : inputs o}) xs
 
 parseOptions base [] = Right base
