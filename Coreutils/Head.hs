@@ -12,120 +12,122 @@ module Coreutils.Head where
 
 
 import           Control.Monad
-import           Data.ByteString.Lazy  (ByteString)
 import qualified Data.ByteString.Lazy  as L
+import qualified Data.ByteString.Lazy.Char8  as C
 import           GHC.Int               (Int64)
 import           System.Console.GetOpt
 import           System.Exit
+import           System.IO
 
 import           Coreutils.Util
-
-type NumLines = Int
-type NumChars = Int64
-
-data Options = Options
-        { optQuiet :: Bool
-        , optLines :: NumLines
-        , optChars :: Maybe NumChars
-        }
-
-
-charsOp :: NumChars -> ByteString -> ByteString
--- ^ take or drop the required number of characters
-charsOp n content
-        | n >= 0    = L.take n content
-        | otherwise = L.drop (L.length content - negate n) content
-
-
-linesOp :: NumLines -> ByteString -> ByteString
--- ^ use lazy newline counting to determine how much of the file to process
-linesOp n content
-        | n == 0    = ""
-        | n > 0     =
-            case indices of
-                [] -> content
-                _  -> L.take (last indices + 1) content
-
-        | otherwise =
-            case secidni of
-                [] -> content
-                _  ->
-                    if abs n > length positions
-                        then content
-                        else L.drop (last secidni + 1) content
-    where
-        indices = take n positions
-        positions = L.elemIndices newline content
-        newline = 10
-
-        secidni = take (abs n + 1) $ reverse positions
-
-
-charHead :: NumChars -> FilePath -> IO ()
-charHead n f = charsOp n <$> L.readFile f >>= L.putStr
-
-lineHead :: NumLines -> FilePath -> IO ()
-lineHead n f = linesOp n <$> L.readFile f >>= L.putStr
-
-
-header :: (FilePath -> IO ()) -> FilePath -> IO ()
--- ^ header function used when multiples files are processed together
-header f s = do
-    putStrLn $ "==> " <> s <> " <=="
-    f s
-    putStrLn ""
-
-
-type HeaderFunction = (FilePath -> IO ()) -> FilePath -> IO ()
-
-switch :: HeaderFunction -> NumLines -> Maybe NumChars -> [FilePath] -> IO ()
--- ^ switchboard for business logic
--- no input files? use stdin
--- multiple files? use the header function
-switch _ _ (Just n) []  = L.interact $ charsOp n
-switch _ n _        []  = L.interact $ linesOp n
-
-switch _ _ (Just n) [f] = charHead n f
-switch _ n _        [f] = lineHead n f
-
-switch h _ (Just n) fs  = mapM_ (h (charHead n)) fs
-switch h n _        fs  = mapM_ (h (lineHead n)) fs
-
 
 data Head = Head
 
 instance Util Head where
-    -- ^ library hook
     run _ = headMain
 
+data Runtime = RunBytes Int64 | RunLines Int64
+
+data Options = Options
+        { optQuiet   :: Bool
+        , optRuntime :: Runtime
+        }
+
+data File = File
+        { _handle   :: Handle
+        , _filename :: FilePath
+        , _filesize :: Maybe Int
+        }
+
+runHead :: Options -> [File] -> IO ()
+runHead (Options quiet runtime) fs =
+        mapM_ (wrapper action) fs
+    where
+        wrapper
+            | not quiet && length fs > 1 = verbose
+            | otherwise                  = id
+
+        action :: File -> IO ()
+        action = case runtime of
+            RunBytes v -> headBytes v
+            RunLines v -> headLines v
 
 headMain :: [String] -> IO ()
 headMain args = do
-        let (actions, files, errors) = getOpt RequireOrder options args
+        let (actions, filenames, errors) = getOpt RequireOrder options args
 
         unless (null errors) $ do
             mapM_ putStr errors
             exitFailure
 
+        files <- case filenames of
+            [] -> (: []) <$> getFile "-"
+            fs -> mapM getFile fs
+
         case foldM (flip id) defaults actions of
             Left   err -> die err
-            Right opts -> do
-                let Options { optChars = nChars
-                            , optLines = nLines
-                            , optQuiet = quiet
-                            } = opts
-                    hFunc = if quiet then id else header
+            Right opts -> runHead opts files
+    where
+        getFile :: FilePath -> IO File
+        getFile "-" = pure $ File stdin "-" Nothing
+        getFile fn = do
+                h <- openBinaryFile fn ReadMode
+                size <- fromIntegral <$> hFileSize h
+                pure $ File h fn (Just size)
 
-                switch hFunc nLines nChars files
+-- | Helpers
 
+headBytes :: Int64 -> File -> IO ()
+headBytes n (File h _ size)
+        | n > 0     = L.hGet h amount >>= L.putStr
+        | n == 0    = pure ()
+        | otherwise = case size of
+            -- it's negative and we know the total file size
+            (Just s) -> L.hGet h (s + amount) >>= L.putStr
+
+            -- it's negative and we have to read in everything to know the size
+            Nothing  -> do
+                -- TODO something like negative lines
+                bytes <- L.hGetContents h
+                L.putStr $ L.take (L.length bytes + n) bytes
+    where
+        amount = fromIntegral n
+
+headLines :: Int64 -> File -> IO ()
+headLines n (File h _ _)
+        | n > 0     = take amount <$> lazyLines >>= out
+        | n == 0    = pure ()
+        | otherwise = lazyLines >>= out . clever []
+    where
+        lazyLines :: IO [C.ByteString]
+        lazyLines = C.lines <$> C.hGetContents h
+
+        out :: [L.ByteString] -> IO ()
+        out = C.putStrLn . C.intercalate "\n"
+
+        clever :: [C.ByteString] -> [C.ByteString] -> [C.ByteString]
+        clever previous ls = do
+            let new = take amount ls
+            if length new < amount
+                then take (length new + amount - amount) $ previous <> new
+                else previous <> clever new (drop amount ls)
+
+        amount = fromIntegral $ abs n
+
+
+verbose :: (File -> IO ()) -> File -> IO ()
+-- ^ used when multiples files are processed together
+verbose fn f = do
+        putStrLn $ "==> " <> _filename f <> " <=="
+        fn f
+        putStrLn "" -- TODO don't when this is the last file
 
 -- | Options
 
 defaults :: Options
 defaults = Options
         { optQuiet = False
-        , optLines = 10
-        , optChars = Nothing
+        , optRuntime = RunLines 10
         }
 
 options :: [OptDescr (Options -> Either String Options)]
@@ -133,7 +135,7 @@ options =
     [ Option "n" ["lines"]
         (ReqArg
             (\arg opt -> case reads arg of
-              [(n, "")] -> Right opt { optLines = n }
+              [(n, "")] -> Right opt { optRuntime = RunLines n }
               _         -> Left $ "error: '" <> arg <> "' is not a number")
             "LINES")
         "Number of lines"
@@ -141,7 +143,7 @@ options =
     , Option "c" ["bytes"]
         (ReqArg
             (\arg opt -> case reads arg of
-              [(n, "")] -> Right opt { optChars = Just n }
+              [(n, "")] -> Right opt { optRuntime = RunBytes n }
               _         -> Left $ "error: '" <> arg <> "' is not a number")
             "LINES")
         "Number of characters"
