@@ -59,11 +59,15 @@ splitMain args = do
             Right opts -> runSplit opts file prefix
     where
         getHandleAndSize :: FilePath -> IO File
+        -- take the filename, acquire a handle and determine it's size
         getHandleAndSize "-" = pure $ File stdin Nothing
-        getHandleAndSize fn = do
-                h <- openBinaryFile fn ReadMode
-                size <- fromIntegral <$> hFileSize h
-                pure $ File h (Just size)
+        getHandleAndSize filename = do
+            handle <- openBinaryFile filename ReadMode
+            seekable <- hIsSeekable handle
+            size <- if seekable
+                then Just . fromIntegral <$> hFileSize handle
+                else pure Nothing
+            pure $ File handle size
 
 runSplit :: Options -> File -> String -> IO ()
 -- switchboard

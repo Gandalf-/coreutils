@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Coreutils.Head where
@@ -5,16 +6,14 @@ module Coreutils.Head where
 -- head
 --
 -- show some number of lines or characters from the top or bottom of files
--- or stdin. if both -c and -l are provided, -c is preferred
+-- or stdin.
 --
--- lazy implementation allows things like `head -l 5 /dev/urandom`
--- negative options `-l -10`, `-c -100` require the entire file to fit in memory
-
+-- this has constant memory usage even with negative values on streams
 
 import           Control.Monad
-import qualified Data.ByteString.Lazy  as L
-import qualified Data.ByteString.Lazy.Char8  as C
-import           GHC.Int               (Int64)
+import qualified Data.ByteString.Lazy       as L
+import qualified Data.ByteString.Lazy.Char8 as C
+import           GHC.Int                    (Int64)
 import           System.Console.GetOpt
 import           System.Exit
 import           System.IO
@@ -36,21 +35,8 @@ data Options = Options
 data File = File
         { _handle   :: Handle
         , _filename :: FilePath
-        , _filesize :: Maybe Int
+        , _filesize :: Maybe Int64
         }
-
-runHead :: Options -> [File] -> IO ()
-runHead (Options quiet runtime) fs =
-        mapM_ (wrapper action) fs
-    where
-        wrapper
-            | not quiet && length fs > 1 = verbose
-            | otherwise                  = id
-
-        action :: File -> IO ()
-        action = case runtime of
-            RunBytes v -> headBytes v
-            RunLines v -> headLines v
 
 headMain :: [String] -> IO ()
 headMain args = do
@@ -69,58 +55,125 @@ headMain args = do
             Right opts -> runHead opts files
     where
         getFile :: FilePath -> IO File
+        -- take the filename, acquire a handle and determine it's size
         getFile "-" = pure $ File stdin "-" Nothing
-        getFile fn = do
-                h <- openBinaryFile fn ReadMode
-                size <- fromIntegral <$> hFileSize h
-                pure $ File h fn (Just size)
+        getFile name = do
+            h <- openBinaryFile name ReadMode
+            size <- hIsSeekable h >>= \case
+                True  -> Just . fromIntegral <$> hFileSize h
+                False -> pure Nothing
+            pure $ File h name size
+
+runHead :: Options -> [File] -> IO ()
+-- switchboard
+runHead (Options quiet runtime) fs =
+        go wrapper fs
+    where
+        action :: File -> IO ()
+        action = case runtime of
+            RunBytes v -> headBytes v
+            RunLines v -> headLines v
+
+        -- runner that tells its callback when it's being passed the last element
+        go _ []     = pure ()
+        go f [x]    = f True  action x
+        go f (x:xs) = f False action x >> go f xs
+
+        wrapper :: Bool -> (File -> IO ()) -> File -> IO ()
+        wrapper
+            | not quiet && multiple = verbose
+            | otherwise             = const id
+
+        -- don't use length because there could be hundreds of files, and we don't want
+        -- to keep the handles open for this list
+        multiple = length (take 2 fs) == 2
+
+verbose :: Bool -> (File -> IO ()) -> File -> IO ()
+-- ^ used when multiples files are processed together
+verbose final fn f = do
+        putStrLn $ "==> " <> _filename f <> " <=="
+        fn f
+        unless final $ putStrLn ""
 
 -- | Helpers
 
 headBytes :: Int64 -> File -> IO ()
-headBytes n (File h _ size)
-        | n > 0     = L.hGet h amount >>= L.putStr
-        | n == 0    = pure ()
-        | otherwise = case size of
-            -- it's negative and we know the total file size
-            (Just s) -> L.hGet h (s + amount) >>= L.putStr
+-- take some number of bytes from the beginning of the file, or ommit some number from
+-- the end
+headBytes n f@(File h _ s)
+        | n > 0     =
+            if amount > bufferSize
+                then do
+                    readHandle bufferSize >>= L.putStr
+                    headBytes (n - bufferSize) f
+                else readHandle amount >>= L.putStr
 
-            -- it's negative and we have to read in everything to know the size
-            Nothing  -> do
-                -- TODO something like negative lines
-                bytes <- L.hGetContents h
-                L.putStr $ L.take (L.length bytes + n) bytes
+        | n == 0    = pure ()
+
+        | otherwise = case s of
+            (Just size) ->
+                when (size - amount > 0) $
+                    readHandle (size - amount) >>= L.putStr
+
+            -- it's negative and we have don't have the size
+            Nothing  ->
+                L.hGetContents h >>= chunkedStreamRead L.empty
     where
-        amount = fromIntegral n
+        chunkedStreamRead :: L.ByteString -> L.ByteString -> IO ()
+        -- read the stream 'amount' at a time; if we get less than expected we know
+        -- we're at the end
+        chunkedStreamRead previous ls = do
+            let new = L.take amount ls
+                len = L.length new
+            if len < amount
+                then L.putStr $
+                    L.take (len + L.length previous - amount) $ previous <> new
+                else do
+                    L.putStr previous
+                    chunkedStreamRead new (L.drop amount ls)
+
+        readHandle :: Int64 -> IO L.ByteString
+        readHandle = L.hGet h . fromIntegral
+
+        amount = abs n
+        bufferSize = 16384
 
 headLines :: Int64 -> File -> IO ()
+-- take some number of lines from the beginning of the file, or ommit some number from
+-- the end
 headLines n (File h _ _)
-        | n > 0     = take amount <$> lazyLines >>= out
+        | n > 0     = lazyLines >>= go n
         | n == 0    = pure ()
-        | otherwise = lazyLines >>= out . clever []
+        | otherwise = lazyLines >>= out . chunkedStreamRead []
     where
+        go :: Int64 -> [C.ByteString] -> IO ()
+        go remaining ls =
+            if remaining > fromIntegral bufferSize
+                then do
+                    out $ take bufferSize ls
+                    go (remaining - fromIntegral bufferSize) (drop bufferSize ls)
+                else out $ take (fromIntegral remaining) ls
+
         lazyLines :: IO [C.ByteString]
         lazyLines = C.lines <$> C.hGetContents h
 
         out :: [L.ByteString] -> IO ()
-        out = C.putStrLn . C.intercalate "\n"
+        out [] = pure ()
+        out xs = C.putStrLn $ C.intercalate "\n" xs
 
-        clever :: [C.ByteString] -> [C.ByteString] -> [C.ByteString]
-        clever previous ls = do
+        chunkedStreamRead :: [C.ByteString] -> [C.ByteString] -> [C.ByteString]
+        -- read the stream 'amount' at a time; if we get less than expected we know
+        -- we're at the end
+        chunkedStreamRead previous ls = do
             let new = take amount ls
-            if length new < amount
-                then take (length new + amount - amount) $ previous <> new
-                else previous <> clever new (drop amount ls)
+                len = length new
+            if len < amount
+                then take (len + length previous - amount) $ previous <> new
+                else previous <> chunkedStreamRead new (drop amount ls)
 
         amount = fromIntegral $ abs n
-
-
-verbose :: (File -> IO ()) -> File -> IO ()
--- ^ used when multiples files are processed together
-verbose fn f = do
-        putStrLn $ "==> " <> _filename f <> " <=="
-        fn f
-        putStrLn "" -- TODO don't when this is the last file
+        bufferSize :: Int
+        bufferSize = 4096
 
 -- | Options
 

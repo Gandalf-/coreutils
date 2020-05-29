@@ -92,7 +92,6 @@ test-suite test
 
   other-modules:
     CutSpec
-    HeadSpec
     SeqSpec
     RevSpec
     TrSpec
