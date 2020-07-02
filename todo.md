@@ -10,8 +10,6 @@
 * shuf
 * sort
 * strings
-* split
-* tee
 
 * expr
 * sh
@@ -47,7 +45,7 @@
 
 ## head
 
-- [ ] No memory efficient implementation for 'tail' ranges like `-n -5`
+- [X] No memory efficient implementation for 'tail' ranges like `-n -5`
     - this is possible, but requires some clever fseek'ing, and is impossible for stdin
 - [X] Needs tests
 
@@ -62,6 +60,9 @@
 
 - [ ] Needs a rewrite to make it idiomatic
 
+## cat
+- [ ] could benefit from Data.ByteString.Streaming
+- [ ] some sort of encoding bug on windows with binary files (.jpg)
 
 # Notes
 

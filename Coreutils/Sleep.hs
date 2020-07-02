@@ -21,7 +21,7 @@ data Sleep = Sleep
 
 instance Util Sleep where
     run _ args
-            | null values = die "sleep: [number](s|m|d)"
+            | null values = die "sleep: [number](s|m|d|w)"
             | otherwise   = mapM_ sleep values
         where
             sleep :: Double -> IO ()
@@ -34,6 +34,7 @@ parse :: String -> Maybe Double
 -- ^ take strings in the format <number>(s|m|d) and try to convert them
 -- into a double
 parse [] = Nothing
+parse ('.':xs) = parse $ "0." <> xs
 parse value
         | isAlpha suffix = (*) <$> adjust suffix <*> parse (init value)
         | otherwise      = readMaybe value
@@ -44,4 +45,5 @@ parse value
         adjust 's' = Just 1
         adjust 'm' = Just 60
         adjust 'd' = Just $ 60 * 60 * 24
+        adjust 'w' = Just $ 60 * 60 * 24 * 7
         adjust _   = Nothing

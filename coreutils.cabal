@@ -43,6 +43,7 @@ library
     Coreutils.Seq
     Coreutils.Sleep
     Coreutils.Split
+    Coreutils.Tee
     Coreutils.Tr
     Coreutils.Uniq
     Coreutils.Wc
@@ -54,6 +55,7 @@ library
     directory,
     bytestring,
     split,
+    random,
     containers,
     text
 

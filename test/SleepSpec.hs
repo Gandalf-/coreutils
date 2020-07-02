@@ -35,6 +35,18 @@ spec = do
             it "days" $
                 parse "1d" `shouldBe` Just (60 * 60 * 24)
 
+        describe "parse" $
+            it "weeks" $
+                parse "2w" `shouldBe` Just (2 * 60 * 60 * 24 * 7)
+
+        describe "parse" $
+            it "decimals" $
+                parse "0.5m" `shouldBe` Just 30
+
+        describe "parse" $
+            it "decimals no leading zero" $
+                parse ".5" `shouldBe` Just 0.5
+
         -- errors
         describe "parse" $
             it "junk" $
