@@ -4,8 +4,14 @@ module Coreutils.Cat where
 --
 -- read files from the command line or echo stdin
 
+import           Control.Exception
+import           Control.Monad
+import qualified Data.ByteString.Streaming as Q
+import           System.Exit
+import           System.Info
+import           System.IO
+
 import           Coreutils.Util
-import qualified Data.ByteString.Lazy as L
 
 data Cat = Cat
 
@@ -13,10 +19,26 @@ instance Util Cat where
     run _ = runner
 
 runner :: [String] -> IO ()
+-- attempt to write each input file to stdout, continues on intermediary failures
 runner args
-        | null files = L.getContents >>= L.putStr
-        | otherwise  = mapM_ cat files
+        | null files = piper cat
+        | otherwise  = do
+            failures <- mapM switch files
+            when (or failures) exitFailure
     where
+        switch "-" = wrap (piper cat)
+        switch fn  = wrap (withFile fn ReadMode cat)
+
+        cat = Q.stdout . Q.fromHandle
+
         files = filter (/= "--") args
-        cat "-" = L.getContents >>= L.putStr
-        cat fn  = L.readFile fn >>= L.putStr
+        wrap f = catch (f >> pure False) (\e -> pError e >> pure True)
+
+        pError :: SomeException -> IO ()
+        pError = hPrint stderr
+
+piper :: (Handle -> IO ()) -> IO ()
+-- this allows us to read from stdin multiple times; used by some build scripts
+piper f
+    | os == "mingw32" = f stdin
+    | otherwise       = withFile "/dev/tty" ReadMode f
