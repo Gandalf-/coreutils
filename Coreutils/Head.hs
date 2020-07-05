@@ -109,27 +109,26 @@ headBytes n (File h _ s)
         | otherwise = case s of
             (Just size) ->
                 when (size - amount > 0) $
-                    Q.hPut stdout . Q.hGet h . fromIntegral $ size - amount
+                    Q.stdout . Q.hGet h . fromIntegral $ size - amount
 
             -- it's negative and we have don't have the size
-            Nothing  -> clever Q.empty $ Q.hGetContents h
+            Nothing  ->
+                L.hGetContents h >>= chunkedStreamRead L.empty
     where
+        chunkedStreamRead :: L.ByteString -> L.ByteString -> IO ()
         -- read the stream 'amount' at a time; if we get less than expected we know
         -- we're at the end
-        clever previous ls = do
-            let new = Q.take amount ls
-            len <- Q.length_ new
-
-            if len < fromIntegral amount
-                then do
-                    prev_len <- Q.length_ previous
-                    let size = fromIntegral $ len + prev_len - fromIntegral amount
-                    Q.hPut stdout $ Q.take size $ previous <> new
+        chunkedStreamRead previous ls = do
+            let new = L.take amount ls
+                len = L.length new
+            if len < amount
+                then L.putStr $
+                    L.take (len + L.length previous - amount) $ previous <> new
                 else do
-                    Q.hPut stdout previous
-                    clever new (Q.drop amount ls)
-
+                    L.putStr previous
+                    chunkedStreamRead new (L.drop amount ls)
         amount = abs n
+
 
 headLines :: Int64 -> File -> IO ()
 -- take some number of lines from the beginning of the file, or ommit some number from
