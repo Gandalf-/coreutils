@@ -3,13 +3,13 @@
 module Coreutils.Cut where
 
 import           Data.List
-import           Data.List.Split   (splitOn)
+import           Data.List.Split                 (splitOn)
 import           Data.Maybe
-import qualified Data.Text.Lazy    as T
-import qualified Data.Text.Lazy.IO as T
-import           System.Exit       (die)
+import qualified Data.Text.Lazy                  as T
+import qualified Data.Text.Lazy.IO               as T
+import           System.Exit                     (die)
 import           System.IO
-import           Text.Read         (readMaybe)
+import           Text.Read                       (readMaybe)
 
 import           Coreutils.Util
 

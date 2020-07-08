@@ -1,10 +1,10 @@
 module Coreutils.Tee where
 
 import           Control.Monad
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Streaming as Q
 import           System.Console.GetOpt
-import           System.IO
 import           System.Exit
+import           System.IO
 
 import           Coreutils.Util
 
@@ -13,9 +13,7 @@ data Tee = Tee
 instance Util Tee where
     run _ = teeMain
 
-data Options = Options
-        { optAppend   :: Bool
-        }
+newtype Options = Options { optMode :: IOMode }
 
 teeMain :: [String] -> IO ()
 teeMain args = do
@@ -31,37 +29,30 @@ teeMain args = do
 
 
 runTee :: Options -> [FilePath] -> IO ()
+-- get handles for all output files and stdout, run them through tee
 runTee o fs = do
-        files <- mapM (flip openBinaryFile mode) fs
-        let handles = stdout : files
+        handles <-
+            (<> [stdout])
+            <$> mapM (`openBinaryFile` optMode o) fs
         tee handles
         mapM_ hClose handles
-    where
-        mode = if optAppend o then AppendMode else WriteMode
 
 
 tee :: [Handle] -> IO ()
-tee hs = do
-        done <- isEOF
-        unless done $ do
-            buffer <- B.hGetSome stdin bufferSize
-            mapM_ (flip B.hPut buffer) hs
-            tee hs
-    where
-        bufferSize = 1024 * 32 -- 32K
+-- build up n computations that copy the stream, then write it a file
+tee = Q.effects . foldr (\h -> Q.toHandle h . Q.copy) Q.stdin
+
 
 -- | Options
 
 defaults :: Options
-defaults = Options
-        { optAppend = False
-        }
+defaults = Options { optMode = ReadMode }
 
 options :: [OptDescr (Options -> Either String Options)]
 options =
     [ Option "a" ["append"]
         (NoArg
-            (\opt -> Right opt { optAppend = True }))
+            (\opt -> Right opt { optMode = AppendMode }))
         "append to given files, do not overwrite"
 
     , Option "h" ["help"]
