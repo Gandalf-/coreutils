@@ -31,22 +31,20 @@ teeMain args = do
 runTee :: Options -> [FilePath] -> IO ()
 -- get handles for all output files and stdout, run them through tee
 runTee o fs = do
-        handles <-
-            (<> [stdout])
-            <$> mapM (`openBinaryFile` optMode o) fs
+        handles <- mapM (`openBinaryFile` optMode o) fs
         tee handles
         mapM_ hClose handles
 
 
 tee :: [Handle] -> IO ()
 -- build up n computations that copy the stream, then write it a file
-tee = Q.effects . foldr (\h -> Q.toHandle h . Q.copy) Q.stdin
+tee = Q.stdout . foldr (\h -> Q.toHandle h . Q.copy) Q.stdin
 
 
 -- | Options
 
 defaults :: Options
-defaults = Options { optMode = ReadMode }
+defaults = Options { optMode = WriteMode }
 
 options :: [OptDescr (Options -> Either String Options)]
 options =
