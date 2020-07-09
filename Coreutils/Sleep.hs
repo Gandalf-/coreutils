@@ -24,11 +24,9 @@ instance Util Sleep where
             | null values = die "sleep: [number](s|m|d|w)"
             | otherwise   = mapM_ sleep values
         where
-            sleep :: Double -> IO ()
-            sleep time = threadDelay . round $ time * 1000000
-
-            values :: [Double]
+            sleep  = threadDelay . round . (* 1000000)
             values = mapMaybe parse args
+
 
 parse :: String -> Maybe Double
 -- ^ take strings in the format <number>(s|m|d) and try to convert them

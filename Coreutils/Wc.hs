@@ -27,9 +27,8 @@ instance Util Wc where
 wcMain :: [String] -> IO ()
 -- ^ parse arguments, do the work
 wcMain args = do
-        unless (null errors) $ do
-            mapM_ putStr errors
-            exitFailure
+        unless (null errors) $
+            die $ unlines errors
 
         case foldM (flip id) defaults actions of
             Left err -> die err

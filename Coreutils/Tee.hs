@@ -1,5 +1,6 @@
 module Coreutils.Tee where
 
+import           Control.Exception
 import           Control.Monad
 import qualified Data.ByteString.Streaming as Q
 import           System.Console.GetOpt
@@ -15,25 +16,24 @@ instance Util Tee where
 
 newtype Options = Options { optMode :: IOMode }
 
+
 teeMain :: [String] -> IO ()
 teeMain args = do
-        let (actions, filenames, errors) = getOpt RequireOrder options args
+        unless (null errors) $
+            die $ unlines errors
 
-        unless (null errors) $ do
-            mapM_ putStr errors
-            exitFailure
-
-        case foldM (flip id) defaults actions of
-            Left   err -> die err
-            Right opts -> runTee opts filenames
+        either die (`runTee` filenames) $
+            foldM (flip id) defaults actions
+    where
+        (actions, filenames, errors) = getOpt RequireOrder options args
 
 
 runTee :: Options -> [FilePath] -> IO ()
 -- get handles for all output files and stdout, run them through tee
-runTee o fs = do
-        handles <- mapM (`openBinaryFile` optMode o) fs
-        tee handles
-        mapM_ hClose handles
+runTee o fs = bracket acquire tee release
+    where
+        acquire = mapM (`openBinaryFile` optMode o) fs
+        release = mapM_ hClose
 
 
 tee :: [Handle] -> IO ()

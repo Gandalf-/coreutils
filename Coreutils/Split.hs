@@ -54,9 +54,8 @@ splitMain args = do
             [fn, prefix] -> (,) prefix <$> getHandleAndSize fn
             _            -> die "split cannot operate on more than one file at a time"
 
-        case foldM (flip id) defaults actions of
-            Left err   -> die err
-            Right opts -> runSplit opts file prefix
+        either die (\opts -> runSplit opts file prefix)
+            $ foldM (flip id) defaults actions
     where
         getHandleAndSize :: FilePath -> IO File
         -- take the filename, acquire a handle and determine it's size
