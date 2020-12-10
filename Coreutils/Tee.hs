@@ -23,21 +23,22 @@ teeMain args = do
             die $ unlines errors
 
         either die (`runTee` filenames) $
-            foldM (flip id) defaults actions
+            foldM (flip id) defaults opts
     where
-        (actions, filenames, errors) = getOpt RequireOrder options args
+        (opts, filenames, errors) = getOpt RequireOrder options args
 
 
 runTee :: Options -> [FilePath] -> IO ()
 -- get handles for all output files and stdout, run them through tee
-runTee o fs = bracket acquire tee release
+runTee o fs =
+        bracket acquire release tee
     where
         acquire = mapM (`openBinaryFile` optMode o) fs
         release = mapM_ hClose
 
 
 tee :: [Handle] -> IO ()
--- build up n computations that copy the stream, then write it a file
+-- build up n computations that copy the stream and write it a file
 tee = Q.stdout . foldr (\h -> Q.toHandle h . Q.copy) Q.stdin
 
 
@@ -55,6 +56,6 @@ options =
 
     , Option "h" ["help"]
         (NoArg
-            (\_ -> Left $ usageInfo "head" options))
-        "Show this help text"
+            (\_ -> Left $ usageInfo "tee" options))
+        "show this help text"
     ]
