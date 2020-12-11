@@ -43,6 +43,7 @@ library
     Coreutils.Seq
     Coreutils.Sleep
     Coreutils.Split
+    Coreutils.Tac
     Coreutils.Tee
     Coreutils.Tr
     Coreutils.Uniq
