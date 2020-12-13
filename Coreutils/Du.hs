@@ -1,10 +1,8 @@
 module Control.Du where
 
-import           Control.Exception
 import           Control.Monad
 import           System.Console.GetOpt
 import           System.Exit
-import           System.IO
 
 import           Coreutils.Util
 

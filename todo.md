@@ -53,6 +53,9 @@
 
 ## tac
 - [ ] eats initial newlines
+- [ ] reorganize readBackwards to take a path, will need something like
+  https://hackage.haskell.org/package/managed-1.0.8/docs/Control-Monad-Managed.html
+  to get it out of IO ()
 
 # Notes
 

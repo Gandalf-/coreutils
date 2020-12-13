@@ -17,6 +17,7 @@ data Tac = Tac
 instance Util Tac where
     run _ = tacMain
 
+type SeekPosition = Integer
 
 tacMain :: [String] -> IO ()
 tacMain args
@@ -24,14 +25,13 @@ tacMain args
         | otherwise = mapM_ switch args
     where
         switch "-"  = stdinTac
-        switch path = liftIO (withFile path ReadMode fileTac)
+        switch path = liftIO (withFile path ReadMode (Q.stdout . fileTac))
 
 stdinTac :: IO ()
 stdinTac = unlines . reverse . lines <$> getContents >>= putStr
 
-fileTac :: MonadIO m => Handle -> m ()
-fileTac = Q.stdout
-        . Q.unlines            -- Q.ByteString m ()
+fileTac :: MonadIO m => Handle -> Q.ByteString m ()
+fileTac = Q.unlines            -- Q.ByteString m ()
         . S.subst Q.chunk      -- Stream (Q.ByteString m) m ()
         . S.dropWhile C.null   -- final newline shows up as empty element
         . S.map C.reverse      -- back to readable lines
@@ -43,21 +43,23 @@ readBackwards :: MonadIO m => Handle -> Q.ByteString m ()
 -- read the file backwards by characters, the handle must be seek-able
 readBackwards h = do
         size <- liftIO (hFileSize h)
-        mapM_ (\(l, a) -> reader l a h) $ locations size block
+        mapM_ (uncurry $ seeker h) $ locations size block
     where
-        block = 1024 :: Integer
+        block = 1024 * 32 :: Integer
 
-reader :: MonadIO m => Integer -> Int -> Handle -> Q.ByteString m ()
--- seek to the location, read amount bytes into a streaming bytestring
-reader location amount h = do
+seeker :: MonadIO m => Handle -> SeekPosition -> Int -> Q.ByteString m ()
+-- seek to the location, read 'amount' bytes into a streaming bytestring
+seeker h location amount = do
         liftIO (hSeek h AbsoluteSeek location)
         liftIO (C.reverse <$> C.hGetSome h amount) >>= Q.chunk
 
-locations :: Integer -> Integer -> [(Integer, Int)]
--- generate the range of seeks + amounts that we'll use with reader
+locations :: Integer -> Integer -> [(SeekPosition, Int)]
+-- generate the range of seeks + amounts that we'll use with seeker. these work
+-- backwards in steps of 'block' size, with a final smaller block if needed
 locations size block
-        | size < block = [(0, amount)]
-        | otherwise    = most <> [(0, rest)]
+        | size < block = [(0, fromIntegral size)]
+        | rest > 0     = most <> [(0, rest)]
+        | otherwise    = most
     where
         most = zip [size - block, size - block - block..0] (repeat amount)
         rest = fromIntegral $ size `mod` block

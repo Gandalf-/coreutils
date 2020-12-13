@@ -2,6 +2,8 @@
 
 module RevSpec where
 
+import qualified Data.ByteString.Char8           as C
+import qualified Data.ByteString.Streaming.Char8 as Q
 import Coreutils.Rev
 import Test.Hspec
 
@@ -9,16 +11,19 @@ spec :: Spec
 spec = do
         describe "rev" $
             it "empty" $
-                rev "" `shouldBe` ""
+                runRev "" `shouldReturn` ""
 
         describe "rev" $
             it "empty lines" $
-                rev "\n\n\n\n" `shouldBe` "\n\n\n\n"
+                runRev "\n\n\n\n" `shouldReturn` "\n\n\n\n"
 
         describe "rev" $
             it "simple" $
-                rev "abc\n" `shouldBe` "cba\n"
+                runRev "abc\n" `shouldReturn` "cba\n"
 
         describe "rev" $
             it "multiple lines" $
-                rev "abc\n123\nxyz\n" `shouldBe` "cba\n321\nzyx\n"
+                runRev "abc\n123\nxyz\n" `shouldReturn` "cba\n321\nzyx\n"
+
+runRev :: C.ByteString -> IO C.ByteString
+runRev = Q.toStrict_ . rev . Q.fromStrict
