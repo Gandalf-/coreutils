@@ -3,23 +3,7 @@
 root="$(dirname "${BASH_SOURCE[0]}")"/../..
 name=head
 real=/usr/bin/head
-
-test() {
-
-    local mine="$(
-        eval "timeout 1 stack exec utils -- $name ${@:2}" | md5sum
-    )"
-
-    local system="$(
-        eval "timeout 1 $real ${@:2}" | md5sum
-    )"
-
-    [[ "$mine" == "$system" ]] || {
-        echo "failure, $*"
-    }
-}
-
-cd "$root"
+source "$root"/test/integration/common.sh
 
 test 'file bytes' \
     -c 10 LICENSE
