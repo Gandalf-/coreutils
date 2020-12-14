@@ -36,6 +36,7 @@ library
     Coreutils.Cat
     Coreutils.Cut
     Coreutils.Echo
+    Coreutils.Env
     Coreutils.Head
     Coreutils.Nologin
     Coreutils.Pwd
@@ -61,6 +62,7 @@ library
     random,
     resourcet,
     containers,
+    process,
     text
 
 executable utils
@@ -100,6 +102,7 @@ test-suite test
 
   other-modules:
     CutSpec
+    EnvSpec
     SeqSpec
     RevSpec
     TacSpec

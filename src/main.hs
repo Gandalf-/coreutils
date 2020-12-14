@@ -7,6 +7,7 @@ import           System.Exit        (die)
 import           Coreutils.Cat      (Cat (..))
 import           Coreutils.Cut      (Cut (..))
 import           Coreutils.Echo     (Echo (..))
+import           Coreutils.Env      (Env (..))
 import           Coreutils.Head     (Head (..))
 import           Coreutils.Nologin  (Nologin (..))
 import           Coreutils.Pwd      (Pwd (..))
@@ -41,6 +42,7 @@ dispatch :: [String] -> IO ()
 dispatch ("cat":xs)     = run Cat xs
 dispatch ("cut":xs)     = run Cut xs
 dispatch ("echo":xs)    = run Echo xs
+dispatch ("env":xs)     = run Env xs
 dispatch ("head":xs)    = run Head xs
 dispatch ("nologin":xs) = run Nologin xs
 dispatch ("pwd":xs)     = run Pwd xs
@@ -64,6 +66,7 @@ usage = unlines $ ["", "usage:"] <> commands
             [ "cat"
             , "cut"
             , "echo"
+            , "env"
             , "head"
             , "nologin"
             , "pwd"
