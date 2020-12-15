@@ -73,10 +73,10 @@ runEnv os args = do
 
 getRuntime :: Options -> [String] -> Runtime
 -- apply all the parsers in order to create the runtime, 'what to do'
-getRuntime opts a1 =
+getRuntime opts args =
         uncurry argParser
         $ uncurry setParser
-        $ optParser base a1
+        $ optParser base args
     where
         base = Runtime [] Nothing opts
 
@@ -109,7 +109,7 @@ defaultOptions = Options {
 
 optionDesc :: [OptDescr (Options -> Either String Options)]
 optionDesc =
-    [ Option "i" ["ignore-environment"]
+    [ Option "i " ["ignore-environment"]
         (NoArg
             (\opt -> Right opt { optEmpty = True }))
         "start with an empty environment"

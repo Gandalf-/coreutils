@@ -30,6 +30,7 @@
 ## tr
 - [ ] Allows any range to be used as the second set when transposing characters. GNU tr
   only allows `lower` and `upper`.
+- [ ] Something unusual going on when `-c -d [:graph:]` on binary files
 
 ## which
 - [x] Should use the library path searching functions for efficiency, idiomaticity

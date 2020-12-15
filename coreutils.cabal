@@ -62,6 +62,7 @@ library
     random,
     resourcet,
     containers,
+    unordered-containers,
     process,
     text
 
