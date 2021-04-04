@@ -8,20 +8,17 @@ import Coreutils.Rev
 import Test.Hspec
 
 spec :: Spec
-spec = do
-        describe "rev" $
+spec =
+        describe "rev" $ do
             it "empty" $
                 runRev "" `shouldReturn` ""
 
-        describe "rev" $
             it "empty lines" $
                 runRev "\n\n\n\n" `shouldReturn` "\n\n\n\n"
 
-        describe "rev" $
             it "simple" $
                 runRev "abc\n" `shouldReturn` "cba\n"
 
-        describe "rev" $
             it "multiple lines" $
                 runRev "abc\n123\nxyz\n" `shouldReturn` "cba\n321\nzyx\n"
 

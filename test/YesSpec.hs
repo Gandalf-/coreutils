@@ -5,16 +5,14 @@ import Data.List.Split
 import Test.Hspec
 
 spec :: Spec
-spec = do
-        describe "align" $
+spec =
+        describe "align" $ do
             it "empty" $
                 correct "y"
 
-        describe "align" $
             it "short string" $
                 correct "hello"
 
-        describe "align" $
             it "long string" $ do
                 let long = replicate (block * 2) 'z'
                 correct long

@@ -46,21 +46,20 @@ spec = do
                 runDirect f "hello123" `shouldBe` "hello"
                 runDirect f "123" `shouldBe` ""
 
-        describe "translate" $
+        describe "translate" $ do
             it "all to one" $ do
                 let f = trTranslate "1234" "a"
                 runDirect f "hello" `shouldBe` "hello"
                 runDirect f "hello123" `shouldBe` "helloaaa"
                 runDirect f "123" `shouldBe` "aaa"
 
-        describe "translate" $
             it "all to two" $ do
                 let f = trTranslate "1234" "ab"
                 runDirect f "hello" `shouldBe` "hello"
                 runDirect f "hello123" `shouldBe` "helloabb"
                 runDirect f "123" `shouldBe` "abb"
 
-        describe "tr" $
+        describe "tr" $ do
             it "translate" $ do
                 run oTrans "1234" "a"
                     "hello123" "helloaaa"
@@ -74,7 +73,6 @@ spec = do
                 run oTrans "[:space:]" "-"
                     "hello there!" "hello-there!"
 
-        describe "tr" $
             it "delete" $ do
                 run oDelete "1234" ""
                     "hello123" "hello"
