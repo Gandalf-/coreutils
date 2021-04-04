@@ -2,6 +2,8 @@
 
 module Coreutils.Test where
 
+import           Control.Exception (IOException, catch)
+import           System.Directory
 import           Text.Parsec
 
 data Expr
@@ -12,7 +14,10 @@ data Expr
         | Sub Expr
     deriving (Show, Eq)
 
-data Op
+data Op = IoOp IoOp | PureOp PureOp
+    deriving (Show, Eq)
+
+data PureOp
         = StrEqual String String
         | StrNotEqual String String
         | StrLengthZero String
@@ -23,15 +28,19 @@ data Op
         | NumGe Double Double
         | NumLt Double Double
         | NumLe Double Double
-        | FileDir FilePath
+    deriving (Show, Eq)
+
+data IoOp
+        = FileDir FilePath
         | FileExists FilePath
         | FileRegular FilePath
         | FileSymbolic FilePath
-        | FileReadable FilePath
         | FileSizeNotZero FilePath
+        | FileReadable FilePath
         | FileWriteable FilePath
         | FileExecutable FilePath
     deriving (Show, Eq)
+
 
 sWord :: Stream s m Char => String -> ParsecT s u m ()
 sWord t = spaces >> string t >> spaces
@@ -41,6 +50,7 @@ word = many1 (noneOf " ()")
 
 number :: Parsec String () Double
 -- allows 1.2.3, which will blow up read
+-- doesn't allow negative numbers
 number = read <$> many1 (oneOf ('.': ['0'..'9']))
 
 double :: Stream s m Char =>
@@ -57,31 +67,31 @@ single tok sep op = try $ do
         op <$> tok
 
 stringOps :: Parsec String () Op
-stringOps =
-        double word "!=" StrNotEqual
-        <|> double word "=" StrEqual
-        <|> single word "-z" StrLengthZero
-        <|> single word "-n" StrLengthNotZero
+stringOps = PureOp <$> (
+            double word "!= " StrNotEqual
+        <|> double word "= "  StrEqual
+        <|> single word "-z " StrLengthZero
+        <|> single word "-n " StrLengthNotZero)
 
 numberOps :: Parsec String () Op
-numberOps =
-        double number "-eq" NumEqual
-        <|> double number "-ne" NumNotEqual
-        <|> double number "-gt" NumGt
-        <|> double number "-ge" NumGe
-        <|> double number "-lt" NumLt
-        <|> double number "-le" NumLe
+numberOps = PureOp <$> (
+            double number "-eq " NumEqual
+        <|> double number "-ne " NumNotEqual
+        <|> double number "-gt " NumGt
+        <|> double number "-ge " NumGe
+        <|> double number "-lt " NumLt
+        <|> double number "-le " NumLe)
 
 fileOps :: Parsec String () Op
-fileOps =
-        single word "-d" FileDir
-        <|> single word "-e" FileExists
-        <|> single word "-f" FileRegular
-        <|> single word "-L" FileSymbolic
-        <|> single word "-r" FileReadable
-        <|> single word "-s" FileSizeNotZero
-        <|> single word "-w" FileWriteable
-        <|> single word "-x" FileExecutable
+fileOps = IoOp <$> (
+            single word "-d " FileDir
+        <|> single word "-e " FileExists
+        <|> single word "-f " FileRegular
+        <|> single word "-L " FileSymbolic
+        <|> single word "-s " FileSizeNotZero
+        <|> single word "-r " FileReadable
+        <|> single word "-w " FileWriteable
+        <|> single word "-x " FileExecutable)
 
 condition :: Parsec String () Op
 condition = try stringOps <|> try numberOps <|> fileOps
@@ -90,20 +100,77 @@ expression :: Parsec String () Expr
 expression =
         try andE
         <|> try orE
+        <|> try nExpr
         <|> try pExpr
         <|> Single <$> condition
   where
-        pExpr = Sub <$> between (sWord "(") (sWord ")") expression
-
         andE = do
-            left <- Single <$> condition <|> pExpr
+            left <- Single <$> condition <|> nExpr <|> pExpr
             sWord "-a"
             And left <$> expression
 
         orE = do
-            left <- Single <$> condition <|> pExpr
+            left <- Single <$> condition <|> nExpr <|> pExpr
             sWord "-o"
             Or left <$> expression
 
+        pExpr = Sub <$> between (sWord "(") (sWord ")") expression
+        nExpr = do
+            sWord "! "
+            Not <$> expression
+
+executePureOp :: PureOp -> Bool
+executePureOp (StrEqual a b)        = a == b
+executePureOp (StrNotEqual a b)     = a /= b
+
+executePureOp (StrLengthZero "")    = True
+executePureOp (StrLengthZero _)     = False
+
+executePureOp (StrLengthNotZero "") = False
+executePureOp (StrLengthNotZero _)  = True
+
+executePureOp (NumEqual a b)        = a == b
+executePureOp (NumNotEqual a b)     = a /= b
+executePureOp (NumGt a b)           = a > b
+executePureOp (NumGe a b)           = a >= b
+executePureOp (NumLt a b)           = a < b
+executePureOp (NumLe a b)           = a <= b
+
+orFalse :: IO Bool -> IO Bool
+orFalse f = catch f false
+    where
+        false :: IOException -> IO Bool
+        false _ = pure False
+
+executeIoOp :: IoOp -> IO Bool
+executeIoOp (FileDir a)         = doesDirectoryExist a
+executeIoOp (FileExists a)      = doesFileExist a
+executeIoOp (FileRegular a)     = doesFileExist a -- TODO something else on Unix
+executeIoOp (FileSymbolic a)    = pathIsSymbolicLink a
+
+executeIoOp (FileSizeNotZero a) = orFalse ((> 0) <$> getFileSize a)
+executeIoOp (FileReadable a)    = orFalse (readable <$> getPermissions a)
+executeIoOp (FileWriteable a)   = orFalse (writable <$> getPermissions a)
+executeIoOp (FileExecutable a)  = orFalse (executable <$> getPermissions a)
+
+executeOp :: Op -> IO Bool
+executeOp (IoOp o)   = executeIoOp o
+executeOp (PureOp o) = pure $ executePureOp o
+
+execute :: Expr -> IO Bool
+-- run the commands! the result is a boolean, the exit code
+execute (Single o) = executeOp o
+execute (And a b) = do
+        ar <- execute a
+        if ar then execute b else pure False
+execute (Or a b) = do
+        ar <- execute a
+        if ar then pure True else execute b
+execute (Not a) = not <$> execute a
+execute (Sub a) = execute a
+
 testParse :: String -> Either ParseError Expr
 testParse = parse (expression <* eof) "test"
+
+test :: String -> Either ParseError (IO Bool)
+test s = execute <$> testParse s
