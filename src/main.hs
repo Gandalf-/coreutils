@@ -17,6 +17,7 @@ import           Coreutils.Sleep    (Sleep (..))
 import           Coreutils.Split    (Split (..))
 import           Coreutils.Tac      (Tac (..))
 import           Coreutils.Tee      (Tee (..))
+import           Coreutils.Test     (Test (..))
 import           Coreutils.Tr       (Tr (..))
 import           Coreutils.Uniq     (Uniq (..))
 import           Coreutils.Wc       (Wc (..))
@@ -52,6 +53,7 @@ dispatch ("sleep":xs)   = run Sleep xs
 dispatch ("split":xs)   = run Split xs
 dispatch ("tac":xs)     = run Tac xs
 dispatch ("tee":xs)     = run Tee xs
+dispatch ("test":xs)    = run Test xs
 dispatch ("tr":xs)      = run Tr xs
 dispatch ("uniq":xs)    = run Uniq xs
 dispatch ("wc":xs)      = run Wc xs
@@ -76,6 +78,7 @@ usage = unlines $ ["", "usage:"] <> commands
             , "split"
             , "tac"
             , "tee"
+            , "test"
             , "tr"
             , "uniq"
             , "wc"

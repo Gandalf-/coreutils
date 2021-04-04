@@ -4,6 +4,7 @@ import           Coreutils.Test
 import           Data.Either
 
 import           Test.Hspec
+import           Test.QuickCheck
 
 spec :: Spec
 spec = do
@@ -42,11 +43,12 @@ executeSpec = do
                 run "-r non-existant" False
                 run "-w src" True
                 run "-w non-existant" False
+                -- doesn't look like executable is platform agnostic
 
             it "file size" $
                 run "-s LICENSE" True
 
-        describe "compound" $ do
+        describe "execute compound" $ do
             it "not" $ do
                 run "! -e LICENSE" False
                 run "! -f LICENSE" False
@@ -77,11 +79,24 @@ run s e =
             (Left p)  -> expectationFailure (show p)
             (Right o) -> o `shouldReturn` e
 
+wrap :: String -> IO ()
+-- test run that fails on parse errors
+wrap s = do
+    let _ = testParse s
+    pure ()
+
 parseSpec :: Spec
 parseSpec = do
+        describe "number property" $
+            it "survives" $
+                property $ \x ->
+                    not (null (show (testParse x)))
+
         describe "strings" $ do
             it "valid" $ do
-                -- TODO can we parse "-z"?
+                testParse "-z" `shouldBe`
+                    Right (Single $ PureOp $ StrLengthZero "")
+
                 testParse "-z hello" `shouldBe`
                     Right (Single $ PureOp $ StrLengthZero "hello")
 
@@ -96,15 +111,28 @@ parseSpec = do
 
         describe "nums" $ do
             it "valid" $ do
-                -- TODO can we parse "-2"?
                 testParse "3.4  -eq  5" `shouldBe`
                     Right (Single $ PureOp $ NumEqual 3.4 5.0)
 
                 testParse "3   -gt  0" `shouldBe`
                     Right (Single $ PureOp $ NumGt 3 0)
 
-            it "invalid" $
+                testParse "3 -gt -5" `shouldBe`
+                    Right (Single $ PureOp $ NumGt 3 (-5))
+
+                testParse "3.034 -gt -5.1" `shouldBe`
+                    Right (Single $ PureOp $ NumGt 3.034 (-5.1))
+
+                testParse "3.034 -gt .1" `shouldBe`
+                    Right (Single $ PureOp $ NumGt 3.034 0.1)
+
+                testParse "3.034 -gt -.1" `shouldBe`
+                    Right (Single $ PureOp $ NumGt 3.034 (-0.1))
+
+            it "invalid" $ do
                 testParse "3.4-eq5" `shouldSatisfy` isLeft
+                testParse "3.4.3 -eq 5" `shouldSatisfy` isLeft
+                testParse "--4.3 -eq 5" `shouldSatisfy` isLeft
 
         describe "files" $ do
             it "valid" $ do

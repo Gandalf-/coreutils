@@ -3,8 +3,12 @@
 module Coreutils.Test where
 
 import           Control.Exception (IOException, catch)
+import           Control.Monad
 import           System.Directory
+import           System.Exit
 import           Text.Parsec
+
+import           Coreutils.Util
 
 data Expr
         = Single Op
@@ -41,6 +45,15 @@ data IoOp
         | FileExecutable FilePath
     deriving (Show, Eq)
 
+data Test = Test
+
+instance Util Test where
+    run _ args =
+        case test $ unwords args of
+            (Left msg)   -> die $ show msg
+            (Right exec) -> do
+                success <- exec
+                unless success exitFailure
 
 sWord :: Stream s m Char => String -> ParsecT s u m ()
 sWord t = spaces >> string t >> spaces
@@ -49,9 +62,27 @@ word :: Parsec String () String
 word = many1 (noneOf " ()")
 
 number :: Parsec String () Double
--- allows 1.2.3, which will blow up read
--- doesn't allow negative numbers
-number = read <$> many1 (oneOf ('.': ['0'..'9']))
+number = digits <|> do
+        _ <- char '-'
+        (* (-1)) <$> digits
+    where
+        digits = try fullDecimal
+            <|> halfDecimal
+            <|> (read <$> nums)
+
+        fullDecimal = do
+            l <- nums
+            _ <- char '.'
+            r <- nums
+            pure $ read $ l <> "." <> r
+
+        halfDecimal = do
+            _ <- char '.'
+            r <- nums
+            pure $ read $ "0." <> r
+
+nums :: Parsec String () String
+nums = many1 (oneOf ['0'..'9'])
 
 double :: Stream s m Char =>
     ParsecT s u m a1 -> String -> (a1 -> a1 -> a2) -> ParsecT s u m a2
@@ -66,12 +97,18 @@ single tok sep op = try $ do
         sWord sep
         op <$> tok
 
+
 stringOps :: Parsec String () Op
 stringOps = PureOp <$> (
             double word "!= " StrNotEqual
         <|> double word "= "  StrEqual
         <|> single word "-z " StrLengthZero
+        <|> emptyString
         <|> single word "-n " StrLengthNotZero)
+    where
+        emptyString = try $ do
+            sWord "-z"
+            pure $ StrLengthZero ""
 
 numberOps :: Parsec String () Op
 numberOps = PureOp <$> (

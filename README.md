@@ -24,6 +24,7 @@ Goals are:
 | sleep   | ✓         | ✓        | -    | -    | ✓     |
 | tac     | ✓         | 90       | ✓    | ✓    |       |
 | tee     | ✓         | ✓        | ✓    | ✓    | ✓     |
+| test    | ✓         | ✓        | ✓    | ✓    | ✓     |
 | tr      |           | 70       | 40   | 40   | 30    |
 | uniq    |           | 80       | 90   | ✓    |       |
 | wc      | ✓         | ✓        | ✓    | ✓    |       |
@@ -64,9 +65,13 @@ olleh
 
 This is the best option for trying things out without committing your entire
 shell to these implementations. The testing done is mostly thorough, but there's
-some crazy usage of the coreutils out in the wild. Things like `cat - - -` in
-build scripts. Who needs to read `stdin` three separate times? Things like this
-are hard to catch pre-emptively.
+some crazy usage of the coreutils out in the wild; like `cat - - -` in
+build scripts. Who needs to read `stdin` three separate times? The standard
+Haskell IO libraries make some sane assumptions that things like this don't
+happen, so this project has balance ugly workarounds with idomatic behavior.
+Where reasonable, idomatic is preferred. Further, this project relies on the
+Haskell IO libraries for platform independence - where they decided to simplify
+(permissions, file types), this project does also.
 
 ## Linux, FreeBSD, MacOS
 
