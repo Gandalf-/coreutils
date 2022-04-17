@@ -1,12 +1,16 @@
-{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module Coreutils.Shuf where
 
 import           Control.Monad
-import           GHC.Int                    (Int64)
+import           GHC.Int               (Int64)
+import           GHC.IO.Handle
 import           System.Console.GetOpt
 import           System.Exit
 import           System.IO
+import           System.Random
+import           System.Random.Shuffle
 
 import           Coreutils.Util
 
@@ -15,15 +19,14 @@ data Shuf = Shuf
 instance Util Shuf where
     run _ = shufMain
 
-data Runtime = RunRange (Int, Int) | RunFile
+data Runtime = RunRange (Int, Int) | RunFile | RunEcho
 
 data Options = Options
-        { optEcho   :: Bool
-        , optRuntime  :: Runtime
-        , optHead   :: Maybe Int
-        , optOutput :: Maybe FilePath
-        , optSource :: Maybe FilePath
-        , optRepeat :: Bool
+        { optRuntime :: Runtime
+        , optHead    :: Maybe Int
+        , optOutput  :: Maybe FilePath
+        , optSource  :: Maybe FilePath
+        , optRepeat  :: Bool
         }
 
 data File = File
@@ -32,6 +35,13 @@ data File = File
         , _filesize :: Maybe Int64
         }
 
+-- | Business logic
+simpleShuf :: StdGen -> [String] -> [String]
+simpleShuf g xs = shuffle' xs l g
+    where
+        l = length xs
+
+-- | IO
 shufMain :: [String] -> IO ()
 shufMain args = do
         let (actions, arguments, errors) = getOpt RequireOrder options args
@@ -39,26 +49,77 @@ shufMain args = do
         unless (null errors) $ do
             mapM_ putStr errors
             exitFailure
+        g <- getStdGen
 
         case foldM (flip id) defaults actions of
             Left   err -> die err
             Right opts ->
-                case optRuntime opts of
-                    RunRange r -> runRangeShuf opts r
-                    _          -> runfileShuf opts arguments
+                setupOutput opts
 
+data ShufBox = forall s. Shuffler s => SB s
+
+getShuffler :: Options -> [String] -> ShufBox
+getShuffler o args =
+    case optRuntime o of
+        RunEcho         -> SB $ LineShuf args
+        RunRange (l, h) -> SB $ RangeShuf l h
+        RunFile         -> undefined
+
+class Shuffler a where
+    shuf :: a -> StdGen -> [String]
+    validate :: a -> Maybe String
 
 runRangeShuf :: Options -> (Int, Int) -> IO ()
 runRangeShuf o (l, h) = undefined
 
+runArgShuf :: Options -> [String] -> IO ()
+runArgShuf o xs = runFileShuf o xs
 
-runfileShuf :: Options -> [FilePath] -> IO ()
-runfileShuf _ filenames = do
-        files <- case filenames of
-            [] -> (: []) <$> getFile "-"
-            fs -> mapM getFile fs
+runFileShuf :: Options -> [FilePath] -> IO ()
+runFileShuf _ filenames = do
+        file <- case filenames of
+            []    -> getFile "-"
+            (f:_) -> getFile f
         pure ()
 
+runShuf :: Shuffler a => a -> Options -> [String]
+runShuf a o = undefined
+    where
+        limiter = case optHead o of
+            Nothing  -> id
+            (Just l) -> take l
+
+data RangeShuf = RangeShuf Int Int
+
+instance Shuffler RangeShuf where
+    shuf (RangeShuf l h) =
+            map show . shuffle' vs size
+        where
+            vs = [l..h]
+            size = h - l + 1
+
+    validate (RangeShuf l h)
+        | l <= h = Nothing
+        | otherwise = Just "Invalid range"
+
+
+newtype LineShuf = LineShuf [String]
+
+instance Shuffler LineShuf where
+    shuf (LineShuf xs) = shuffle' xs size
+        where
+            size = length xs
+
+    validate _ = Nothing
+
+
+setupOutput :: Options -> IO ()
+-- maybe change where stdout points so we can just print everywhere else
+setupOutput o = case optOutput o of
+    Nothing  -> pure ()
+    (Just f) -> do
+        h <- openFile f WriteMode
+        hDuplicateTo h stdout
 
 getFile :: FilePath -> IO File
 -- take the filename, acquire a handle and determine it's size
@@ -77,8 +138,7 @@ readRange = undefined
 
 defaults :: Options
 defaults = Options
-        { optEcho = False
-        , optRuntime = RunFile
+        { optRuntime = RunFile
         , optHead = Nothing
         , optOutput = Nothing
         , optSource = Nothing
@@ -89,7 +149,7 @@ options :: [OptDescr (Options -> Either String Options)]
 options =
     [ Option "e" ["echo"]
         (NoArg
-            (\opt -> Right opt { optEcho = True }))
+            (\opt -> Right opt { optRuntime = RunEcho }))
         "treat each argument as an input line"
 
     , Option "i" ["input-range"]
