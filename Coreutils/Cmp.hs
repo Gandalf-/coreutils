@@ -7,10 +7,8 @@ import Control.Monad
 import           GHC.Int               (Int64)
 import           GHC.IO.Handle
 import qualified Data.ByteString as B
-import           Data.ByteString (ByteString)
 import           Text.Parsec
 import           System.Console.GetOpt
-import           System.Exit
 import           System.IO
 
 import           Coreutils.Util
@@ -18,36 +16,9 @@ import           Coreutils.Util
 data Cmp = Cmp
 
 instance Util Cmp where
-    run _ = cmpMain
+    run _ = undefined
 
-cmpMain :: [String] -> IO ()
-cmpMain = undefined
-
-cmpIO :: Options -> [String] -> IO ()
-cmpIO opts (p1: p2: s1: s2: _) =
-    case parseSkip (s1 <> ":" <> s2) of
-        Nothing  -> die $ "error: " <> s1 <> " is not a valid SKIP"
-        (Just s) -> cmpIO opts { optIgnore = s } [p1, p2]
-
-cmpIO opts [p1, p2, s1] =
-    case parseSkip s1 of
-        Nothing  -> die $ "error: " <> s1 <> " is not a valid SKIP"
-        (Just s) -> cmpIO opts { optIgnore = s } [p1, p2]
-
-cmpIO opts [p1, p2] = do
-    f1 <- getFile p1
-    f2 <- getFile p2
-    cmp opts f1 f2
-
-cmpIO opts [p1] = do
-    f1 <- getFile p1
-    f2 <- getFile "-"
-    cmp opts f1 f2
-
-cmpIO _ [] = die "missing first file"
-
-cmp :: Options -> File -> File -> IO ()
-cmp = undefined
+-- Core
 
 skipBytes :: Integer -> File -> IO ()
 skipBytes n (File h _ s) =
@@ -55,10 +26,34 @@ skipBytes n (File h _ s) =
         Nothing   -> void $ B.hGet h (fromIntegral n)
         (Just fs) -> hSeek h AbsoluteSeek (min (toInteger fs) n)
 
-cmpBlock :: Options -> ByteString -> ByteString -> IO ()
-cmpBlock = undefined
+-- Execute
 
--- IO
+execute :: Runtime -> IO ()
+execute r = do
+    _ <- applySkips r
+    pure ()
+
+applySkips :: Runtime -> IO Runtime
+applySkips r@(Runtime opts f1 f2) = do
+    skipBytes s1 f1
+    skipBytes s2 f2
+    pure r
+    where
+        (s1, s2) = optIgnore opts
+
+-- Runtime
+
+data Runtime = Runtime
+    { _runOptions :: Options
+    , _lfile :: File
+    , _rfile :: File
+    }
+
+getRuntime :: Config -> IO Runtime
+getRuntime (Config opts (f1, f2)) = do
+    fh1 <- getFile f1
+    fh2 <- getFile f2
+    pure $ Runtime opts fh1 fh2
 
 data File = File
     { _handle   :: Handle
@@ -76,34 +71,54 @@ getFile name = do
         False -> pure Nothing
     pure $ File h name size
 
--- Comparision
+-- Configuration
 
-data Cursor = Cursor
-    { cLine :: !Int
-    , cByte :: !Int
+data Config = Config
+    { _options :: Options
+    , _files :: (FilePath, FilePath)
     }
+    deriving (Show, Eq)
 
-sCompare :: ByteString -> ByteString -> [Result]
-sCompare = undefined
+getConfig :: [String] -> Either String Config
+getConfig args = do
+    let (actions, extras, errors) = getOpt RequireOrder options args
 
-data Result = Same | Different
+    unless (null errors) $ Left (unwords errors)
+    opts <- foldM (flip id) defaults actions
 
-{-
-wCompare :: Word8 -> Word8 -> Result
-wCompare l r
-    | l == r    = Same
-    | otherwise = Different
--}
+    case extras of
+        [f1, f2, s1, s2] -> do
+            skip1 <- readSkip s1
+            skip2 <- readSkip s2
+            Right $ Config opts { optIgnore = (skip1, skip2) } (f1, f2)
 
--- SKIP Parsing
+        [f1, f2, s1] -> do
+            skip <- readSkip s1
+            Right $ Config (updateOneSkip opts skip) (f1, f2)
+
+        [f1, f2]     -> Right $ Config opts (f1, f2)
+        [f1]         -> Right $ Config opts (f1, "-")
+        _            -> Left "at least one file is required"
+    where
+        updateOneSkip :: Options -> Integer -> Options
+        updateOneSkip o s1 = o { optIgnore = (s1, s2)}
+            where
+                (_, s2) = optIgnore o
+
+        readSkip :: String -> Either String Integer
+        readSkip s = case parseASkip s of
+            Nothing -> Left $ s <> " could not be parsed as SKIP"
+            (Just v) -> Right v
+
+-- Parsing
 
 suffix :: Parsec String () Integer
 suffix =
-        foldl (<|>) k
-            [ m, g, t, p, e, y
-            , kb, mb, gb, tb, pb, eb, yb
-            , pure 1 -- default multiplier if there wasn't a suffix
-            ]
+    foldl (<|>) k
+        [ m, g, t, p, e, y
+        , kb, mb, gb, tb, pb, eb, yb
+        , pure 1 -- default multiplier if there wasn't a suffix
+        ]
     where
         k  = string "K"  >> pure (1024 ^ 1)
         m  = string "M"  >> pure (1024 ^ 2)
@@ -131,7 +146,7 @@ bytes = do
 parseOneSkip :: Parsec String () (Integer, Integer)
 parseOneSkip = do
     s <- bytes
-    pure (s, s)
+    pure (s, 0)
 
 parseTwoSkips :: Parsec String () (Integer, Integer)
 parseTwoSkips = do
@@ -142,15 +157,22 @@ parseTwoSkips = do
 
 parseSkip :: String -> Maybe (Integer, Integer)
 parseSkip skip =
-        case parse (p <* eof) "cmp" skip of
-            (Left _)  -> Nothing
-            (Right t) -> Just t
+    case parse (p <* eof) "cmp" skip of
+        (Left _)  -> Nothing
+        (Right t) -> Just t
     where
         p = try parseTwoSkips <|> parseOneSkip
+
+parseASkip :: String -> Maybe Integer
+parseASkip skip =
+    case parse (parseOneSkip <* eof) "cmp" skip of
+        (Left _) -> Nothing
+        (Right (t, _)) -> Just t
 
 -- Options
 
 data Volume = Quiet | Normal | Verbose
+    deriving (Show, Eq)
 
 data Options = Options
     { optPrintBytes :: Bool
@@ -158,6 +180,7 @@ data Options = Options
     , optLimit :: Integer
     , optVolume :: Volume
     }
+    deriving (Show, Eq)
 
 defaults :: Options
 defaults = Options
@@ -186,8 +209,8 @@ options =
 
     , Option "n" ["bytes"]
         (ReqArg
-            (\arg opt -> case reads arg of
-              [(n, "")] -> Right opt { optLimit = n }
+            (\arg opt -> case parseASkip arg of
+              Just n -> Right opt { optLimit = n }
               _         -> Left $ "error: '" <> arg <> "' is not a number")
             "LIMIT")
         "compare at most LIMIT bytes"

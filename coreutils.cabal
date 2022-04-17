@@ -100,6 +100,7 @@ test-suite test
   build-depends:
     base >= 4.7 && < 5,
     coreutils,
+    directory,
     bytestring,
     streaming,
     streaming-bytestring,
