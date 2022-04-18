@@ -3,13 +3,17 @@
 
 module Coreutils.Cmp where
 
-import Control.Monad
+import           Control.Monad
+import qualified Data.ByteString as B
+import           Data.Char
+-- import  Data.ByteString (ByteString)
+import           Data.Word             (Word8)
 import           GHC.Int               (Int64)
 import           GHC.IO.Handle
-import qualified Data.ByteString as B
-import           Text.Parsec
+import           Numeric
 import           System.Console.GetOpt
 import           System.IO
+import           Text.Parsec
 
 import           Coreutils.Util
 
@@ -20,13 +24,62 @@ instance Util Cmp where
 
 -- Core
 
+data Side = SL | SR
+
+pad :: Side -> Int -> String -> String
+pad SL n x = replicate (n - length x) ' ' ++ x
+pad SR n x = x ++ replicate (n - length x) ' '
+
 skipBytes :: Integer -> File -> IO ()
 skipBytes n (File h _ s) =
     case s of
         Nothing   -> void $ B.hGet h (fromIntegral n)
         (Just fs) -> hSeek h AbsoluteSeek (min (toInteger fs) n)
 
+byteValue :: Word8 -> String
+byteValue = pad SL 3 . flip showOct ""
+
+bytePrint :: Word8 -> String
+-- https://opensource.apple.com/source/gnudiff/gnudiff-10/diffutils/cmp.c.auto.html
+bytePrint b
+    | b >= 32 && b <= 126 = chr (fromIntegral b) : ""
+    | b >= 128            = "M-" <> bytePrint (b - 128)
+    | b < 32              = "^"  <> bytePrint (b + 64)
+    | b == 127            = "^?"
+    | otherwise           = undefined
+
+showWord :: Bool -> Word8 -> String
+showWord False b = byteValue b
+showWord True  b = byteValue b <> " " <> pad SR 4 (bytePrint b)
+
+{-
+showDifference :: Volume -> Integer -> (Word8 -> String) -> Word8 -> Word8 -> String
+showDifference Quiet  _ _ _ _ = ""
+showDifference Normal i s l r = unwords [show i, s l, s r]
+-}
+
 -- Execute
+
+data Executor = Executor
+    { _ldata :: B.ByteString
+    , _lname :: FilePath
+    , _rdata :: B.ByteString
+    , _rname :: FilePath
+    , _same  :: Bool
+    , _index :: Integer
+    , _limit :: Integer
+    }
+
+getExecutor :: Runtime -> IO Executor
+getExecutor r = do
+    (Runtime opts lf rf) <- applySkips r
+    let (File lh lname _) = lf
+    let (File rh rname _) = rf
+    ldata <- B.hGetContents lh
+    rdata <- B.hGetContents rh
+    pure $ Executor ldata lname rdata rname True 0 (optLimit opts)
+
+-- Runtime
 
 execute :: Runtime -> IO ()
 execute r = do
@@ -40,8 +93,6 @@ applySkips r@(Runtime opts f1 f2) = do
     pure r
     where
         (s1, s2) = optIgnore opts
-
--- Runtime
 
 data Runtime = Runtime
     { _runOptions :: Options

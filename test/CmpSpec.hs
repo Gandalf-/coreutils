@@ -1,7 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
 module CmpSpec (spec) where
 
 import Coreutils.Cmp
 
+import qualified Data.ByteString as B
+import           Data.Word             (Word8)
+import Numeric
 import Control.Monad
 import Test.Hspec
 import Data.Either
@@ -98,9 +102,49 @@ spec = do
             d2 <- hGetContents $ _handle $ _rfile r
             d2 `shouldBe` "c"
 
+    describe "pad" $
+        it "works" $ do
+            pad SL 1 "1"  `shouldBe` "1"
+            pad SL 3 "1"  `shouldBe` "  1"
+            pad SL 3 "11" `shouldBe` " 11"
+            pad SR 1 "1"  `shouldBe` "1"
+            pad SR 3 "1"  `shouldBe` "1  "
+            pad SR 3 "11" `shouldBe` "11 "
+
+    describe "byte value" $
+        it "octal" $ do
+            getByteValue " " `shouldBe` " 40"
+            getByteValue "n" `shouldBe` "156"
+
+    describe "byte print" $
+        it "cat -t" $ do
+            helpBytePrint 40  `shouldBe` " "
+            helpBytePrint 112 `shouldBe` "J"
+            helpBytePrint 323 `shouldBe` "M-S"
+            helpBytePrint 370 `shouldBe` "M-x"
+            helpBytePrint   0 `shouldBe` "^@"
+            helpBytePrint   4 `shouldBe` "^D"
+            helpBytePrint 177 `shouldBe` "^?"
+
+    describe "showByte" $
+        it "works" $ do
+            showWord False (B.head " ") `shouldBe` " 40"
+            showWord False (B.head "n") `shouldBe` "156"
+
+            showWord True (B.head " ") `shouldBe` " 40     "
+            showWord True (B.head "n") `shouldBe` "156 n   "
+            showWord True 127          `shouldBe` "177 ^?  "
+
     where
         config = getConfig . words
         runBase = Config defaults
+
+        getByteValue = byteValue . B.head
+
+        helpBytePrint :: Integer -> String
+        helpBytePrint i = bytePrint b
+            where
+                [(b, _)] = readOct $ show i
 
 setupRuntime :: String -> String -> Options -> IO Runtime
 setupRuntime d1 d2 opts = do
