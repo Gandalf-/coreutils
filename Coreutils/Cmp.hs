@@ -52,12 +52,6 @@ showWord :: Bool -> Word8 -> String
 showWord False b = byteValue b
 showWord True  b = byteValue b <> " " <> pad SR 4 (bytePrint b)
 
-{-
-showDifference :: Volume -> Integer -> (Word8 -> String) -> Word8 -> Word8 -> String
-showDifference Quiet  _ _ _ _ = ""
-showDifference Normal i s l r = unwords [show i, s l, s r]
--}
-
 -- Execute
 
 data Executor = Executor
@@ -65,9 +59,10 @@ data Executor = Executor
     , _lname :: FilePath
     , _rdata :: B.ByteString
     , _rname :: FilePath
+    , _limit :: Integer
     , _same  :: Bool
     , _index :: Integer
-    , _limit :: Integer
+    , _lines :: Integer
     }
 
 getExecutor :: Runtime -> IO Executor
@@ -77,7 +72,7 @@ getExecutor r = do
     let (File rh rname _) = rf
     ldata <- B.hGetContents lh
     rdata <- B.hGetContents rh
-    pure $ Executor ldata lname rdata rname True 0 (optLimit opts)
+    pure $ Executor ldata lname rdata rname (optLimit opts) True 0 0
 
 -- Runtime
 
