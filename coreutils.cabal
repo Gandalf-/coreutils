@@ -46,6 +46,7 @@ library
     Coreutils.Shuf
     Coreutils.Sleep
     Coreutils.Split
+    Coreutils.Sponge
     Coreutils.Tac
     Coreutils.Tee
     Coreutils.Test

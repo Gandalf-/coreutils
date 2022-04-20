@@ -1,5 +1,20 @@
 #!/bin/bash
 
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+expect() {
+    grep -q "$1" ||
+        die "stdin didn't contain $1"
+}
+
+expect-file() {
+    [[ "$( cat "$1" )" == $2 ]] ||
+        die "$1 didn't contain $2"
+}
+
 test() {
 
     local mine="$(

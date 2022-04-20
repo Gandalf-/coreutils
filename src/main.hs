@@ -15,6 +15,7 @@ import           Coreutils.Rev      (Rev (..))
 import           Coreutils.Seq      (Seq (..))
 import           Coreutils.Sleep    (Sleep (..))
 import           Coreutils.Split    (Split (..))
+import           Coreutils.Sponge   (Sponge (..))
 import           Coreutils.Tac      (Tac (..))
 import           Coreutils.Tee      (Tee (..))
 import           Coreutils.Test     (Test (..))
@@ -51,6 +52,7 @@ dispatch ("rev":xs)     = run Rev xs
 dispatch ("seq":xs)     = run Seq xs
 dispatch ("sleep":xs)   = run Sleep xs
 dispatch ("split":xs)   = run Split xs
+dispatch ("sponge":xs)  = run Sponge xs
 dispatch ("tac":xs)     = run Tac xs
 dispatch ("tee":xs)     = run Tee xs
 dispatch ("test":xs)    = run Test xs
@@ -76,6 +78,7 @@ usage = unlines $ ["", "usage:"] <> commands
             , "seq"
             , "sleep"
             , "split"
+            , "sponge"
             , "tac"
             , "tee"
             , "test"
