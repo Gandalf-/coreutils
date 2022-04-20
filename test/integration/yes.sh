@@ -13,3 +13,5 @@ test 'string' \
 
 test 'long' \
     '$(cat LICENSE) | head -n 50'
+
+echo "yes tests complete"

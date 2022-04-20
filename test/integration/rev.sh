@@ -17,3 +17,5 @@ test 'stdin' \
 skip "GNU rev doesn't support this" \
 test 'stdin dash' \
     '- < LICENSE'
+
+echo "rev tests complete"

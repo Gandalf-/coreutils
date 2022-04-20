@@ -57,3 +57,5 @@ test 'stdin overflow negative lines' \
 
 test 'multiple files lines' \
     -n 10 LICENSE README.md stack.yaml
+
+echo "head tests complete"

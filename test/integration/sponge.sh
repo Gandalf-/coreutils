@@ -76,3 +76,5 @@ sponge < "$f" "$f"
 after="$( sha256sum "$f" )"
 [[ "$before" == $after ]] ||
     die "$f corrupted writing binary data to itself"
+
+echo "sponge tests complete"
