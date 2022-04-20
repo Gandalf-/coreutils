@@ -8,22 +8,14 @@ spec :: Spec
 spec =
         -- happy path
         describe "parse" $ do
-            it "seconds" $
+            it "seconds" $ do
                 parse "1" `shouldBe` Just 1
-
-            it "seconds" $
                 parse "1238" `shouldBe` Just 1238
-
-            it "seconds" $
                 parse "1s" `shouldBe` Just 1
-
-            it "seconds" $
                 parse "1238s" `shouldBe` Just 1238
 
-            it "minutes" $
+            it "minutes" $ do
                 parse "1m" `shouldBe` Just 60
-
-            it "minutes" $
                 parse "3m" `shouldBe` Just 180
 
             it "days" $
@@ -39,8 +31,6 @@ spec =
                 parse ".5" `shouldBe` Just 0.5
 
             -- errors
-            it "junk" $
+            it "junk" $ do
                 parse "1z" `shouldBe` Nothing
-
-            it "junk" $
                 parse "junk" `shouldBe` Nothing
