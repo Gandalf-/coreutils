@@ -40,6 +40,7 @@
 - [X] No memory efficient implementation for 'tail' ranges like `-n -5`
     - this is possible, but requires some clever fseek'ing, and is impossible for stdin
 - [X] Needs tests
+- [ ] Doesn't suppport byte suffixes like MB, K
 
 ## rev
 - [X] Doesn't read files from the argument list

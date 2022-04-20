@@ -10,6 +10,17 @@ expect() {
         die "stdin didn't contain $1"
 }
 
+expect-not() {
+    grep -v -q "$1" ||
+        die "stdin unexpectedly contained $1"
+}
+
+expect-empty() {
+   out="$( sha1sum )"
+   [[ "$out" =~ da39a3ee5e6b4b0d3255bfef95601890afd80709 ]] ||
+        die "stdin wasn't empty"
+}
+
 expect-file() {
     [[ "$( cat "$1" )" == $2 ]] ||
         die "$1 didn't contain $2"
