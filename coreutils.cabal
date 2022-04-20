@@ -43,7 +43,7 @@ library
     Coreutils.Pwd
     Coreutils.Rev
     Coreutils.Seq
-    Coreutils.Shuf
+    -- Coreutils.Shuf
     Coreutils.Sleep
     Coreutils.Split
     Coreutils.Sponge
@@ -121,7 +121,7 @@ test-suite test
     TestSpec
     TrSpec
     WcSpec
-    ShufSpec
+    -- ShufSpec
     SleepSpec
     SplitSpec
     YesSpec
