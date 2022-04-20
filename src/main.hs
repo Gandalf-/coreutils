@@ -6,6 +6,7 @@ import           System.Exit        (die)
 
 import           Coreutils.Cat      (Cat (..))
 import           Coreutils.Cut      (Cut (..))
+import           Coreutils.Dirname  (Dirname (..))
 import           Coreutils.Echo     (Echo (..))
 import           Coreutils.Env      (Env (..))
 import           Coreutils.Head     (Head (..))
@@ -43,6 +44,7 @@ choose name
 dispatch :: [String] -> IO ()
 dispatch ("cat":xs)     = run Cat xs
 dispatch ("cut":xs)     = run Cut xs
+dispatch ("dirname":xs) = run Dirname xs
 dispatch ("echo":xs)    = run Echo xs
 dispatch ("env":xs)     = run Env xs
 dispatch ("head":xs)    = run Head xs
@@ -69,6 +71,7 @@ usage = unlines $ ["", "usage:"] <> commands
         commands = map (\c -> "  " <> c) $ sort
             [ "cat"
             , "cut"
+            , "dirname"
             , "echo"
             , "env"
             , "head"

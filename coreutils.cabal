@@ -36,6 +36,7 @@ library
     Coreutils.Cat
     Coreutils.Cmp
     Coreutils.Cut
+    Coreutils.Dirname
     Coreutils.Echo
     Coreutils.Env
     Coreutils.Head
@@ -115,6 +116,7 @@ test-suite test
     CmpSpec
     CutSpec
     EnvSpec
+    DirnameSpec
     SeqSpec
     RevSpec
     TacSpec
