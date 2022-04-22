@@ -16,7 +16,7 @@ sponge() {
 }
 
 
-test_help() {
+ptest_help() {
     sponge -h | expect "^sponge:"
     sponge --help | expect "^sponge:"
 }

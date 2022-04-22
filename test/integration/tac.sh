@@ -71,7 +71,7 @@ EOF
     expect-file "$f" "$( tac "$f" | tac )" 'preceding newline file tac'
 }
 
-test_no_newline_stdin_tac() {
+ptest_no_newline_stdin_tac() {
     equal \
     "$( echo -n hello | sha1sum )" \
     "$( echo -n hello | tac | sha1sum )" \

@@ -64,6 +64,7 @@ run_tests() {
     local suite="$1"
     local executed=0
     local failures=0
+    declare -A pids
 
     while read -r t; do
         case "$t" in
@@ -75,8 +76,21 @@ run_tests() {
                     echo "\tfailure: ${name//_/ }"
                 }
             ;;
+            ptest_*)
+                (( executed++ ))
+                local name="${t/test_/}"
+                ( $t >/dev/null 2>&1 ) &
+                pids[$!]="${name//_/ }"
+            ;;
         esac
     done < <( declare -F | awk '{ print $3 }' )
+
+    for pid in "${!pids[@]}"; do
+        wait "$pid" || {
+            (( failures++ ))
+            echo "\tfailure: ${pids[$pid]}"
+        }
+    done
 
     printf '%s\tpass: %3d fail: %3d\n' \
         "$suite" \

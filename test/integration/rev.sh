@@ -5,15 +5,15 @@ name=rev
 real=/usr/bin/rev
 source "$root"/test/integration/common.sh
 
-test_single_file() {
+ptest_single_file() {
     compare 'LICENSE'
 }
 
-test_multiple_files() {
+ptest_multiple_files() {
     compare 'LICENSE stack.yaml'
 }
 
-test_stdin() {
+ptest_stdin() {
     compare '< LICENSE'
 }
 
