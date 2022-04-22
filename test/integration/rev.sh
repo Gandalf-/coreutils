@@ -5,17 +5,16 @@ name=rev
 real=/usr/bin/rev
 source "$root"/test/integration/common.sh
 
-test 'single file' \
-    'LICENSE'
+test_single_file() {
+    compare 'LICENSE'
+}
 
-test 'multiple files' \
-    'LICENSE stack.yaml'
+test_multiple_files() {
+    compare 'LICENSE stack.yaml'
+}
 
-test 'stdin' \
-    '< LICENSE'
+test_stdin() {
+    compare '< LICENSE'
+}
 
-skip "GNU rev doesn't support this" \
-test 'stdin dash' \
-    '- < LICENSE'
-
-echo "rev tests complete"
+run_tests rev

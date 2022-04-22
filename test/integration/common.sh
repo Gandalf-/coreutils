@@ -53,6 +53,10 @@ test() {
     }
 }
 
+compare() {
+    test "${FUNCNAME[1]}" "$@"
+}
+
 skip() {
     :
 }
