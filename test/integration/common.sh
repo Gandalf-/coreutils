@@ -57,4 +57,25 @@ skip() {
     :
 }
 
+run_tests() {
+    local suite="$1"
+    local executed=0
+    local failures=0
+
+    while read -r t; do
+        case "$t" in
+            test_*)
+                (( executed++ ))
+                ( $t >/dev/null 2>&1 ) || {
+                    (( failures++ ))
+                    local name="${t/test_/}"
+                    echo "\tfailure: ${name//_/ }"
+                }
+            ;;
+        esac
+    done < <( declare -F | awk '{ print $3 }' )
+
+    echo "$suite tests complete pass: $(( executed - failures )) fail: $failures"
+}
+
 cd "$root"

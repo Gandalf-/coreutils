@@ -13,76 +13,77 @@ tac() {
 }
 
 
-# basic stdin tac
-cat > "$f" << EOF
+test_basic_stdin_tac() {
+    cat > "$f" << EOF
 a
 b
 c
 EOF
-expect-file "$f" "$( tac < "$f" | tac )" 'basic stdin tac'
+    expect-file "$f" "$( tac < "$f" | tac )" 'basic stdin tac'
+}
 
-
-# basic file tac
-cat > "$f" << EOF
+test_basic_file_tac() {
+    cat > "$f" << EOF
 a
 b
 c
 EOF
-expect-file "$f" "$( tac "$f" | tac )" 'basic file tac'
+    expect-file "$f" "$( tac "$f" | tac )" 'basic file tac'
+}
 
-
-# trailing newline stdin tac
-cat > "$f" << EOF
-a
-b
-c
-
-EOF
-expect-file "$f" "$( tac < "$f" | tac )" 'trailing newline stdin tac'
-
-
-# trailing newline file tac
-cat > "$f" << EOF
+test_trailing_newline_stdin_tac() {
+    cat > "$f" << EOF
 a
 b
 c
 
 EOF
-expect-file "$f" "$( tac "$f" | tac )" 'trailing newline file tac'
+    expect-file "$f" "$( tac < "$f" | tac )" 'trailing newline stdin tac'
+}
 
+test_trailing_newline_file_tac() {
+    cat > "$f" << EOF
+a
+b
+c
 
-# preceding newline stdin tac
-cat > "$f" << EOF
+EOF
+    expect-file "$f" "$( tac "$f" | tac )" 'trailing newline file tac'
+}
+
+test_preceding_newline_stdin_tac() {
+    cat > "$f" << EOF
 
 a
 b
 c
 EOF
-expect-file "$f" "$( tac < "$f" | tac )" 'preceding newline stdin tac'
+    expect-file "$f" "$( tac < "$f" | tac )" 'preceding newline stdin tac'
+}
 
-
-# preceding newline file tac
-cat > "$f" << EOF
+test_preceding_newline_file_tac() {
+    cat > "$f" << EOF
 
 a
 b
 c
 EOF
-expect-file "$f" "$( tac "$f" | tac )" 'preceding newline file tac'
+    expect-file "$f" "$( tac "$f" | tac )" 'preceding newline file tac'
+}
+
+test_no_newline_stdin_tac() {
+    equal \
+    "$( echo -n hello | sha1sum )" \
+    "$( echo -n hello | tac | sha1sum )" \
+    'no newline stdin tac'
+}
+
+test_binary_stdin_tac() {
+    a="$( head -c 10 /dev/urandom | tee "$f" | tac | tac | sha1sum | awk '{print $1}' )"
+    b="$( sha1sum "$f" | awk '{print $1}' )"
+
+    [[ "$a" == "$b" ]] || die "before $a != after $b"
+}
 
 
-# no newline stdin tac
-equal \
-  "$( echo -n hello | sha1sum )" \
-  "$( echo -n hello | tac | sha1sum )" \
-  'no newline stdin tac'
-
-
-# binary stdin tac
-a="$( head -c 10 /dev/urandom | tee "$f" | tac | tac | sha1sum | awk '{print $1}' )"
-b="$( sha1sum "$f" | awk '{print $1}' )"
-
-[[ "$a" == "$b" ]] || die "before $a != after $b"
-
-
-echo "tac tests complete"
+run_tests tac
