@@ -5,57 +5,75 @@ name=head
 real=/usr/bin/head
 source "$root"/test/integration/common.sh
 
-test 'file bytes' \
-    -c 10 LICENSE
+test_file_bytes() {
+    compare -c 10 LICENSE
+}
 
-test 'file negative bytes' \
-    -c -10 LICENSE
+test_file_negative_bytes() {
+    compare -c -10 LICENSE
+}
 
-test 'file lines' \
-    -n 10 LICENSE
+test_file_lines() {
+    compare -n 10 LICENSE
+}
 
-test 'file negative lines' \
-    -n -10 LICENSE
+test_file_negative_lines() {
+    compare -n -10 LICENSE
+}
 
-test 'file overflow bytes' \
-    -c 10000 LICENSE
+test_file_overflow_bytes() {
+    compare -c 10000 LICENSE
+}
 
-test 'file overflow negative bytes' \
-    -c -10000 LICENSE
+test_file_overflow_negative_bytes() {
+    compare -c -10000 LICENSE
+}
 
-test 'file overflow lines' \
-    -n 10000 LICENSE
+test_file_overflow_lines() {
+    compare -n 10000 LICENSE
+}
 
-test 'file overflow negative lines' \
-    -n -10000 LICENSE
-
-
-test 'stdin bytes' \
-    -c 10 \< LICENSE
-
-test 'stdin negative bytes' \
-    -c -10 \< LICENSE
-
-test 'stdin lines' \
-    -n 10 \< LICENSE
-
-test 'stdin negative lines' \
-    -n -10 \< LICENSE
-
-test 'stdin overflow bytes' \
-    -c 10000 \< LICENSE
-
-test 'stdin overflow negative bytes' \
-    -c -10000 \< LICENSE
-
-test 'stdin overflow lines' \
-    -n 10000 \< LICENSE
-
-test 'stdin overflow negative lines' \
-    -n -10000 \< LICENSE
+test_file_overflow_negative_lines() {
+    compare -n -10000 LICENSE
+}
 
 
-test 'multiple files lines' \
-    -n 10 LICENSE README.md stack.yaml
+test_stdin_bytes() {
+    compare -c 10 \< LICENSE
+}
 
-echo "head tests complete"
+test_stdin_negative_bytes() {
+    compare -c -10 \< LICENSE
+}
+
+test_stdin_lines() {
+    compare -n 10 \< LICENSE
+}
+
+test_stdin_negative_lines() {
+    compare -n -10 \< LICENSE
+}
+
+test_stdin_overflow_bytes() {
+    compare -c 10000 \< LICENSE
+}
+
+test_stdin_overflow_negative_bytes() {
+    compare -c -10000 \< LICENSE
+}
+
+test_stdin_overflow_lines() {
+    compare -n 10000 \< LICENSE
+}
+
+test_stdin_overflow_negative_lines() {
+    compare -n -10000 \< LICENSE
+}
+
+
+test_multiple_files_lines() {
+    compare -n 10 LICENSE README.md stack.yaml
+}
+
+
+run_tests head

@@ -30,8 +30,7 @@ equal() {
     [[ "$1" == "$2" ]] || die "$1 !=\n$2, $3"
 }
 
-test() {
-
+_compare() {
     local mine="$(
         eval "timeout 1 stack exec utils -- $name ${@:2}" | md5sum
     )"
@@ -54,7 +53,7 @@ test() {
 }
 
 compare() {
-    test "${FUNCNAME[1]}" "$@"
+    _compare "${FUNCNAME[1]}" "$@"
 }
 
 skip() {
@@ -79,7 +78,10 @@ run_tests() {
         esac
     done < <( declare -F | awk '{ print $3 }' )
 
-    echo "$suite tests complete pass: $(( executed - failures )) fail: $failures"
+    printf '%s\tpass: %3d fail: %3d\n' \
+        "$suite" \
+        $(( executed - failures )) \
+        $failures
 }
 
 cd "$root"

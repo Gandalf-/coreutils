@@ -7,7 +7,6 @@ for t in "$root"/test/integration/*.sh; do
     case $t in
         *runner.sh|*common.sh) ;;
         *)
-            echo -n "running $( basename $t )...\t"
             bash "$t"
         ;;
     esac
