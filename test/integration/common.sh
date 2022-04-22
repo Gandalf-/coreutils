@@ -23,7 +23,11 @@ expect-empty() {
 
 expect-file() {
     [[ "$( cat "$1" )" == $2 ]] ||
-        die "$1 didn't contain $2"
+        die "$1 didn't contain $2, $3"
+}
+
+equal() {
+    [[ "$1" == "$2" ]] || die "$1 !=\n$2, $3"
 }
 
 test() {

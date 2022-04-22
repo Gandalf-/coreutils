@@ -28,12 +28,11 @@ tacMain args
         switch path = liftIO (withFile path ReadMode (Q.stdout . fileTac))
 
 stdinTac :: IO ()
-stdinTac = unlines . reverse . lines <$> getContents >>= putStr
+stdinTac = C.unlines . reverse . C.lines <$> C.getContents >>= C.putStr
 
 fileTac :: MonadIO m => Handle -> Q.ByteString m ()
 fileTac = Q.unlines            -- Q.ByteString m ()
         . S.subst Q.chunk      -- Stream (Q.ByteString m) m ()
-        . S.dropWhile C.null   -- final newline shows up as empty element
         . S.map C.reverse      -- back to readable lines
         . mapped Q.toStrict    -- Stream (Of C.ByteString) m ()
         . Q.lines              -- Stream (Q.ByteString m) m ()
