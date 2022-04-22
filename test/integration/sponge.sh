@@ -15,66 +15,68 @@ sponge() {
         die "sponge exited with $?"
 }
 
-# help
-sponge -h | expect "^sponge:"
-sponge --help | expect "^sponge:"
 
+test_help() {
+    sponge -h | expect "^sponge:"
+    sponge --help | expect "^sponge:"
+}
 
-# writing to stdout
-echo hello > "$f"
-sponge < "$f" | expect hello
+test_writing_to_stdout() {
+    echo hello > "$f"
+    sponge < "$f" | expect hello
+}
 
+test_writing_to_a_file() {
+    echo hello > "$f"
+    sponge < "$f" "$f"
+    expect-file "$f" hello
+}
 
-# writing to a file
-echo hello > "$f"
-sponge < "$f" "$f"
-expect-file "$f" hello
+test_writing_to_a_multiple_files() {
+    echo hello > "$f"
+    sponge < "$f" "$f" "$g" "$h"
+    expect-file "$f" hello
+    expect-file "$g" hello
+    expect-file "$h" hello
+}
 
+test_pipeline() {
+    echo hello > "$f"
+    sed -e 's/l/o/g' "$f" | sponge "$f"
+    expect-file "$f" heooo
+}
 
-# writing to a multiple files
-echo hello > "$f"
-sponge < "$f" "$f" "$g" "$h"
-expect-file "$f" hello
-expect-file "$g" hello
-expect-file "$h" hello
-
-
-# pipeline
-echo hello > "$f"
-sed -e 's/l/o/g' "$f" | sponge "$f"
-expect-file "$f" heooo
-
-
-# multiline pipeline
-cat > "$f" << EOF
+test_multiline_pipeline() {
+    cat > "$f" << EOF
 apple
 sauce
 blue
 berry
 EOF
-sed -e 's/sauce/pie/g' "$f" | grep 'blue' | sponge "$f"
-expect-file "$f" blue
+    sed -e 's/sauce/pie/g' "$f" | grep 'blue' | sponge "$f"
+    expect-file "$f" blue
+}
 
+test_binary_pipeline() {
+    head -c 100 /dev/urandom > "$f"
+    before="$( sha256sum "$f" )"
 
-# binary pipeline
-head -c 100 /dev/urandom > "$f"
-before="$( sha256sum "$f" )"
+    sponge < "$f" "$f"
 
-sponge < "$f" "$f"
+    after="$( sha256sum "$f" )"
+    [[ "$before" == $after ]] ||
+        die "$f corrupted writing binary data to itself"
+}
 
-after="$( sha256sum "$f" )"
-[[ "$before" == $after ]] ||
-    die "$f corrupted writing binary data to itself"
+test_large_binary_pipeline() {
+    head -c $(( 5 * 1024 * 1024 )) /dev/urandom > "$f"
+    before="$( sha256sum "$f" )"
 
+    sponge < "$f" "$f"
 
-# large binary pipeline
-head -c $(( 5 * 1024 * 1024 )) /dev/urandom > "$f"
-before="$( sha256sum "$f" )"
+    after="$( sha256sum "$f" )"
+    [[ "$before" == $after ]] ||
+        die "$f corrupted writing binary data to itself"
+}
 
-sponge < "$f" "$f"
-
-after="$( sha256sum "$f" )"
-[[ "$before" == $after ]] ||
-    die "$f corrupted writing binary data to itself"
-
-echo "sponge tests complete"
+run_tests sponge
