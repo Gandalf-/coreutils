@@ -5,13 +5,16 @@ name=yes
 real=/usr/bin/yes
 source "$root"/test/integration/common.sh
 
-test 'empty' \
-    '| head -n 50'
+test_empty() {
+    compare '| head -n 50'
+}
 
-test 'string' \
-    'hello | head -n 50'
+test_string() {
+    compare 'hello | head -n 50'
+}
 
-test 'long' \
-    '$(cat LICENSE) | head -n 50'
+test_long() {
+    compare '$(cat LICENSE) | head -n 50'
+}
 
-echo "yes tests complete"
+run_tests yes
