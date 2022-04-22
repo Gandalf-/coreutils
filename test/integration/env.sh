@@ -8,9 +8,6 @@ env() {
         die "env unexpected exited with $?"
 }
 
-f="file.txt"
-cleanup() { rm -f "$f"; }
-trap cleanup EXIT
 
 ptest_empty_environment() {
     env - | expect-empty
@@ -48,6 +45,7 @@ ptest_change_working_directory() {
 }
 
 ptest_multiple_variables() {
+    temp f
     env -i APPLE=1 BLUEBERRY=2 > "$f"
     expect-file "$f" "APPLE=1
 BLUEBERRY=2"

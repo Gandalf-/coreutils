@@ -3,13 +3,6 @@
 root="$(dirname "${BASH_SOURCE[0]}")"/../..
 source "$root"/test/integration/common.sh
 
-f="file.txt"
-g="file.jpg"
-h="file.png"
-
-function cleanup() { rm -f "$f" "$g" "$h"; }
-trap cleanup EXIT
-
 sponge() {
     stack exec -- utils sponge "$@" ||
         die "sponge exited with $?"
@@ -21,18 +14,21 @@ ptest_help() {
     sponge --help | expect "^sponge:"
 }
 
-test_writing_to_stdout() {
+ptest_writing_to_stdout() {
+    temp f
     echo hello > "$f"
     sponge < "$f" | expect hello
 }
 
-test_writing_to_a_file() {
+ptest_writing_to_a_file() {
+    temp f
     echo hello > "$f"
     sponge < "$f" "$f"
     expect-file "$f" hello
 }
 
-test_writing_to_a_multiple_files() {
+ptest_writing_to_multiple_files() {
+    temp f g h
     echo hello > "$f"
     sponge < "$f" "$f" "$g" "$h"
     expect-file "$f" hello
@@ -40,13 +36,15 @@ test_writing_to_a_multiple_files() {
     expect-file "$h" hello
 }
 
-test_pipeline() {
+ptest_pipeline() {
+    temp f
     echo hello > "$f"
     sed -e 's/l/o/g' "$f" | sponge "$f"
     expect-file "$f" heooo
 }
 
-test_multiline_pipeline() {
+ptest_multiline_pipeline() {
+    temp f
     cat > "$f" << EOF
 apple
 sauce
@@ -57,7 +55,8 @@ EOF
     expect-file "$f" blue
 }
 
-test_binary_pipeline() {
+ptest_binary_pipeline() {
+    temp f
     head -c 100 /dev/urandom > "$f"
     before="$( sha256sum "$f" )"
 
@@ -68,7 +67,8 @@ test_binary_pipeline() {
         die "$f corrupted writing binary data to itself"
 }
 
-test_large_binary_pipeline() {
+ptest_large_binary_pipeline() {
+    temp f
     head -c $(( 5 * 1024 * 1024 )) /dev/urandom > "$f"
     before="$( sha256sum "$f" )"
 

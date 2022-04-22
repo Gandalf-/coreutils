@@ -3,17 +3,14 @@
 root="$(dirname "${BASH_SOURCE[0]}")"/../..
 source "$root"/test/integration/common.sh
 
-f="file.txt"
-
-function cleanup() { rm -f "$f"; }
-trap cleanup EXIT
 
 tac() {
     stack exec -- utils tac "$@"
 }
 
 
-test_basic_stdin_tac() {
+ptest_basic_stdin_tac() {
+    temp f
     cat > "$f" << EOF
 a
 b
@@ -22,7 +19,8 @@ EOF
     expect-file "$f" "$( tac < "$f" | tac )" 'basic stdin tac'
 }
 
-test_basic_file_tac() {
+ptest_basic_file_tac() {
+    temp f
     cat > "$f" << EOF
 a
 b
@@ -31,7 +29,8 @@ EOF
     expect-file "$f" "$( tac "$f" | tac )" 'basic file tac'
 }
 
-test_trailing_newline_stdin_tac() {
+ptest_trailing_newline_stdin_tac() {
+    temp f
     cat > "$f" << EOF
 a
 b
@@ -41,7 +40,8 @@ EOF
     expect-file "$f" "$( tac < "$f" | tac )" 'trailing newline stdin tac'
 }
 
-test_trailing_newline_file_tac() {
+ptest_trailing_newline_file_tac() {
+    temp f
     cat > "$f" << EOF
 a
 b
@@ -51,7 +51,8 @@ EOF
     expect-file "$f" "$( tac "$f" | tac )" 'trailing newline file tac'
 }
 
-test_preceding_newline_stdin_tac() {
+ptest_preceding_newline_stdin_tac() {
+    temp f
     cat > "$f" << EOF
 
 a
@@ -61,7 +62,8 @@ EOF
     expect-file "$f" "$( tac < "$f" | tac )" 'preceding newline stdin tac'
 }
 
-test_preceding_newline_file_tac() {
+ptest_preceding_newline_file_tac() {
+    temp f
     cat > "$f" << EOF
 
 a
@@ -78,7 +80,8 @@ ptest_no_newline_stdin_tac() {
     'no newline stdin tac'
 }
 
-test_binary_stdin_tac() {
+ptest_binary_stdin_tac() {
+    temp f
     a="$( head -c 10 /dev/urandom | tee "$f" | tac | tac | sha1sum | awk '{print $1}' )"
     b="$( sha1sum "$f" | awk '{print $1}' )"
 

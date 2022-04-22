@@ -68,17 +68,9 @@ run_tests() {
 
     while read -r t; do
         case "$t" in
-            test_*)
-                (( executed++ ))
-                ( $t >/dev/null 2>&1 ) || {
-                    (( failures++ ))
-                    local name="${t/test_/}"
-                    echo "\tfailure: ${name//_/ }"
-                }
-            ;;
             ptest_*)
                 (( executed++ ))
-                local name="${t/test_/}"
+                local name="${t/ptest_/}"
                 ( $t >/dev/null 2>&1 ) &
                 pids[$!]="${name//_/ }"
             ;;
@@ -97,5 +89,22 @@ run_tests() {
         $(( executed - failures )) \
         $failures
 }
+
+TEMPORARIES=()
+
+temp() {
+    while [[ $1 ]]; do
+        local out="$( mktemp -p /tmp coreutils-${FUNCNAME[1]}-XXXXX )"
+        TEMPORARIES+=( "$out" )
+        eval "$1"="$out"
+        shift
+    done
+}
+
+_cleanup() {
+    rm -f "${TEMPORARIES[@]}"
+}
+
+trap _cleanup EXIT
 
 cd "$root"
