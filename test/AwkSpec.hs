@@ -18,6 +18,7 @@ execution :: Spec
 execution = do
     describe "fields" $
         it "works" $ do
+            fields "apple"          `shouldBe` ["apple"]
             fields "a b c"          `shouldBe` ["a", "b", "c"]
             fields "apple b c"      `shouldBe` ["apple", "b", "c"]
             fields "  apple b c"    `shouldBe` ["apple", "b", "c"]
@@ -32,6 +33,8 @@ execution = do
         it "works" $ do
             expa "1 2 3" (String "a") `shouldBe` "a"
             expa "1 2 3" Separator    `shouldBe` " "
+            expa ""      NumFields    `shouldBe` "0"
+            expa "1 2 3" NumFields    `shouldBe` "3"
             expa "a b c" (FieldVar 0) `shouldBe` "a b c"
             expa "a b c" (FieldVar 1) `shouldBe` "a"
             expa "a b c" (FieldVar 3) `shouldBe` "c"
@@ -44,6 +47,14 @@ execution = do
             exec (PrintValue [FieldVar 1]) "a b c"                        `shouldBe` "a"
             exec (PrintValue [FieldVar 2, String "!"]) "a b c"            `shouldBe` "b!"
             exec (PrintValue [FieldVar 3, Separator, String "!"]) "a b c" `shouldBe` "c !"
+
+    describe "run" $
+        it "works" $ do
+            run "{print}" "apple"    `shouldBe` "apple"
+            run "{print $0}" "apple" `shouldBe` "apple"
+            run "{print $1}" "apple" `shouldBe` "apple"
+            run "{print NF}" "apple" `shouldBe` "1"
+            run "{print $2}" "apple" `shouldBe` ""
 
 parsing :: Spec
 parsing = do
@@ -64,6 +75,9 @@ parsing = do
 
         it "separator" $
             pRun pValue "," `shouldBe` Right Separator
+
+        it "num fields" $
+            pRun pValue "NF" `shouldBe` Right NumFields
 
     describe "parser" $ do
         it "empty" $ do
@@ -114,3 +128,10 @@ exec a t = execute a (getRecord t)
 
 expa :: Text -> Value -> Text
 expa t = expand (getRecord t)
+
+run :: Text -> Text -> Text
+run p r = case prog of
+        EmptyExpr      -> ""
+        (ActionExpr a) -> exec a r
+    where
+        prog = fromRight EmptyExpr (pRun pExpr p)

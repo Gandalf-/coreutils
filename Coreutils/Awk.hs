@@ -76,19 +76,24 @@ data Value =
       String Text
     | FieldVar Int
     | Separator
+    | NumFields
     deriving (Eq, Show)
 
 expand :: Record -> Value -> Text
 expand _ (String s) = s
 expand _ Separator = " "
+expand r NumFields = T.pack $ show $ length $ _fields r
+
 expand r (FieldVar 0) = _line r
 expand r (FieldVar n)
     | n <= length (_fields r) = _fields r !! (n - 1)
     | otherwise = ""
 
 pValue :: Parsec Text () Value
-pValue = choice [sep, str, field]
+pValue = choice [sep, str, field, numFields]
     where
+        numFields =
+            NumFields <$ string "NF"
         field = FieldVar <$> do
             _ <- char '$'
             read <$> many1 digit
