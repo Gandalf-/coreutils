@@ -33,6 +33,7 @@ library
   exposed-modules:
     Coreutils.Util
 
+    Coreutils.Awk
     Coreutils.Cat
     Coreutils.Cmp
     Coreutils.Cut
@@ -110,9 +111,11 @@ test-suite test
     parsec,
     hspec,
     random,
+    text,
     QuickCheck
 
   other-modules:
+    AwkSpec
     CmpSpec
     CutSpec
     EnvSpec
