@@ -7,7 +7,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Austin
 maintainer:          austin@anardil.net
-copyright:           2018, Austin
+copyright:           2022, Austin
 category:            Utility
 build-type:          Simple
 cabal-version:       >=1.10
@@ -67,6 +67,7 @@ library
     split,
     random,
     parsec,
+    regex-tdfa >= 1.3.1.1,
     resourcet,
     containers,
     unordered-containers,

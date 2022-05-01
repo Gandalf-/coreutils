@@ -48,6 +48,10 @@ execution = do
             exec (PrintValue [FieldVar 2, String "!"]) "a b c"            `shouldBe` "b!"
             exec (PrintValue [FieldVar 3, Separator, String "!"]) "a b c" `shouldBe` "c !"
 
+    describe "matches" $
+        it "works" $
+            match "/.*/" "abc" `shouldBe` True
+
     describe "run" $
         it "works" $ do
             run "{print}" "apple"    `shouldBe` "apple"
@@ -156,9 +160,18 @@ exec a t = execute a (getRecord t)
 expa :: Text -> Value -> Text
 expa t = expand (getRecord t)
 
+match :: Text -> Text -> Bool
+match p r = matches pat (getRecord r)
+    where
+        pat = case pRun pPattern p of
+            (Left _)  -> undefined
+            (Right a) -> a
+
 run :: Text -> Text -> Text
 run p r = case prog of
         EmptyExpr      -> ""
         (ActionExpr a) -> exec a r
     where
-        prog = fromRight EmptyExpr (pRun pExpr p)
+        prog = case pRun pExpr p of
+            (Left _)  -> undefined
+            (Right a) -> a

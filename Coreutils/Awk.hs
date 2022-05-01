@@ -4,6 +4,7 @@ module Coreutils.Awk where
 
 import qualified Data.Text as T
 import           Data.Text (Text)
+import           Text.Regex.TDFA
 import           Text.Parsec
 
 import Coreutils.Util
@@ -58,6 +59,10 @@ data Pattern =
     | And Pattern Pattern
     | Or Pattern Pattern
     deriving (Eq, Show)
+
+matches :: Pattern -> Record -> Bool
+matches (Regex r) (Record l _) = l =~ r
+matches _ _ = False
 
 pPattern :: Parsec Text () Pattern
 pPattern = choice [try pNot, try pCond, try regex, try begin, end]
