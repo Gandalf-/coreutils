@@ -141,23 +141,28 @@ parsing = do
             pRun pAction "print $-1"   `shouldSatisfy` isLeft
 
     describe "expression" $ do
-        it "empty" $ do
-            pRun pEmpty ""      `shouldBe` Right EmptyExpr
-            pRun pEmpty "   "   `shouldBe` Right EmptyExpr
-            pRun pEmpty "{ }"   `shouldBe` Right EmptyExpr
-            pRun pEmpty " { } " `shouldBe` Right EmptyExpr
-
         it "empty negative" $ do
             pRun pEmpty "a"    `shouldSatisfy` isLeft
             pRun pEmpty "   a" `shouldSatisfy` isLeft
 
         it "expr" $ do
-            pRun pExpr ""          `shouldBe` Right EmptyExpr
             pRun pExpr "{ print }" `shouldBe` Right (ActionExpr PrintAll)
             pRun pExpr "{ print $1 }" `shouldBe`
                 Right (ActionExpr (PrintValue [FieldVar 1]))
             pRun pExpr " { print $1 $2} " `shouldBe`
                 Right (ActionExpr (PrintValue [FieldVar 1, FieldVar 2]))
+
+    describe "program" $ do
+        it "empty" $ do
+            pRun pEmpty ""      `shouldBe` Right NoProgram
+            pRun pEmpty "   "   `shouldBe` Right NoProgram
+            pRun pEmpty "{ }"   `shouldBe` Right NoProgram
+            pRun pEmpty " { } " `shouldBe` Right NoProgram
+
+        it "awk" $ do
+            pRun pProgram "/.*/"           `shouldBe` Right (Grep (Regex ".*"))
+            pRun pProgram "/.*/ { print }" `shouldBe` Right (Full (Regex ".*") PrintAll)
+            pRun pProgram "{ print }"      `shouldBe` Right (Exec PrintAll)
 
 
 pRun :: Parsec Text () a -> Text -> Either ParseError a
@@ -178,7 +183,6 @@ match p r = matches pat (getRecord r)
 
 run :: Text -> Text -> Text
 run p r = case prog of
-        EmptyExpr      -> ""
         (ActionExpr a) -> exec a r
     where
         prog = case pRun pExpr p of

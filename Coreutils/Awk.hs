@@ -28,27 +28,43 @@ getRecord :: Text -> Record
 getRecord t = Record t (fields t)
 
 
-data Expr =
-      EmptyExpr
-    | ActionExpr Action
+data Program =
+      Full Pattern Action
+    | Grep Pattern
+    | Exec Action
+    | NoProgram
+    deriving (Eq, Show)
+
+pProgram :: Parsec Text () Program
+pProgram = choice [try full, try exec, try grep, pEmpty]
+    where
+        grep = Grep <$> pPattern
+        full = do
+            p <- pPattern
+            spaces
+            Full p . _action <$> pExpr
+        exec = Exec . _action <$> pExpr
+
+pEmpty :: Parsec Text () Program
+pEmpty = choice [try emptyBrace, emptyString]
+    where
+        emptyString = spaces >> pure NoProgram
+        emptyBrace = do
+            spaces >> char '{' >> spaces >> char '}' >> spaces
+            pure NoProgram
+
+
+newtype Expr = ActionExpr
+    { _action :: Action
+    }
     deriving (Eq, Show)
 
 pExpr :: Parsec Text () Expr
-pExpr = choice [try action, pEmpty]
-    where
-        action = do
-            spaces >> char '{' >> spaces
-            a <- pAction
-            spaces >> char '}' >> spaces
-            pure $ ActionExpr a
-
-pEmpty :: Parsec Text () Expr
-pEmpty = choice [try emptyBrace, emptyString]
-    where
-        emptyString = spaces >> pure EmptyExpr
-        emptyBrace = do
-            spaces >> char '{' >> spaces >> char '}' >> spaces
-            pure EmptyExpr
+pExpr = do
+    spaces >> char '{' >> spaces
+    a <- pAction
+    spaces >> char '}' >> spaces
+    pure $ ActionExpr a
 
 
 data Pattern =
