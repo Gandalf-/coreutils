@@ -67,6 +67,8 @@ execution = do
             match "/z.*/ || /.*/" "abc"  `shouldBe` True
             match "/z.*/ || /z.*/" "abc" `shouldBe` False
 
+            -- match "\"a\" == \"a\"" "" `shouldBe` True
+
     describe "run" $
         it "works" $ do
             run "{print}" "apple"    `shouldBe` "apple\n"
@@ -102,21 +104,30 @@ parsing = do
 
     describe "parse pattern" $
         it "works" $ do
-            pRun pPattern "BEGIN"   `shouldBe` Right Begin
-            pRun pPattern "END"     `shouldBe` Right End
-            pRun pPattern "/a.*/"   `shouldBe` Right (Regex "a.*")
-            pRun pPattern "! /a.*/" `shouldBe` Right (Not (Regex "a.*"))
+            pRun pPattern "BEGIN"    `shouldBe` Right Begin
+            pRun pPattern "END"      `shouldBe` Right End
+            pRun pPattern "/a.*/"    `shouldBe` Right (Regex "a.*")
+            pRun pPattern "! /a.*/"  `shouldBe` Right (Not (Regex "a.*"))
             pRun pPattern "!! /a.*/" `shouldBe` Right (Not (Not (Regex "a.*")))
+
+            pRun pPattern "$1 == $2" `shouldBe`
+                Right (Relation (RelEqual (FieldVar 1) (FieldVar 2)))
+            pRun pPattern "! $1 == $2" `shouldBe`
+                Right (Not (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
 
             pRun pPattern "/a.*/ && /b.*/" `shouldBe`
                 Right (And (Regex "a.*") (Regex "b.*"))
             pRun pPattern "/a.*/ && /b.*/ && /c.*/" `shouldBe`
                 Right (And (Regex "a.*") (And (Regex "b.*") (Regex "c.*")))
+            pRun pPattern "/a.*/ && $1 == $2" `shouldBe`
+                Right (And (Regex "a.*") (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
 
             pRun pPattern "/a.*/ || /b.*/" `shouldBe`
                 Right (Or (Regex "a.*") (Regex "b.*"))
             pRun pPattern "/a.*/ || /b.*/ || /c.*/" `shouldBe`
                 Right (Or (Regex "a.*") (Or (Regex "b.*") (Regex "c.*")))
+            pRun pPattern "/a.*/ || $1 == $2" `shouldBe`
+                Right (Or (Regex "a.*") (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
 
             pRun pPattern "/a.*/ || /b.*/ && /c.*/" `shouldBe`
                 Right (Or (Regex "a.*") (And (Regex "b.*") (Regex "c.*")))
@@ -149,6 +160,15 @@ parsing = do
             pRun pAction "junk"        `shouldSatisfy` isLeft
             pRun pAction "print $boop" `shouldSatisfy` isLeft
             pRun pAction "print $-1"   `shouldSatisfy` isLeft
+
+    describe "parse relation" $
+        it "works" $ do
+            pRun pRelation "$1 == $2" `shouldBe` Right (RelEqual (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 != $2" `shouldBe` Right (RelNotEq (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 <  $2" `shouldBe` Right (RelLt    (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 <= $2" `shouldBe` Right (RelLe    (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 >  $2" `shouldBe` Right (RelGt    (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 >= $2" `shouldBe` Right (RelGe    (FieldVar 1) (FieldVar 2))
 
     describe "parse expression" $ do
         it "empty negative" $ do

@@ -65,23 +65,11 @@ pEmpty = choice [try emptyBrace, emptyString]
             pure NoProgram
 
 
-newtype Expr = ActionExpr
-    { _actions :: [Action]
-    }
-    deriving (Eq, Show)
-
-pExpr :: Parsec Text () Expr
-pExpr = do
-    spaces >> char '{' >> spaces
-    as <- sepEndBy1 pAction spaces
-    spaces >> char '}' >> spaces
-    pure $ ActionExpr as
-
-
 data Pattern =
       Begin
     | End
     | Regex Text
+    | Relation Relation
     | Not Pattern
     | And Pattern Pattern
     | Or Pattern Pattern
@@ -97,30 +85,68 @@ matches (Or  p1 p2) r = matches p1 r || matches p2 r
 matches _           _ = False
 
 pPattern :: Parsec Text () Pattern
-pPattern = choice [try pNot, try pCond, try regex, try begin, end]
+pPattern = choice [try pNot, try pCond, try regex, try rel, try begin, end]
     where
-        begin =
-            string "BEGIN" >> pure Begin
-        end =
-            string "END"   >> pure End
-
+        begin = string "BEGIN" >> pure Begin
+        end   = string "END"   >> pure End
         pCond = try pAnd <|> pOr
+        pNorm = choice [try pNot, try pCond, try rel, regex]
+
         pAnd = do
             p1 <- choice [try regex, pNot]
             spaces >> string "&&" >> spaces
-            And p1 <$> choice [try pNot, try pCond, regex]
+            And p1 <$> pNorm
         pOr = do
             p1 <- choice [try regex, pNot]
             spaces >> string "||" >> spaces
-            Or p1 <$> choice [try pNot, try pCond, regex]
+            Or p1 <$> pNorm
         pNot =
-            char '!' >> spaces >> Not <$> choice [try pNot, try pCond, regex]
+            char '!' >> spaces >> Not <$> pNorm
 
+        rel = Relation <$> pRelation
         regex = do
             _ <- char '/'
             r <- many1 (noneOf "/")
             _ <- char '/'
             pure $ Regex $ T.pack r
+
+
+data Relation =
+      RelEqual Value Value
+    | RelNotEq Value Value
+    | RelLt    Value Value
+    | RelLe    Value Value
+    | RelGt    Value Value
+    | RelGe    Value Value
+    deriving (Eq, Show)
+
+pRelation :: Parsec Text () Relation
+pRelation = choice [try eq, try neq, try lt, try le, try gt, ge]
+    where
+        neq = go "!=" RelNotEq
+        eq  = go "==" RelEqual
+        lt  = go "<"  RelLt
+        le  = go "<=" RelLe
+        gt  = go ">"  RelGt
+        ge  = go ">=" RelGe
+
+        go s b = do
+            v1 <- pValue
+            spaces >> string s >> spaces
+            b v1 <$> pValue
+
+
+newtype Expr = ActionExpr
+    { _actions :: [Action]
+    }
+    deriving (Eq, Show)
+
+pExpr :: Parsec Text () Expr
+pExpr = do
+    spaces >> char '{' >> spaces
+    as <- sepEndBy1 pAction spaces
+    spaces >> char '}' >> spaces
+    pure $ ActionExpr as
 
 
 data Action =
@@ -157,8 +183,8 @@ data Value =
 
 expand :: Record -> Value -> Text
 expand _ (String s) = s
-expand _ Separator = " "
-expand r NumFields = T.pack $ show $ length $ _fields r
+expand _ Separator  = " "
+expand r NumFields  = T.pack $ show $ length $ _fields r
 
 expand r (FieldVar 0) = _line r
 expand r (FieldVar n)
