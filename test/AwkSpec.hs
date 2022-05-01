@@ -32,7 +32,6 @@ execution = do
     describe "expand" $
         it "works" $ do
             expa "1 2 3" (String "a") `shouldBe` "a"
-            expa "1 2 3" Separator    `shouldBe` " "
             expa ""      NumFields    `shouldBe` "0"
             expa "1 2 3" NumFields    `shouldBe` "3"
             expa "a b c" (FieldVar 0) `shouldBe` "a b c"
@@ -44,9 +43,9 @@ execution = do
         it "action" $ do
             exec PrintAll "apple" `shouldBe` "apple\n"
 
-            exec (PrintValue [FieldVar 1]) "a b c"                        `shouldBe` "a\n"
-            exec (PrintValue [FieldVar 2, String "!"]) "a b c"            `shouldBe` "b!\n"
-            exec (PrintValue [FieldVar 3, Separator, String "!"]) "a b c" `shouldBe` "c !\n"
+            exec (PrintValue [FieldVar 1]) "a b c"                         `shouldBe` "a\n"
+            exec (PrintValue [FieldVar 2, String "!"]) "a b c"             `shouldBe` "b!\n"
+            exec (PrintValue [FieldVar 3, String " ", String "!"]) "a b c" `shouldBe` "c !\n"
 
         it "program" $ do
             exec NoProgram                      "apple" `shouldBe` ""
@@ -54,20 +53,26 @@ execution = do
             exec (Grep (Regex ".*"))            "apple" `shouldBe` "apple\n"
             exec (Exec [PrintAll])              "apple" `shouldBe` "apple\n"
 
-    describe "matches" $
-        it "works" $ do
+    describe "matches" $ do
+        it "basics" $ do
             match "/a.*/" "abc"     `shouldBe` True
             match "/z.*/" "abc"     `shouldBe` False
             match "! /z.*/" "abc"   `shouldBe` True
             match "!!! /z.*/" "abc" `shouldBe` True
 
+        it "and" $ do
             match "/a.*/ && /.*/" "abc"  `shouldBe` True
             match "/z.*/ && /.*/" "abc"  `shouldBe` False
 
+        it "or" $ do
             match "/z.*/ || /.*/" "abc"  `shouldBe` True
             match "/z.*/ || /z.*/" "abc" `shouldBe` False
 
-            -- match "\"a\" == \"a\"" "" `shouldBe` True
+        it "relation" $ do
+            match "\"a\" == \"a\"" "" `shouldBe` True
+            match "\"a\" != \"a\"" "" `shouldBe` False
+
+            match "$1 == \"a\"" "a b" `shouldBe` True
 
     describe "run" $
         it "works" $ do
@@ -96,25 +101,24 @@ parsing = do
             pRun pValue "$1"  `shouldBe` Right (FieldVar 1)
             pRun pValue "$10" `shouldBe` Right (FieldVar 10)
 
-        it "separator" $
-            pRun pValue "," `shouldBe` Right Separator
-
         it "num fields" $
             pRun pValue "NF" `shouldBe` Right NumFields
 
-    describe "parse pattern" $
-        it "works" $ do
+    describe "parse pattern" $ do
+        it "basics" $ do
             pRun pPattern "BEGIN"    `shouldBe` Right Begin
             pRun pPattern "END"      `shouldBe` Right End
             pRun pPattern "/a.*/"    `shouldBe` Right (Regex "a.*")
             pRun pPattern "! /a.*/"  `shouldBe` Right (Not (Regex "a.*"))
             pRun pPattern "!! /a.*/" `shouldBe` Right (Not (Not (Regex "a.*")))
 
+        it "relations" $ do
             pRun pPattern "$1 == $2" `shouldBe`
                 Right (Relation (RelEqual (FieldVar 1) (FieldVar 2)))
             pRun pPattern "! $1 == $2" `shouldBe`
                 Right (Not (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
 
+        it "and" $ do
             pRun pPattern "/a.*/ && /b.*/" `shouldBe`
                 Right (And (Regex "a.*") (Regex "b.*"))
             pRun pPattern "/a.*/ && /b.*/ && /c.*/" `shouldBe`
@@ -122,6 +126,7 @@ parsing = do
             pRun pPattern "/a.*/ && $1 == $2" `shouldBe`
                 Right (And (Regex "a.*") (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
 
+        it "or" $ do
             pRun pPattern "/a.*/ || /b.*/" `shouldBe`
                 Right (Or (Regex "a.*") (Regex "b.*"))
             pRun pPattern "/a.*/ || /b.*/ || /c.*/" `shouldBe`
@@ -129,12 +134,11 @@ parsing = do
             pRun pPattern "/a.*/ || $1 == $2" `shouldBe`
                 Right (Or (Regex "a.*") (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
 
+        it "complex" $ do
             pRun pPattern "/a.*/ || /b.*/ && /c.*/" `shouldBe`
                 Right (Or (Regex "a.*") (And (Regex "b.*") (Regex "c.*")))
-
             pRun pPattern "! /a.*/ || /b.*/" `shouldBe`
                 Right (Not (Or (Regex "a.*") (Regex "b.*")))
-
             pRun pPattern "! /a.*/ || ! /b.*/" `shouldBe`
                 Right (Not (Or (Regex "a.*") (Not (Regex "b.*"))))
 
@@ -151,7 +155,7 @@ parsing = do
                 Right (PrintValue [String "a", FieldVar 20])
 
             pRun pAction "print $1, $2" `shouldBe`
-                Right (PrintValue [FieldVar 1, Separator, FieldVar 2])
+                Right (PrintValue [FieldVar 1, String " ", FieldVar 2])
 
             pRun pAction "print $1, print" `shouldSatisfy` isLeft
             pRun pAction ";" `shouldSatisfy` isLeft

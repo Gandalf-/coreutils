@@ -30,6 +30,9 @@ getRecord t = Record t (fields t)
 class Executor a where
     execute :: a -> Record -> Text
 
+class Comparator a where
+    matches :: a -> Record -> Bool
+
 
 data Program =
       Full Pattern [Action]
@@ -76,13 +79,14 @@ data Pattern =
     | Always
     deriving (Eq, Show)
 
-matches :: Pattern -> Record -> Bool
-matches Always      _ = True
-matches (Regex p)   r = _line r =~ p
-matches (Not p)     r = not $ matches p r
-matches (And p1 p2) r = matches p1 r && matches p2 r
-matches (Or  p1 p2) r = matches p1 r || matches p2 r
-matches _           _ = False
+instance Comparator Pattern where
+    matches Always       _ = True
+    matches (Regex p)    r = _line r =~ p
+    matches (Not p)      r = not $ matches p r
+    matches (And p1 p2)  r = matches p1 r && matches p2 r
+    matches (Or  p1 p2)  r = matches p1 r || matches p2 r
+    matches (Relation v) r = matches v r
+    matches _            _ = False
 
 pPattern :: Parsec Text () Pattern
 pPattern = choice [try pNot, try pCond, try regex, try rel, try begin, end]
@@ -119,6 +123,18 @@ data Relation =
     | RelGt    Value Value
     | RelGe    Value Value
     deriving (Eq, Show)
+
+instance Comparator Relation where
+    matches (RelEqual a b) r = comp (==) r a b
+    matches (RelNotEq a b) r = comp (/=) r a b
+    matches _              _ = False
+    -- todo, number coercion
+
+comp :: (Text -> Text -> Bool) -> Record -> Value -> Value -> Bool
+comp c r v1 v2 = c a b
+    where
+        a = expand r v1
+        b = expand r v2
 
 pRelation :: Parsec Text () Relation
 pRelation = choice [try eq, try neq, try lt, try le, try gt, ge]
@@ -177,13 +193,11 @@ pAction = do
 data Value =
       String Text
     | FieldVar Int
-    | Separator
     | NumFields
     deriving (Eq, Show)
 
 expand :: Record -> Value -> Text
 expand _ (String s) = s
-expand _ Separator  = " "
 expand r NumFields  = T.pack $ show $ length $ _fields r
 
 expand r (FieldVar 0) = _line r
@@ -201,7 +215,7 @@ pValue = choice [sep, str, field, numFields]
             read <$> many1 digit
         sep = do
             _ <- char ','
-            pure Separator
+            pure $ String " "
         str = do
             _ <- char '"'
             s <- many1 (noneOf "\"")
