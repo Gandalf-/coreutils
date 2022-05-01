@@ -32,18 +32,18 @@ class Executor a where
 
 
 data Program =
-      Full Pattern Action
+      Full Pattern [Action]
     | Grep Pattern
-    | Exec Action
+    | Exec [Action]
     | NoProgram
     deriving (Eq, Show)
 
 instance Executor Program where
     execute NoProgram  _ = ""
-    execute (Grep p)   r = execute (Full p PrintAll) r
+    execute (Grep p)   r = execute (Full p [PrintAll]) r
     execute (Exec a)   r = execute (Full Always a)   r
-    execute (Full p a) r
-        | matches p r = execute a r
+    execute (Full p as) r
+        | matches p r = T.concat (map (`execute` r) as)
         | otherwise   = ""
 
 pProgram :: Parsec Text () Program
@@ -53,8 +53,8 @@ pProgram = choice [try full, try exec, try grep, pEmpty]
         full = do
             p <- pPattern
             spaces
-            Full p . _action <$> pExpr
-        exec = Exec . _action <$> pExpr
+            Full p . _actions <$> pExpr
+        exec = Exec . _actions <$> pExpr
 
 pEmpty :: Parsec Text () Program
 pEmpty = choice [try emptyBrace, emptyString]
@@ -66,16 +66,16 @@ pEmpty = choice [try emptyBrace, emptyString]
 
 
 newtype Expr = ActionExpr
-    { _action :: Action
+    { _actions :: [Action]
     }
     deriving (Eq, Show)
 
 pExpr :: Parsec Text () Expr
 pExpr = do
     spaces >> char '{' >> spaces
-    a <- pAction
+    as <- sepEndBy1 pAction spaces
     spaces >> char '}' >> spaces
-    pure $ ActionExpr a
+    pure $ ActionExpr as
 
 
 data Pattern =
@@ -133,7 +133,10 @@ instance Executor Action where
     execute (PrintValue vs) r = T.concat $ map (expand r) vs <> ["\n"]
 
 pAction :: Parsec Text () Action
-pAction = choice [try pVar, pAll]
+pAction = do
+        o <- choice [try pVar, pAll]
+        optional (char ';')
+        pure o
     where
         pAll = do
             _ <- string "print"

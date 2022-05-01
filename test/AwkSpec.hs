@@ -49,10 +49,10 @@ execution = do
             exec (PrintValue [FieldVar 3, Separator, String "!"]) "a b c" `shouldBe` "c !\n"
 
         it "program" $ do
-            exec NoProgram                    "apple" `shouldBe` ""
-            exec (Full (Regex ".*") PrintAll) "apple" `shouldBe` "apple\n"
-            exec (Grep (Regex ".*"))          "apple" `shouldBe` "apple\n"
-            exec (Exec PrintAll)              "apple" `shouldBe` "apple\n"
+            exec NoProgram                      "apple" `shouldBe` ""
+            exec (Full (Regex ".*") [PrintAll]) "apple" `shouldBe` "apple\n"
+            exec (Grep (Regex ".*"))            "apple" `shouldBe` "apple\n"
+            exec (Exec [PrintAll])              "apple" `shouldBe` "apple\n"
 
     describe "matches" $
         it "works" $ do
@@ -75,9 +75,11 @@ execution = do
             run "{print NF}" "apple" `shouldBe` "1\n"
             run "{print $2}" "apple" `shouldBe` "\n"
 
+            run "{print $0, NF; print \"!\"}" "apple" `shouldBe` "apple 1\n!\n"
+
 parsing :: Spec
 parsing = do
-    describe "values" $ do
+    describe "parse values" $ do
         it "strings" $ do
             pRun pValue "\"a\""      `shouldBe` Right (String "a")
             pRun pValue "\"apple \"" `shouldBe` Right (String "apple ")
@@ -98,7 +100,7 @@ parsing = do
         it "num fields" $
             pRun pValue "NF" `shouldBe` Right NumFields
 
-    describe "pattern" $
+    describe "parse pattern" $
         it "works" $ do
             pRun pPattern "BEGIN"   `shouldBe` Right Begin
             pRun pPattern "END"     `shouldBe` Right End
@@ -125,14 +127,13 @@ parsing = do
             pRun pPattern "! /a.*/ || ! /b.*/" `shouldBe`
                 Right (Not (Or (Regex "a.*") (Not (Regex "b.*"))))
 
-    describe "action" $ do
+    describe "parse action" $ do
         it "works" $ do
             pRun pAction "print $1"    `shouldBe` Right (PrintValue [FieldVar 1])
-            pRun pAction "print $1"    `shouldBe` Right (PrintValue [FieldVar 1])
-            pRun pAction "print \"a\"" `shouldBe` Right (PrintValue [String "a"])
+            pRun pAction "print $1;"   `shouldBe` Right (PrintValue [FieldVar 1])
             pRun pAction "print \"a\"" `shouldBe` Right (PrintValue [String "a"])
 
-            pRun pAction "print $1 $2" `shouldBe`
+            pRun pAction "print $1 $2 ;" `shouldBe`
                 Right (PrintValue [FieldVar 1, FieldVar 2])
 
             pRun pAction "print \"a\" $20" `shouldBe`
@@ -141,24 +142,32 @@ parsing = do
             pRun pAction "print $1, $2" `shouldBe`
                 Right (PrintValue [FieldVar 1, Separator, FieldVar 2])
 
+            pRun pAction "print $1, print" `shouldSatisfy` isLeft
+            pRun pAction ";" `shouldSatisfy` isLeft
+
         it "negative" $ do
             pRun pAction "junk"        `shouldSatisfy` isLeft
             pRun pAction "print $boop" `shouldSatisfy` isLeft
             pRun pAction "print $-1"   `shouldSatisfy` isLeft
 
-    describe "expression" $ do
+    describe "parse expression" $ do
         it "empty negative" $ do
             pRun pEmpty "a"    `shouldSatisfy` isLeft
             pRun pEmpty "   a" `shouldSatisfy` isLeft
 
         it "expr" $ do
-            pRun pExpr "{ print }" `shouldBe` Right (ActionExpr PrintAll)
+            pRun pExpr "{ print }" `shouldBe` Right (ActionExpr [PrintAll])
             pRun pExpr "{ print $1 }" `shouldBe`
-                Right (ActionExpr (PrintValue [FieldVar 1]))
+                Right (ActionExpr [PrintValue [FieldVar 1]])
             pRun pExpr " { print $1 $2} " `shouldBe`
-                Right (ActionExpr (PrintValue [FieldVar 1, FieldVar 2]))
+                Right (ActionExpr [PrintValue [FieldVar 1, FieldVar 2]])
 
-    describe "program" $ do
+            pRun pExpr "{ print $1; print $2 }" `shouldBe`
+                Right (ActionExpr [PrintValue [FieldVar 1], PrintValue [FieldVar 2]])
+            pRun pExpr "{ print $1; print $2; }" `shouldBe`
+                Right (ActionExpr [PrintValue [FieldVar 1], PrintValue [FieldVar 2]])
+
+    describe "parse program" $ do
         it "empty" $ do
             pRun pEmpty ""      `shouldBe` Right NoProgram
             pRun pEmpty "   "   `shouldBe` Right NoProgram
@@ -167,8 +176,8 @@ parsing = do
 
         it "awk" $ do
             pRun pProgram "/.*/"           `shouldBe` Right (Grep (Regex ".*"))
-            pRun pProgram "/.*/ { print }" `shouldBe` Right (Full (Regex ".*") PrintAll)
-            pRun pProgram "{ print }"      `shouldBe` Right (Exec PrintAll)
+            pRun pProgram "/.*/ { print }" `shouldBe` Right (Full (Regex ".*") [PrintAll])
+            pRun pProgram "{ print }"      `shouldBe` Right (Exec [PrintAll])
 
 
 pRun :: Parsec Text () a -> Text -> Either ParseError a
@@ -188,9 +197,8 @@ match p r = matches pat (getRecord r)
             (Right a) -> a
 
 run :: Text -> Text -> Text
-run p r = case prog of
-        (ActionExpr a) -> exec a r
+run p = exec prog
     where
-        prog = case pRun pExpr p of
+        prog = case pRun pProgram p of
             (Left _)  -> undefined
             (Right a) -> a
