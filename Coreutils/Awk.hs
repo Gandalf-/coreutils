@@ -50,6 +50,42 @@ pEmpty = choice [try emptyBrace, emptyString]
             pure EmptyExpr
 
 
+data Pattern =
+      Begin
+    | End
+    | Regex Text
+    | Not Pattern
+    | And Pattern Pattern
+    | Or Pattern Pattern
+    deriving (Eq, Show)
+
+pPattern :: Parsec Text () Pattern
+pPattern = choice [try pNot, try pCond, try regex, try begin, end]
+    where
+        begin =
+            string "BEGIN" >> pure Begin
+        end =
+            string "END"   >> pure End
+
+        pCond = try pAnd <|> pOr
+        pAnd = do
+            p1 <- choice [try regex, pNot]
+            spaces >> string "&&" >> spaces
+            And p1 <$> choice [try pNot, try pCond, regex]
+        pOr = do
+            p1 <- choice [try regex, pNot]
+            spaces >> string "||" >> spaces
+            Or p1 <$> choice [try pNot, try pCond, regex]
+        pNot =
+            char '!' >> spaces >> Not <$> choice [try pNot, try pCond, regex]
+
+        regex = do
+            _ <- char '/'
+            r <- many1 (noneOf "/")
+            _ <- char '/'
+            pure $ Regex $ T.pack r
+
+
 data Action =
       PrintAll
     | PrintValue [Value]

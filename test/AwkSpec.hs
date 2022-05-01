@@ -58,7 +58,7 @@ execution = do
 
 parsing :: Spec
 parsing = do
-    describe "parse values" $ do
+    describe "values" $ do
         it "strings" $ do
             pRun pValue "\"a\""      `shouldBe` Right (String "a")
             pRun pValue "\"apple \"" `shouldBe` Right (String "apple ")
@@ -79,18 +79,35 @@ parsing = do
         it "num fields" $
             pRun pValue "NF" `shouldBe` Right NumFields
 
-    describe "parser" $ do
-        it "empty" $ do
-            pRun pEmpty ""      `shouldBe` Right EmptyExpr
-            pRun pEmpty "   "   `shouldBe` Right EmptyExpr
-            pRun pEmpty "{ }"   `shouldBe` Right EmptyExpr
-            pRun pEmpty " { } " `shouldBe` Right EmptyExpr
+    describe "pattern" $
+        it "works" $ do
+            pRun pPattern "BEGIN"   `shouldBe` Right Begin
+            pRun pPattern "END"     `shouldBe` Right End
+            pRun pPattern "/a.*/"   `shouldBe` Right (Regex "a.*")
+            pRun pPattern "! /a.*/" `shouldBe` Right (Not (Regex "a.*"))
+            pRun pPattern "!! /a.*/" `shouldBe` Right (Not (Not (Regex "a.*")))
 
-        it "empty negative" $ do
-            pRun pEmpty "a"    `shouldSatisfy` isLeft
-            pRun pEmpty "   a" `shouldSatisfy` isLeft
+            pRun pPattern "/a.*/ && /b.*/" `shouldBe`
+                Right (And (Regex "a.*") (Regex "b.*"))
+            pRun pPattern "/a.*/ && /b.*/ && /c.*/" `shouldBe`
+                Right (And (Regex "a.*") (And (Regex "b.*") (Regex "c.*")))
 
-        it "action" $ do
+            pRun pPattern "/a.*/ || /b.*/" `shouldBe`
+                Right (Or (Regex "a.*") (Regex "b.*"))
+            pRun pPattern "/a.*/ || /b.*/ || /c.*/" `shouldBe`
+                Right (Or (Regex "a.*") (Or (Regex "b.*") (Regex "c.*")))
+
+            pRun pPattern "/a.*/ || /b.*/ && /c.*/" `shouldBe`
+                Right (Or (Regex "a.*") (And (Regex "b.*") (Regex "c.*")))
+
+            pRun pPattern "! /a.*/ || /b.*/" `shouldBe`
+                Right (Not (Or (Regex "a.*") (Regex "b.*")))
+
+            pRun pPattern "! /a.*/ || ! /b.*/" `shouldBe`
+                Right (Not (Or (Regex "a.*") (Not (Regex "b.*"))))
+
+    describe "action" $ do
+        it "works" $ do
             pRun pAction "print $1"    `shouldBe` Right (PrintValue [FieldVar 1])
             pRun pAction "print $1"    `shouldBe` Right (PrintValue [FieldVar 1])
             pRun pAction "print \"a\"" `shouldBe` Right (PrintValue [String "a"])
@@ -105,13 +122,23 @@ parsing = do
             pRun pAction "print $1, $2" `shouldBe`
                 Right (PrintValue [FieldVar 1, Separator, FieldVar 2])
 
-        it "action negative" $ do
+        it "negative" $ do
             pRun pAction "junk"        `shouldSatisfy` isLeft
             pRun pAction "print $boop" `shouldSatisfy` isLeft
             pRun pAction "print $-1"   `shouldSatisfy` isLeft
 
-    describe "expression" $
-        it "works" $ do
+    describe "expression" $ do
+        it "empty" $ do
+            pRun pEmpty ""      `shouldBe` Right EmptyExpr
+            pRun pEmpty "   "   `shouldBe` Right EmptyExpr
+            pRun pEmpty "{ }"   `shouldBe` Right EmptyExpr
+            pRun pEmpty " { } " `shouldBe` Right EmptyExpr
+
+        it "empty negative" $ do
+            pRun pEmpty "a"    `shouldSatisfy` isLeft
+            pRun pEmpty "   a" `shouldSatisfy` isLeft
+
+        it "expr" $ do
             pRun pExpr ""          `shouldBe` Right EmptyExpr
             pRun pExpr "{ print }" `shouldBe` Right (ActionExpr PrintAll)
             pRun pExpr "{ print $1 }" `shouldBe`
