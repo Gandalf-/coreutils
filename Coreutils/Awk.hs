@@ -61,8 +61,11 @@ data Pattern =
     deriving (Eq, Show)
 
 matches :: Pattern -> Record -> Bool
-matches (Regex r) (Record l _) = l =~ r
-matches _ _ = False
+matches (Regex p)   r = _line r =~ p
+matches (Not p)     r = not $ matches p r
+matches (And p1 p2) r = matches p1 r && matches p2 r
+matches (Or  p1 p2) r = matches p1 r || matches p2 r
+matches _           _ = False
 
 pPattern :: Parsec Text () Pattern
 pPattern = choice [try pNot, try pCond, try regex, try begin, end]

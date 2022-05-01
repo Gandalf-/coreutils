@@ -49,8 +49,17 @@ execution = do
             exec (PrintValue [FieldVar 3, Separator, String "!"]) "a b c" `shouldBe` "c !"
 
     describe "matches" $
-        it "works" $
-            match "/.*/" "abc" `shouldBe` True
+        it "works" $ do
+            match "/a.*/" "abc"     `shouldBe` True
+            match "/z.*/" "abc"     `shouldBe` False
+            match "! /z.*/" "abc"   `shouldBe` True
+            match "!!! /z.*/" "abc" `shouldBe` True
+
+            match "/a.*/ && /.*/" "abc"  `shouldBe` True
+            match "/z.*/ && /.*/" "abc"  `shouldBe` False
+
+            match "/z.*/ || /.*/" "abc"  `shouldBe` True
+            match "/z.*/ || /z.*/" "abc" `shouldBe` False
 
     describe "run" $
         it "works" $ do
