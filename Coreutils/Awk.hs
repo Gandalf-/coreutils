@@ -27,6 +27,9 @@ fields = filter (not . T.null) . T.splitOn " "
 getRecord :: Text -> Record
 getRecord t = Record t (fields t)
 
+class Executor a where
+    execute :: a -> Record -> Text
+
 
 data Program =
       Full Pattern Action
@@ -34,6 +37,14 @@ data Program =
     | Exec Action
     | NoProgram
     deriving (Eq, Show)
+
+instance Executor Program where
+    execute NoProgram  _ = ""
+    execute (Grep p)   r = execute (Full p PrintAll) r
+    execute (Exec a)   r = execute (Full Always a)   r
+    execute (Full p a) r
+        | matches p r = execute a r
+        | otherwise   = ""
 
 pProgram :: Parsec Text () Program
 pProgram = choice [try full, try exec, try grep, pEmpty]
@@ -74,9 +85,11 @@ data Pattern =
     | Not Pattern
     | And Pattern Pattern
     | Or Pattern Pattern
+    | Always
     deriving (Eq, Show)
 
 matches :: Pattern -> Record -> Bool
+matches Always      _ = True
 matches (Regex p)   r = _line r =~ p
 matches (Not p)     r = not $ matches p r
 matches (And p1 p2) r = matches p1 r && matches p2 r
@@ -115,9 +128,9 @@ data Action =
     | PrintValue [Value]
     deriving (Eq, Show)
 
-execute :: Action -> Record -> Text
-execute PrintAll r = _line r
-execute (PrintValue vs) r = T.concat $ map (expand r) vs
+instance Executor Action where
+    execute PrintAll        r = _line r <> "\n"
+    execute (PrintValue vs) r = T.concat $ map (expand r) vs <> ["\n"]
 
 pAction :: Parsec Text () Action
 pAction = choice [try pVar, pAll]

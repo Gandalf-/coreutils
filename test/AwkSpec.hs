@@ -40,13 +40,19 @@ execution = do
             expa "a b c" (FieldVar 3) `shouldBe` "c"
             expa "a b c" (FieldVar 4) `shouldBe` ""
 
-    describe "execute" $
-        it "works" $ do
-            exec PrintAll "apple" `shouldBe` "apple"
+    describe "execute" $ do
+        it "action" $ do
+            exec PrintAll "apple" `shouldBe` "apple\n"
 
-            exec (PrintValue [FieldVar 1]) "a b c"                        `shouldBe` "a"
-            exec (PrintValue [FieldVar 2, String "!"]) "a b c"            `shouldBe` "b!"
-            exec (PrintValue [FieldVar 3, Separator, String "!"]) "a b c" `shouldBe` "c !"
+            exec (PrintValue [FieldVar 1]) "a b c"                        `shouldBe` "a\n"
+            exec (PrintValue [FieldVar 2, String "!"]) "a b c"            `shouldBe` "b!\n"
+            exec (PrintValue [FieldVar 3, Separator, String "!"]) "a b c" `shouldBe` "c !\n"
+
+        it "program" $ do
+            exec NoProgram                    "apple" `shouldBe` ""
+            exec (Full (Regex ".*") PrintAll) "apple" `shouldBe` "apple\n"
+            exec (Grep (Regex ".*"))          "apple" `shouldBe` "apple\n"
+            exec (Exec PrintAll)              "apple" `shouldBe` "apple\n"
 
     describe "matches" $
         it "works" $ do
@@ -63,11 +69,11 @@ execution = do
 
     describe "run" $
         it "works" $ do
-            run "{print}" "apple"    `shouldBe` "apple"
-            run "{print $0}" "apple" `shouldBe` "apple"
-            run "{print $1}" "apple" `shouldBe` "apple"
-            run "{print NF}" "apple" `shouldBe` "1"
-            run "{print $2}" "apple" `shouldBe` ""
+            run "{print}" "apple"    `shouldBe` "apple\n"
+            run "{print $0}" "apple" `shouldBe` "apple\n"
+            run "{print $1}" "apple" `shouldBe` "apple\n"
+            run "{print NF}" "apple" `shouldBe` "1\n"
+            run "{print $2}" "apple" `shouldBe` "\n"
 
 parsing :: Spec
 parsing = do
@@ -168,7 +174,7 @@ parsing = do
 pRun :: Parsec Text () a -> Text -> Either ParseError a
 pRun p = parse (p <* eof) "test"
 
-exec :: Action -> Text -> Text
+exec :: Executor a => a -> Text -> Text
 exec a t = execute a (getRecord t)
 
 expa :: Text -> Value -> Text
