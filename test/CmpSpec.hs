@@ -4,7 +4,6 @@ module CmpSpec (spec) where
 import Coreutils.Cmp
 
 import qualified Data.ByteString as B
-import           Data.Word             (Word8)
 import Numeric
 import Control.Monad
 import Test.Hspec
@@ -13,7 +12,7 @@ import System.Directory
 import System.IO
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "getConfig" $ do
         it "error" $ do
             config "" `shouldSatisfy` isLeft

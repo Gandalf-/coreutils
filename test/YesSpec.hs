@@ -5,17 +5,17 @@ import Data.List.Split
 import Test.Hspec
 
 spec :: Spec
-spec =
-        describe "align" $ do
-            it "empty" $
-                correct "y"
+spec = parallel $
+    describe "align" $ do
+        it "empty" $
+            correct "y"
 
-            it "short string" $
-                correct "hello"
+        it "short string" $
+            correct "hello"
 
-            it "long string" $ do
-                let long = replicate (block * 2) 'z'
-                correct long
+        it "long string" $ do
+            let long = replicate (block * 2) 'z'
+            correct long
 
 
 correct :: String -> Expectation

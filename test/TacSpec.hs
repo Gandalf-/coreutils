@@ -8,7 +8,7 @@ import Coreutils.Tac
 import Test.Hspec
 
 spec :: Spec
-spec =
+spec = parallel $
     describe "locations" $ do
         it "zero zero" $
             locations 0 1000 `shouldBe` [(0, 0)]

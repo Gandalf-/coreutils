@@ -5,7 +5,7 @@ import Coreutils.Dirname
 import Test.Hspec
 
 spec :: Spec
-spec =
+spec = parallel $
     describe "posix" $ do
         it "simple cases" $ do
             dirname "/usr/bin" `shouldBe` "/usr"

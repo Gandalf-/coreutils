@@ -5,7 +5,7 @@ import           System.Random
 import           Test.Hspec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "simple" $
         it "works" $ do
             simpleShuf g (words "1 2 3") `shouldBe` words "1 2 3"
