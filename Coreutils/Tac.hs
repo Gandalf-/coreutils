@@ -5,7 +5,7 @@ module Coreutils.Tac where
 -- read files from the command line or echo stdin and print them with lines reversed
 
 import qualified Data.ByteString.Char8           as C
-import qualified Data.ByteString.Streaming.Char8 as Q
+import qualified Streaming.ByteString.Char8      as Q
 import           Streaming
 import qualified Streaming.Prelude               as S
 import           System.IO
@@ -30,7 +30,7 @@ tacMain args
 stdinTac :: IO ()
 stdinTac = C.unlines . reverse . C.lines <$> C.getContents >>= C.putStr
 
-fileTac :: MonadIO m => Handle -> Q.ByteString m ()
+fileTac :: MonadIO m => Handle -> Q.ByteStream m ()
 fileTac = Q.unlines            -- Q.ByteString m ()
         . S.subst Q.chunk      -- Stream (Q.ByteString m) m ()
         . S.map C.reverse      -- back to readable lines
@@ -38,7 +38,7 @@ fileTac = Q.unlines            -- Q.ByteString m ()
         . Q.lines              -- Stream (Q.ByteString m) m ()
         . readBackwards        -- Q.ByteString m ()
 
-readBackwards :: MonadIO m => Handle -> Q.ByteString m ()
+readBackwards :: MonadIO m => Handle -> Q.ByteStream m ()
 -- read the file backwards by characters, the handle must be seek-able
 readBackwards h = do
         size <- liftIO (hFileSize h)
@@ -46,7 +46,7 @@ readBackwards h = do
     where
         block = 1024 * 32 :: Integer
 
-seeker :: MonadIO m => Handle -> SeekPosition -> Int -> Q.ByteString m ()
+seeker :: MonadIO m => Handle -> SeekPosition -> Int -> Q.ByteStream m ()
 -- seek to the location, read 'amount' bytes into a streaming bytestring
 seeker h location amount = do
         liftIO (hSeek h AbsoluteSeek location)

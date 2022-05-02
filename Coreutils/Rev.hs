@@ -5,7 +5,7 @@ module Coreutils.Rev where
 -- read lines from stdin or files, print them out with content reversed
 
 import qualified Data.ByteString.Char8           as C
-import qualified Data.ByteString.Streaming.Char8 as Q
+import qualified Streaming.ByteString.Char8      as Q
 import           Streaming
 import qualified Streaming.Prelude               as S
 import           System.IO
@@ -29,7 +29,7 @@ revMain args
         fileRev :: Handle -> IO ()
         fileRev = Q.stdout . rev . Q.fromHandle
 
-rev :: MonadIO m => Q.ByteString m () -> Q.ByteString m ()
+rev :: MonadIO m => Q.ByteStream m () -> Q.ByteStream m ()
 -- reverse each line in the file
 rev = Q.unlines
     . S.subst Q.chunk

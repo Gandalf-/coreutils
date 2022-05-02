@@ -3,7 +3,7 @@
 module RevSpec where
 
 import qualified Data.ByteString.Char8           as C
-import qualified Data.ByteString.Streaming.Char8 as Q
+import qualified Streaming.ByteString            as Q
 import Coreutils.Rev
 import Test.Hspec
 

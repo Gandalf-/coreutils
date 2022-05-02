@@ -13,8 +13,8 @@ module Coreutils.Head where
 import           Control.Monad
 import qualified Data.ByteString.Lazy            as L
 import qualified Data.ByteString.Lazy.Char8      as BC
-import qualified Data.ByteString.Streaming       as Q
-import qualified Data.ByteString.Streaming.Char8 as C
+import qualified Streaming.ByteString            as Q
+import qualified Streaming.ByteString.Char8      as C
 import           GHC.Int                         (Int64)
 import qualified Streaming.Prelude               as S
 import           System.Console.GetOpt

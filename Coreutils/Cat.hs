@@ -6,7 +6,7 @@ module Coreutils.Cat where
 
 import           Control.Exception
 import           Control.Monad
-import qualified Data.ByteString.Streaming as Q
+import qualified Streaming.ByteString      as Q
 import           System.Exit
 import           System.Info
 import           System.IO

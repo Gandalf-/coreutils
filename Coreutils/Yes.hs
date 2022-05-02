@@ -3,7 +3,7 @@
 module Coreutils.Yes where
 
 import qualified Data.ByteString.Char8     as C
-import qualified Data.ByteString.Streaming as Q
+import qualified Streaming.ByteString      as Q
 
 import           Coreutils.Util
 
@@ -16,7 +16,7 @@ data Yes = Yes
 instance Util Yes where
     run _ args = yes $ Q.fromStrict $ C.pack $ align $ unwords args
 
-yes :: Q.ByteString IO () -> IO ()
+yes :: Q.ByteStream IO () -> IO ()
 yes = Q.stdout . Q.cycle
 
 align :: String -> String

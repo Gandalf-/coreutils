@@ -2,8 +2,6 @@
 
 module TacSpec where
 
--- import qualified Data.ByteString.Char8           as C
--- import qualified Data.ByteString.Streaming.Char8 as Q
 import Coreutils.Tac
 import Test.Hspec
 
