@@ -11,7 +11,9 @@ Goals are:
 
 | Utility | Idiomatic | Complete | Fast | Lazy | Tests |
 |---------|-----------|----------|------|------|-------|
+| awk     | ✓         | 20       |      |      | ✓     |
 | cat     | ✓         | ✓        | ✓    | ✓    |       |
+| cmp     | ✓         | 50       |      |      | ✓     |
 | cut     | ✓         | 90       | 75   | ✓    | 90    |
 | dirname | ✓         | ✓        | -    | -    | ✓     |
 | echo    | ✓         | ✓        | -    | -    | -     |
