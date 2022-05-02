@@ -127,10 +127,12 @@ data Relation =
 instance Comparator Relation where
     matches (RelEqual a b) r = comp (==) r a b
     matches (RelNotEq a b) r = comp (/=) r a b
-    matches _              _ = False
-    -- todo, number coercion
+    matches (RelLt    a b) r = comp (<)  r a b
+    matches (RelLe    a b) r = comp (<=) r a b
+    matches (RelGt    a b) r = comp (>)  r a b
+    matches (RelGe    a b) r = comp (>=) r a b
 
-comp :: (Text -> Text -> Bool) -> Record -> Value -> Value -> Bool
+comp :: (Primitive -> Primitive -> Bool) -> Record -> Value -> Value -> Bool
 comp c r v1 v2 = c a b
     where
         a = expand r v1
@@ -172,7 +174,7 @@ data Action =
 
 instance Executor Action where
     execute PrintAll        r = _line r <> "\n"
-    execute (PrintValue vs) r = T.concat $ map (expand r) vs <> ["\n"]
+    execute (PrintValue vs) r = T.concat $ map (T.pack . show . expand r) vs <> ["\n"]
 
 pAction :: Parsec Text () Action
 pAction = do
@@ -190,24 +192,59 @@ pAction = do
             pure $ PrintValue vs
 
 
-data Value =
+data Primitive =
       String Text
+    | Number Int
+
+instance Show Primitive where
+    show (String s) = T.unpack s
+    show (Number n) = show n
+
+instance Eq Primitive where
+    (==) (String s1) (String s2) = s1 == s2
+    (==) (Number n1) (Number n2) = n1 == n2
+    (==) (String s1) (Number n2) = s1 == T.pack (show n2)
+    (==) (Number n1) (String s2) = T.pack (show n1) == s2
+
+instance Ord Primitive where
+    (<=) (String s1) (String s2) = s1 <= s2
+    (<=) (Number n1) (Number n2) = n1 <= n2
+    (<=) (String s1) (Number n2) = s1 <= T.pack (show n2)
+    (<=) (Number n1) (String s2) = T.pack (show n1) <= s2
+
+pAny :: Parsec Text () Primitive
+pAny = String . T.pack <$> many1 anyChar
+
+pPrimitive :: Parsec Text () Primitive
+pPrimitive = choice [try quote, num]
+    where
+        quote = do
+            _ <- char '"'
+            s <- many1 (noneOf "\"")
+            _ <- char '"'
+            pure $ String $ T.pack s
+        num = Number . read <$> many1 digit
+
+
+data Value =
+      Primitive Primitive
     | FieldVar Int
     | NumFields
     deriving (Eq, Show)
 
-expand :: Record -> Value -> Text
-expand _ (String s) = s
-expand r NumFields  = T.pack $ show $ length $ _fields r
+expand :: Record -> Value -> Primitive
+expand _ (Primitive p) = p
+expand r NumFields  = Number $ length $ _fields r
 
-expand r (FieldVar 0) = _line r
+expand r (FieldVar 0) = String $ _line r
 expand r (FieldVar n)
-    | n <= length (_fields r) = _fields r !! (n - 1)
-    | otherwise = ""
+    | n <= length (_fields r) = String $ _fields r !! (n - 1)
+    | otherwise = String ""
 
 pValue :: Parsec Text () Value
-pValue = choice [sep, str, field, numFields]
+pValue = choice [try sep, try field, try numFields, prim]
     where
+        prim = Primitive <$> pPrimitive
         numFields =
             NumFields <$ string "NF"
         field = FieldVar <$> do
@@ -215,9 +252,4 @@ pValue = choice [sep, str, field, numFields]
             read <$> many1 digit
         sep = do
             _ <- char ','
-            pure $ String " "
-        str = do
-            _ <- char '"'
-            s <- many1 (noneOf "\"")
-            _ <- char '"'
-            pure $ String $ T.pack s
+            pure $ Primitive $ String " "

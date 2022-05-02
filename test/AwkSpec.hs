@@ -15,7 +15,29 @@ spec = do
     execution
 
 execution :: Spec
-execution = do
+execution = parallel $ do
+    describe "primitives" $ do
+        it "show" $ do
+            show (String "a") `shouldBe` "a"
+            show (Number 123) `shouldBe` "123"
+
+        it "eq" $ do
+            String "a" `shouldBe`    String "a"
+            String "a" `shouldNotBe` String "b"
+            Number 1   `shouldBe`    Number 1
+            Number 1   `shouldNotBe` Number 2
+
+            String "a" `shouldNotBe` Number 1
+            Number 1   `shouldNotBe` String "a"
+            String "1" `shouldBe`    Number 1
+            Number 1   `shouldBe`    String "1"
+
+        it "ord" $ do
+            String "a" < String "b" `shouldBe` True
+            String "a" > String "b" `shouldBe` False
+            Number 1   < Number 2   `shouldBe` True
+            Number 2   < Number 1   `shouldBe` False
+
     describe "fields" $
         it "works" $ do
             fields "apple"          `shouldBe` ["apple"]
@@ -31,21 +53,24 @@ execution = do
 
     describe "expand" $
         it "works" $ do
-            expa "1 2 3" (String "a") `shouldBe` "a"
-            expa ""      NumFields    `shouldBe` "0"
-            expa "1 2 3" NumFields    `shouldBe` "3"
-            expa "a b c" (FieldVar 0) `shouldBe` "a b c"
-            expa "a b c" (FieldVar 1) `shouldBe` "a"
-            expa "a b c" (FieldVar 3) `shouldBe` "c"
-            expa "a b c" (FieldVar 4) `shouldBe` ""
+            expa "1 2 3" (Primitive (String "a")) `shouldBe` String "a"
+            expa ""      NumFields    `shouldBe` Number 0
+            expa "1 2 3" NumFields    `shouldBe` String "3" -- ???
+            expa "a b c" (FieldVar 0) `shouldBe` String "a b c"
+            expa "a b c" (FieldVar 1) `shouldBe` String "a"
+            expa "a b c" (FieldVar 3) `shouldBe` String "c"
+            expa "a b c" (FieldVar 4) `shouldBe` String ""
 
     describe "execute" $ do
         it "action" $ do
             exec PrintAll "apple" `shouldBe` "apple\n"
 
-            exec (PrintValue [FieldVar 1]) "a b c"                         `shouldBe` "a\n"
-            exec (PrintValue [FieldVar 2, String "!"]) "a b c"             `shouldBe` "b!\n"
-            exec (PrintValue [FieldVar 3, String " ", String "!"]) "a b c" `shouldBe` "c !\n"
+            exec (PrintValue [FieldVar 1]) "a b c"
+                `shouldBe` "a\n"
+            exec (PrintValue [FieldVar 2, Primitive (String "!")]) "a b c"
+                `shouldBe` "b!\n"
+            exec (PrintValue [FieldVar 3, Primitive (String " "), Primitive (String "!")]) "a b c"
+                `shouldBe` "c !\n"
 
         it "program" $ do
             exec NoProgram                      "apple" `shouldBe` ""
@@ -68,11 +93,22 @@ execution = do
             match "/z.*/ || /.*/" "abc"  `shouldBe` True
             match "/z.*/ || /z.*/" "abc" `shouldBe` False
 
-        it "relation" $ do
-            match "\"a\" == \"a\"" "" `shouldBe` True
-            match "\"a\" != \"a\"" "" `shouldBe` False
+        it "relation strings" $ do
+            match "\"a\" == \"a\"" ""    `shouldBe` True
+            match "\"a\" != \"a\"" ""    `shouldBe` False
+            match "$1 == \"a\""    "a b" `shouldBe` True
+            match "$2 == \"a\""    "a b" `shouldBe` False
 
-            match "$1 == \"a\"" "a b" `shouldBe` True
+        it "relation numbers" $ do
+            match "1  <  2"  ""      `shouldBe` True
+            match "10 <  2"  ""      `shouldBe` False
+            match "1  <= 1"  ""      `shouldBe` True
+            match "10 <= NF" "a b c" `shouldBe` False
+
+        {-
+        it "relation number fields" $
+            match "10 < $1" "2 3 4" `shouldBe` False
+        -}
 
     describe "run" $
         it "works" $ do
@@ -85,17 +121,26 @@ execution = do
             run "{print $0, NF; print \"!\"}" "apple" `shouldBe` "apple 1\n!\n"
 
 parsing :: Spec
-parsing = do
+parsing = parallel $ do
+    describe "parse primitive" $ do
+        it "quoted strings" $ do
+            pRun pPrimitive "\"a\""      `shouldBe` Right (String "a")
+            pRun pPrimitive "\"apple \"" `shouldBe` Right (String "apple ")
+            pRun pPrimitive "\"123! \""  `shouldBe` Right (String "123! ")
+            pRun pPrimitive "\"123\""    `shouldBe` Right (String "123")
+
+        it "numbers" $ do
+            pRun pPrimitive "123" `shouldBe` Right (Number 123)
+            pRun pPrimitive "0"   `shouldBe` Right (Number 0)
+
+        it "other strings" $ do
+            pRun pAny "a"      `shouldBe` Right (String "a")
+            pRun pAny "a?"     `shouldBe` Right (String "a?")
+            pRun pAny "apple " `shouldBe` Right (String "apple ")
+            pRun pAny "!123\"" `shouldBe` Right (String "!123\"")
+            pRun pAny "123!\"" `shouldBe` Right (String "123!\"")
+
     describe "parse values" $ do
-        it "strings" $ do
-            pRun pValue "\"a\""      `shouldBe` Right (String "a")
-            pRun pValue "\"apple \"" `shouldBe` Right (String "apple ")
-            pRun pValue "\"123! \""  `shouldBe` Right (String "123! ")
-
-        it "strings negative" $ do
-            pRun pValue "\""      `shouldSatisfy` isLeft
-            pRun pValue "\"apple" `shouldSatisfy` isLeft
-
         it "fields" $ do
             pRun pValue "$0"  `shouldBe` Right (FieldVar 0)
             pRun pValue "$1"  `shouldBe` Right (FieldVar 1)
@@ -146,16 +191,16 @@ parsing = do
         it "works" $ do
             pRun pAction "print $1"    `shouldBe` Right (PrintValue [FieldVar 1])
             pRun pAction "print $1;"   `shouldBe` Right (PrintValue [FieldVar 1])
-            pRun pAction "print \"a\"" `shouldBe` Right (PrintValue [String "a"])
+            pRun pAction "print \"a\"" `shouldBe` Right (PrintValue [Primitive (String "a")])
 
             pRun pAction "print $1 $2 ;" `shouldBe`
                 Right (PrintValue [FieldVar 1, FieldVar 2])
 
             pRun pAction "print \"a\" $20" `shouldBe`
-                Right (PrintValue [String "a", FieldVar 20])
+                Right (PrintValue [Primitive (String "a"), FieldVar 20])
 
             pRun pAction "print $1, $2" `shouldBe`
-                Right (PrintValue [FieldVar 1, String " ", FieldVar 2])
+                Right (PrintValue [FieldVar 1, Primitive (String " "), FieldVar 2])
 
             pRun pAction "print $1, print" `shouldSatisfy` isLeft
             pRun pAction ";" `shouldSatisfy` isLeft
@@ -165,14 +210,22 @@ parsing = do
             pRun pAction "print $boop" `shouldSatisfy` isLeft
             pRun pAction "print $-1"   `shouldSatisfy` isLeft
 
-    describe "parse relation" $
-        it "works" $ do
+    describe "parse relation" $ do
+        it "fields" $ do
             pRun pRelation "$1 == $2" `shouldBe` Right (RelEqual (FieldVar 1) (FieldVar 2))
             pRun pRelation "$1 != $2" `shouldBe` Right (RelNotEq (FieldVar 1) (FieldVar 2))
             pRun pRelation "$1 <  $2" `shouldBe` Right (RelLt    (FieldVar 1) (FieldVar 2))
             pRun pRelation "$1 <= $2" `shouldBe` Right (RelLe    (FieldVar 1) (FieldVar 2))
             pRun pRelation "$1 >  $2" `shouldBe` Right (RelGt    (FieldVar 1) (FieldVar 2))
             pRun pRelation "$1 >= $2" `shouldBe` Right (RelGe    (FieldVar 1) (FieldVar 2))
+
+        it "numbers" $ do
+            pRun pRelation "1 >  2" `shouldBe` Right (RelGt (Primitive $ Number 1) (Primitive $ Number 2))
+            pRun pRelation "1 <= 2" `shouldBe` Right (RelLe (Primitive $ Number 1) (Primitive $ Number 2))
+
+        it "combined" $ do
+            pRun pRelation "1 > NF"   `shouldBe` Right (RelGt    (Primitive $ Number 1) NumFields)
+            pRun pRelation "NF != $5" `shouldBe` Right (RelNotEq NumFields (FieldVar 5))
 
     describe "parse expression" $ do
         it "empty negative" $ do
@@ -210,7 +263,7 @@ pRun p = parse (p <* eof) "test"
 exec :: Executor a => a -> Text -> Text
 exec a t = execute a (getRecord t)
 
-expa :: Text -> Value -> Text
+expa :: Text -> Value -> Primitive
 expa t = expand (getRecord t)
 
 match :: Text -> Text -> Bool
