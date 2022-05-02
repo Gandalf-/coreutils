@@ -80,9 +80,9 @@ execution = parallel $ do
 
     describe "matches" $ do
         it "basics" $ do
-            match "/a.*/" "abc"     `shouldBe` True
-            match "/z.*/" "abc"     `shouldBe` False
-            match "! /z.*/" "abc"   `shouldBe` True
+            match "/a.*/"     "abc" `shouldBe` True
+            match "/z.*/"     "abc" `shouldBe` False
+            match "! /z.*/"   "abc" `shouldBe` True
             match "!!! /z.*/" "abc" `shouldBe` True
 
         it "and" $ do
@@ -90,7 +90,7 @@ execution = parallel $ do
             match "/z.*/ && /.*/" "abc"  `shouldBe` False
 
         it "or" $ do
-            match "/z.*/ || /.*/" "abc"  `shouldBe` True
+            match "/z.*/ || /.*/"  "abc" `shouldBe` True
             match "/z.*/ || /z.*/" "abc" `shouldBe` False
 
         it "relation strings" $ do

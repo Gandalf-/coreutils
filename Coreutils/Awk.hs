@@ -234,19 +234,18 @@ data Value =
 
 expand :: Record -> Value -> Primitive
 expand _ (Primitive p) = p
-expand r NumFields  = Number $ length $ _fields r
-
-expand r (FieldVar 0) = String $ _line r
+expand r NumFields     = Number $ length $ _fields r
+expand r (FieldVar 0)  = String $ _line r
 expand r (FieldVar n)
     | n <= length (_fields r) = String $ _fields r !! (n - 1)
-    | otherwise = String ""
+    | otherwise               = String ""
 
 pValue :: Parsec Text () Value
-pValue = choice [try sep, try field, try numFields, prim]
+pValue = choice [try sep, try field, try nf, pr]
     where
-        prim = Primitive <$> pPrimitive
-        numFields =
-            NumFields <$ string "NF"
+        pr = Primitive <$> pPrimitive
+        nf = NumFields <$ string "NF"
+
         field = FieldVar <$> do
             _ <- char '$'
             read <$> many1 digit
