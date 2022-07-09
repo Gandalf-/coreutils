@@ -2,12 +2,12 @@
 
 module AwkSpec where
 
-import Data.Either
-import           Data.Text (Text)
+import           Data.Either
+import           Data.Text     (Text)
 import           Text.Parsec
 
-import Coreutils.Awk
-import Test.Hspec
+import           Coreutils.Awk
+import           Test.Hspec
 
 spec :: Spec
 spec = do
@@ -105,10 +105,19 @@ execution = parallel $ do
             match "1  <= 1"  ""      `shouldBe` True
             match "10 <= NF" "a b c" `shouldBe` False
 
-        {-
-        it "relation number fields" $
+        it "relation number fields" $ do
             match "10 < $1" "2 3 4" `shouldBe` False
-        -}
+            match "10 < $2" "2 30"  `shouldBe` True
+            match "$1 < $2" "1 2"   `shouldBe` True
+            match "$1 > $2" "1 2"   `shouldBe` False
+
+        it "relation string fields" $ do
+            match "\"a\" == $1" "a b c" `shouldBe` True
+            match "\"a\" == $2" "a b c" `shouldBe` False
+
+            match "$1 == $2" "a b a" `shouldBe` False
+            match "$1 == $8" "a b a" `shouldBe` False
+            match "$1 == $3" "a b a" `shouldBe` True
 
     describe "run" $
         it "works" $ do
@@ -159,9 +168,9 @@ parsing = parallel $ do
 
         it "relations" $ do
             pRun pPattern "$1 == $2" `shouldBe`
-                Right (Relation (RelEqual (FieldVar 1) (FieldVar 2)))
+                Right (Relation (RelEq (FieldVar 1) (FieldVar 2)))
             pRun pPattern "! $1 == $2" `shouldBe`
-                Right (Not (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
+                Right (Not (Relation (RelEq (FieldVar 1) (FieldVar 2))))
 
         it "and" $ do
             pRun pPattern "/a.*/ && /b.*/" `shouldBe`
@@ -169,7 +178,7 @@ parsing = parallel $ do
             pRun pPattern "/a.*/ && /b.*/ && /c.*/" `shouldBe`
                 Right (And (Regex "a.*") (And (Regex "b.*") (Regex "c.*")))
             pRun pPattern "/a.*/ && $1 == $2" `shouldBe`
-                Right (And (Regex "a.*") (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
+                Right (And (Regex "a.*") (Relation (RelEq (FieldVar 1) (FieldVar 2))))
 
         it "or" $ do
             pRun pPattern "/a.*/ || /b.*/" `shouldBe`
@@ -177,7 +186,7 @@ parsing = parallel $ do
             pRun pPattern "/a.*/ || /b.*/ || /c.*/" `shouldBe`
                 Right (Or (Regex "a.*") (Or (Regex "b.*") (Regex "c.*")))
             pRun pPattern "/a.*/ || $1 == $2" `shouldBe`
-                Right (Or (Regex "a.*") (Relation (RelEqual (FieldVar 1) (FieldVar 2))))
+                Right (Or (Regex "a.*") (Relation (RelEq (FieldVar 1) (FieldVar 2))))
 
         it "complex" $ do
             pRun pPattern "/a.*/ || /b.*/ && /c.*/" `shouldBe`
@@ -212,20 +221,20 @@ parsing = parallel $ do
 
     describe "parse relation" $ do
         it "fields" $ do
-            pRun pRelation "$1 == $2" `shouldBe` Right (RelEqual (FieldVar 1) (FieldVar 2))
-            pRun pRelation "$1 != $2" `shouldBe` Right (RelNotEq (FieldVar 1) (FieldVar 2))
-            pRun pRelation "$1 <  $2" `shouldBe` Right (RelLt    (FieldVar 1) (FieldVar 2))
-            pRun pRelation "$1 <= $2" `shouldBe` Right (RelLe    (FieldVar 1) (FieldVar 2))
-            pRun pRelation "$1 >  $2" `shouldBe` Right (RelGt    (FieldVar 1) (FieldVar 2))
-            pRun pRelation "$1 >= $2" `shouldBe` Right (RelGe    (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 == $2" `shouldBe` Right (RelEq (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 != $2" `shouldBe` Right (RelNe (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 <  $2" `shouldBe` Right (RelLt (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 <= $2" `shouldBe` Right (RelLe (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 >  $2" `shouldBe` Right (RelGt (FieldVar 1) (FieldVar 2))
+            pRun pRelation "$1 >= $2" `shouldBe` Right (RelGe (FieldVar 1) (FieldVar 2))
 
         it "numbers" $ do
             pRun pRelation "1 >  2" `shouldBe` Right (RelGt (Primitive $ Number 1) (Primitive $ Number 2))
             pRun pRelation "1 <= 2" `shouldBe` Right (RelLe (Primitive $ Number 1) (Primitive $ Number 2))
 
         it "combined" $ do
-            pRun pRelation "1 > NF"   `shouldBe` Right (RelGt    (Primitive $ Number 1) NumFields)
-            pRun pRelation "NF != $5" `shouldBe` Right (RelNotEq NumFields (FieldVar 5))
+            pRun pRelation "1 > NF"   `shouldBe` Right (RelGt (Primitive $ Number 1) NumFields)
+            pRun pRelation "NF != $5" `shouldBe` Right (RelNe NumFields (FieldVar 5))
 
     describe "parse expression" $ do
         it "empty negative" $ do

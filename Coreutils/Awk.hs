@@ -2,12 +2,13 @@
 
 module Coreutils.Awk where
 
-import qualified Data.Text as T
-import           Data.Text (Text)
-import           Text.Regex.TDFA
+import           Data.Either
+import           Data.Text       (Text)
+import qualified Data.Text       as T
 import           Text.Parsec
+import           Text.Regex.TDFA
 
-import Coreutils.Util
+import           Coreutils.Util
 
 data Awk = Awk
 
@@ -16,7 +17,7 @@ instance Util Awk where
 
 
 data Record = Record
-    { _line :: Text
+    { _line   :: Text
     , _fields :: [Text]
     }
     deriving (Eq, Show)
@@ -116,21 +117,21 @@ pPattern = choice [try pNot, try pCond, try regex, try rel, try begin, end]
 
 
 data Relation =
-      RelEqual Value Value
-    | RelNotEq Value Value
-    | RelLt    Value Value
-    | RelLe    Value Value
-    | RelGt    Value Value
-    | RelGe    Value Value
+      RelEq Value Value
+    | RelNe Value Value
+    | RelLt Value Value
+    | RelLe Value Value
+    | RelGt Value Value
+    | RelGe Value Value
     deriving (Eq, Show)
 
 instance Comparator Relation where
-    matches (RelEqual a b) r = comp (==) r a b
-    matches (RelNotEq a b) r = comp (/=) r a b
-    matches (RelLt    a b) r = comp (<)  r a b
-    matches (RelLe    a b) r = comp (<=) r a b
-    matches (RelGt    a b) r = comp (>)  r a b
-    matches (RelGe    a b) r = comp (>=) r a b
+    matches (RelEq a b) r = comp (==) r a b
+    matches (RelNe a b) r = comp (/=) r a b
+    matches (RelLt a b) r = comp (<)  r a b
+    matches (RelLe a b) r = comp (<=) r a b
+    matches (RelGt a b) r = comp (>)  r a b
+    matches (RelGe a b) r = comp (>=) r a b
 
 comp :: (Primitive -> Primitive -> Bool) -> Record -> Value -> Value -> Bool
 comp c r v1 v2 = c a b
@@ -141,8 +142,8 @@ comp c r v1 v2 = c a b
 pRelation :: Parsec Text () Relation
 pRelation = choice [try eq, try neq, try lt, try le, try gt, ge]
     where
-        neq = go "!=" RelNotEq
-        eq  = go "==" RelEqual
+        neq = go "!=" RelNe
+        eq  = go "==" RelEq
         lt  = go "<"  RelLt
         le  = go "<=" RelLe
         gt  = go ">"  RelGt
@@ -237,8 +238,11 @@ expand _ (Primitive p) = p
 expand r NumFields     = Number $ length $ _fields r
 expand r (FieldVar 0)  = String $ _line r
 expand r (FieldVar n)
-    | n <= length (_fields r) = String $ _fields r !! (n - 1)
+    | n <= length (_fields r) = fromRight (String value) primitive
     | otherwise               = String ""
+    where
+        value = _fields r !! (n - 1)
+        primitive = parse (pPrimitive <* eof) "fieldVar" value
 
 pValue :: Parsec Text () Value
 pValue = choice [try sep, try field, try nf, pr]
