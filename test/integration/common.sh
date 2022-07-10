@@ -22,8 +22,14 @@ expect-empty() {
 }
 
 expect-file() {
-    [[ "$( cat "$1" )" == $2 ]] ||
-        die "$1 didn't contain $2, $3"
+    [[ "$( cat "$1" )" == $2 ]] || {
+        echo \'
+        cat $1
+        echo \' != \'
+        cat <<< $2
+        echo \'
+        die $3
+    }
 }
 
 equal() {
@@ -70,9 +76,8 @@ run_tests() {
         case "$t" in
             ptest_*)
                 (( executed++ ))
-                local name="${t/ptest_/}"
                 ( $t >/dev/null 2>&1 ) &
-                pids[$!]="${name//_/ }"
+                pids[$!]="$t"
             ;;
         esac
     done < <( declare -F | awk '{ print $3 }' )
@@ -80,7 +85,12 @@ run_tests() {
     for pid in "${!pids[@]}"; do
         wait "$pid" || {
             (( failures++ ))
-            echo "\tfailure: ${pids[$pid]}"
+
+            local test=${pids[$pid]}
+            name="${test/ptest_/}"
+            name="${name//_/ }"
+            echo "\tfailure: $name"
+            ( $test )
         }
     done
 

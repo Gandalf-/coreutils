@@ -4,6 +4,7 @@ import           Data.List          (isPrefixOf, sort)
 import           System.Environment (getArgs, getProgName)
 import           System.Exit        (die)
 
+import           Coreutils.Awk      (Awk (..))
 import           Coreutils.Cat      (Cat (..))
 import           Coreutils.Cut      (Cut (..))
 import           Coreutils.Dirname  (Dirname (..))
@@ -42,6 +43,7 @@ choose name
         dispatch $ name : args
 
 dispatch :: [String] -> IO ()
+dispatch ("awk":xs)     = run Awk xs
 dispatch ("cat":xs)     = run Cat xs
 dispatch ("cut":xs)     = run Cut xs
 dispatch ("dirname":xs) = run Dirname xs
@@ -69,7 +71,8 @@ usage :: String
 usage = unlines $ ["", "usage:"] <> commands
     where
         commands = map (\c -> "  " <> c) $ sort
-            [ "cat"
+            [ "awk"
+            , "cat"
             , "cut"
             , "dirname"
             , "echo"

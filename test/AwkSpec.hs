@@ -13,6 +13,29 @@ spec :: Spec
 spec = do
     parsing
     execution
+    inputOutput
+
+inputOutput :: Spec
+inputOutput = parallel $
+    describe "normalize" $ do
+        it "missing values" $
+            normalize defaultOptions [] `shouldSatisfy` isLeft
+
+        it "parse error" $ do
+            normalize defaultOptions ["???"] `shouldSatisfy` isLeft
+            normalize (Options (Just "???") " ") ["file.txt"] `shouldSatisfy` isLeft
+
+        it "works" $ do
+            normalize defaultOptions [simpleSrc, "file.txt"]
+                `shouldBe` Right (Executable " " [FileRecord "file.txt"] simpleProg)
+            normalize defaultOptions [simpleSrc]
+                `shouldBe` Right (Executable " " [StdinRecord] simpleProg)
+            normalize progInOptions []
+                `shouldBe` Right (Executable " " [StdinRecord] simpleProg)
+    where
+        simpleSrc = "{ print NF }"
+        simpleProg = Exec [PrintValue [NumFields]]
+        progInOptions = Options (Just simpleSrc) " "
 
 execution :: Spec
 execution = parallel $ do
@@ -238,8 +261,8 @@ parsing = parallel $ do
 
     describe "parse expression" $ do
         it "empty negative" $ do
-            pRun pEmpty "a"    `shouldSatisfy` isLeft
-            pRun pEmpty "   a" `shouldSatisfy` isLeft
+            pRun pEmptyProgram "a"    `shouldSatisfy` isLeft
+            pRun pEmptyProgram "   a" `shouldSatisfy` isLeft
 
         it "expr" $ do
             pRun pExpr "{ print }" `shouldBe` Right (ActionExpr [PrintAll])
@@ -255,10 +278,10 @@ parsing = parallel $ do
 
     describe "parse program" $ do
         it "empty" $ do
-            pRun pEmpty ""      `shouldBe` Right NoProgram
-            pRun pEmpty "   "   `shouldBe` Right NoProgram
-            pRun pEmpty "{ }"   `shouldBe` Right NoProgram
-            pRun pEmpty " { } " `shouldBe` Right NoProgram
+            pRun pEmptyProgram ""      `shouldBe` Right NoProgram
+            pRun pEmptyProgram "   "   `shouldBe` Right NoProgram
+            pRun pEmptyProgram "{ }"   `shouldBe` Right NoProgram
+            pRun pEmptyProgram " { } " `shouldBe` Right NoProgram
 
         it "awk" $ do
             pRun pProgram "/.*/"           `shouldBe` Right (Grep (Regex ".*"))
