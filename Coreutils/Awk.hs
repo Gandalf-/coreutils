@@ -187,7 +187,7 @@ pPattern = choice [try pNot, try pCond, try regex, try rel, try begin, end]
         pNorm = choice [try pNot, try pCond, try rel, regex]
 
         pAnd = do
-            p1 <- choice [try regex, pNot]
+            p1 <- choice [try pNot, try rel, regex]
             spaces >> string "&&" >> spaces
             And p1 <$> pNorm
         pOr = do
@@ -348,6 +348,7 @@ runAwk opts args = do
     where
         getOptions = case opts of
             (Options Nothing s) -> pure $ Options Nothing s
+            -- Replace the filepath with the file contents, yikes
             (Options (Just f) s) -> do
                 p <- T.readFile $ T.unpack f
                 pure $ Options (Just p) s

@@ -48,4 +48,31 @@ EOF
     equal $( awk -f "$prog" "$t" ) 4
 }
 
+ptest_multiple_actions() {
+    temp t
+    echo 'A B
+    C D
+    E F G' | awk '{print $2, NF}' > $t
+    expect-file "$t" 'B 2
+D 2
+F 3'
+}
+
+ptest_comparison() {
+    temp t
+    echo '1 2 apple
+    2 1 blueberry
+    3 4 pineapple' | awk '$1 < $2 {print $3}' > $t
+    expect-file "$t" 'apple
+pineapple'
+}
+
+ptest_multiple_comparison() {
+    temp t
+    echo '1 2 apple
+    2 1 blueberry
+    3 4 pineapple' | awk '$1 < $2 && /pine/ {print $3}' > $t
+    expect-file "$t" 'pineapple'
+}
+
 run_tests awk

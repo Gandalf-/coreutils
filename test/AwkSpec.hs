@@ -190,12 +190,18 @@ parsing = parallel $ do
             pRun pPattern "!! /a.*/" `shouldBe` Right (Not (Not (Regex "a.*")))
 
         it "relations" $ do
+            pRun pPattern "$1 < $2" `shouldBe`
+                Right (Relation (RelLt (FieldVar 1) (FieldVar 2)))
             pRun pPattern "$1 == $2" `shouldBe`
                 Right (Relation (RelEq (FieldVar 1) (FieldVar 2)))
             pRun pPattern "! $1 == $2" `shouldBe`
                 Right (Not (Relation (RelEq (FieldVar 1) (FieldVar 2))))
 
         it "and" $ do
+            pRun pPattern "$1 < $2 && $2 < $3" `shouldBe`
+                Right (And
+                    (Relation (RelLt (FieldVar 1) (FieldVar 2)))
+                    (Relation (RelLt (FieldVar 2) (FieldVar 3))))
             pRun pPattern "/a.*/ && /b.*/" `shouldBe`
                 Right (And (Regex "a.*") (Regex "b.*"))
             pRun pPattern "/a.*/ && /b.*/ && /c.*/" `shouldBe`
@@ -218,6 +224,10 @@ parsing = parallel $ do
                 Right (Not (Or (Regex "a.*") (Regex "b.*")))
             pRun pPattern "! /a.*/ || ! /b.*/" `shouldBe`
                 Right (Not (Or (Regex "a.*") (Not (Regex "b.*"))))
+            pRun pPattern "$1 < $2 && /pine/" `shouldBe`
+                Right (And
+                    (Relation (RelLt (FieldVar 1) (FieldVar 2)))
+                    (Regex "pine"))
 
     describe "parse action" $ do
         it "works" $ do
