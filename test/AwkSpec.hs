@@ -3,7 +3,11 @@
 module AwkSpec where
 
 import           Data.Either
-import           Data.Text     (Text)
+import qualified Data.HashMap.Strict as H
+import           Data.Text           (Text)
+import qualified Data.Text           as T
+import           System.IO
+import           System.IO.Temp
 import           Text.Parsec
 
 import           Coreutils.Awk
@@ -16,7 +20,7 @@ spec = do
     inputOutput
 
 inputOutput :: Spec
-inputOutput = parallel $
+inputOutput = parallel $ do
     describe "normalize" $ do
         it "missing values" $
             normalize defaultOptions [] `shouldSatisfy` isLeft
@@ -32,6 +36,24 @@ inputOutput = parallel $
                 `shouldBe` Right (Executable " " [StdinRecord] simpleProg)
             normalize progInOptions []
                 `shouldBe` Right (Executable " " [StdinRecord] simpleProg)
+
+    describe "ioExecute" $
+        it "works" $ do
+            st1 <- ioExecute (program "$1 > x { x = $1 }") emptyState (getRecord "3")
+            sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
+
+            st2 <- ioExecute (program "$1 > x { x = $1 }") st1 (getRecord "1")
+            sVariables st2 `shouldBe` H.fromList [("x", Number 3)]
+
+    describe "ioAwk" $ do
+        it "simple" $ do
+            st <- ioRun ["1 2 3"] "{ x = $1 }"
+            sVariables st `shouldBe` H.fromList [("x", Number 1)]
+
+        it "multi line" $ do
+            st <- ioRun ["1", "3", "2"] "$1 > x { x = $1 }"
+            sVariables st `shouldBe` H.fromList [("x", Number 3)]
+
     where
         simpleSrc = "{ print NF }"
         simpleProg = Exec [PrintValue [NumFields]]
@@ -74,7 +96,7 @@ execution = parallel $ do
         it "works" $
             getRecord "1 2 3" `shouldBe` Record "1 2 3" ["1", "2", "3"]
 
-    describe "expand" $
+    describe "expand" $ do
         it "works" $ do
             expa "1 2 3" (Primitive (String "a")) `shouldBe` String "a"
             expa ""      NumFields    `shouldBe` Number 0
@@ -84,16 +106,36 @@ execution = parallel $ do
             expa "a b c" (FieldVar 3) `shouldBe` String "c"
             expa "a b c" (FieldVar 4) `shouldBe` String ""
 
+        it "reads state" $ do
+            expand emptyState { sRecords = 23 } (getRecord "") NumRecords
+                `shouldBe` Number 23
+            expand emptyState (getRecord "") (Variable "x")
+                `shouldBe` String ""
+            expand
+                emptyState { sVariables = H.fromList [("x", Number 1)]}
+                (getRecord "")
+                (Variable "x")
+                `shouldBe` Number 1
+
     describe "execute" $ do
         it "action" $ do
             exec PrintAll "apple" `shouldBe` "apple\n"
 
-            exec (PrintValue [FieldVar 1]) "a b c"
+            exec (program "{ print $1 }") "a b c"
                 `shouldBe` "a\n"
-            exec (PrintValue [FieldVar 2, Primitive (String "!")]) "a b c"
+            exec (program "{ print $2 \"!\" }") "a b c"
                 `shouldBe` "b!\n"
             exec (PrintValue [FieldVar 3, Primitive (String " "), Primitive (String "!")]) "a b c"
                 `shouldBe` "c !\n"
+
+            let (st1, _) = execute emptyState (Assign "x" NumFields) (getRecord "a b c")
+            sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
+
+            let (st2, _) = execute st1 (Assign "y" (Variable "x")) (getRecord "a b c")
+            sVariables st2 `shouldBe` H.fromList [("x", Number 3), ("y", Number 3)]
+
+            let (st3, _) = execute st2 (Assign "x" (Primitive (Number 7))) (getRecord "a b c")
+            sVariables st3 `shouldBe` H.fromList [("x", Number 7), ("y", Number 3)]
 
         it "program" $ do
             exec NoProgram                      "apple" `shouldBe` ""
@@ -133,6 +175,7 @@ execution = parallel $ do
             match "10 < $2" "2 30"  `shouldBe` True
             match "$1 < $2" "1 2"   `shouldBe` True
             match "$1 > $2" "1 2"   `shouldBe` False
+            match "$1 > x"  "1 2"   `shouldBe` True
 
         it "relation string fields" $ do
             match "\"a\" == $1" "a b c" `shouldBe` True
@@ -151,6 +194,8 @@ execution = parallel $ do
             run "{print $2}" "apple" `shouldBe` "\n"
 
             run "{print $0, NF; print \"!\"}" "apple" `shouldBe` "apple 1\n!\n"
+            run "{x = 1; print x}" "" `shouldBe` "1\n"
+            run "$1 > x {x = 1; print x; }" "4" `shouldBe` "1\n"
 
 parsing :: Spec
 parsing = parallel $ do
@@ -160,6 +205,8 @@ parsing = parallel $ do
             pRun pPrimitive "\"apple \"" `shouldBe` Right (String "apple ")
             pRun pPrimitive "\"123! \""  `shouldBe` Right (String "123! ")
             pRun pPrimitive "\"123\""    `shouldBe` Right (String "123")
+
+            pRun pPrimitive " " `shouldSatisfy` isLeft
 
         it "numbers" $ do
             pRun pPrimitive "123" `shouldBe` Right (Number 123)
@@ -180,6 +227,14 @@ parsing = parallel $ do
 
         it "num fields" $
             pRun pValue "NF" `shouldBe` Right NumFields
+
+        it "variables" $ do
+            pRun pValue " "  `shouldSatisfy` isLeft
+            pRun pValue "a?" `shouldSatisfy` isLeft
+
+            pRun pValue "x" `shouldBe` Right (Variable "x")
+            pRun pValue "abc2" `shouldBe` Right (Variable "abc2")
+
 
     describe "parse pattern" $ do
         it "basics" $ do
@@ -247,6 +302,16 @@ parsing = parallel $ do
             pRun pAction "print $1, print" `shouldSatisfy` isLeft
             pRun pAction ";" `shouldSatisfy` isLeft
 
+        it "assignment" $ do
+            pRun pAction "x = 3"
+                `shouldBe` Right (Assign "x" (Primitive (Number 3)))
+            pRun pAction "abc = \"hello\""
+                `shouldBe` Right (Assign "abc" (Primitive (String "hello")))
+            pRun pAction "x = NF"
+                `shouldBe` Right (Assign "x" NumFields)
+            pRun pAction "x = $1"
+                `shouldBe` Right (Assign "x" (FieldVar 1))
+
         it "negative" $ do
             pRun pAction "junk"        `shouldSatisfy` isLeft
             pRun pAction "print $boop" `shouldSatisfy` isLeft
@@ -265,9 +330,13 @@ parsing = parallel $ do
             pRun pRelation "1 >  2" `shouldBe` Right (RelGt (Primitive $ Number 1) (Primitive $ Number 2))
             pRun pRelation "1 <= 2" `shouldBe` Right (RelLe (Primitive $ Number 1) (Primitive $ Number 2))
 
+        it "variables" $
+            pRun pRelation "y > x" `shouldBe` Right (RelGt (Variable "y") (Variable "x"))
+
         it "combined" $ do
             pRun pRelation "1 > NF"   `shouldBe` Right (RelGt (Primitive $ Number 1) NumFields)
             pRun pRelation "NF != $5" `shouldBe` Right (RelNe NumFields (FieldVar 5))
+            pRun pRelation "$1 > x"   `shouldBe` Right (RelGt (FieldVar 1) (Variable "x"))
 
     describe "parse expression" $ do
         it "empty negative" $ do
@@ -302,14 +371,20 @@ parsing = parallel $ do
 pRun :: Parsec Text () a -> Text -> Either ParseError a
 pRun p = parse (p <* eof) "test"
 
+program :: Text -> Program
+program src = either undefined id $ pRun pProgram src
+
 exec :: Executor a => a -> Text -> Text
-exec a t = execute a (getRecord t)
+exec a t = snd $ execute emptyState a (getRecord t)
+
+execs :: Executor a => AwkState -> a -> Text -> Text
+execs st a t = snd $ execute st a (getRecord t)
 
 expa :: Text -> Value -> Primitive
-expa t = expand (getRecord t)
+expa t = expand emptyState (getRecord t)
 
 match :: Text -> Text -> Bool
-match p r = matches pat (getRecord r)
+match p r = matches emptyState pat (getRecord r)
     where
         pat = case pRun pPattern p of
             (Left _)  -> undefined
@@ -321,3 +396,12 @@ run p = exec prog
         prog = case pRun pProgram p of
             (Left _)  -> undefined
             (Right a) -> a
+
+ioRun :: [String] -> Text -> IO AwkState
+ioRun ls src = withSystemTempFile "data.txt" test
+    where
+        test fname h = do
+            hPutStr h $ unlines ls
+            hClose h
+            let exe = Executable " " [FileRecord $ T.pack fname] $ program src
+            ioAwk exe

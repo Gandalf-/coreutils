@@ -4,6 +4,7 @@ module Coreutils.Awk where
 
 import           Control.Monad
 import           Data.Either
+import qualified Data.HashMap.Strict   as H
 import           Data.Text             (Text)
 import qualified Data.Text             as T
 import qualified Data.Text.IO          as T
@@ -29,6 +30,16 @@ data Record = Record
     }
     deriving (Eq, Show)
 
+data AwkState = AwkState
+    { sVariables :: H.HashMap Text Primitive
+    , sRecords   :: Int
+    , sSeparator :: Text
+    }
+    deriving (Eq, Show)
+
+emptyState :: AwkState
+emptyState = AwkState H.empty 0 T.empty
+
 fields :: Text -> [Text]
 fields = filter (not . T.null) . T.splitOn " "
 
@@ -36,7 +47,7 @@ getRecord :: Text -> Record
 getRecord t = Record t (fields t)
 
 class Executor a where
-    execute :: a -> Record -> Text
+    execute :: AwkState -> a -> Record -> (AwkState, Text)
 
 
 data Program =
@@ -47,12 +58,20 @@ data Program =
     deriving (Eq, Show)
 
 instance Executor Program where
-    execute NoProgram  _ = ""
-    execute (Grep p)   r = execute (Full p [PrintAll]) r
-    execute (Exec a)   r = execute (Full Always a)   r
-    execute (Full p as) r
-        | matches p r = T.concat (map (`execute` r) as)
-        | otherwise   = ""
+    execute st NoProgram  _ = (st, "")
+    execute st (Grep p)   r = execute st (Full p [PrintAll]) r
+    execute st (Exec a)   r = execute st (Full Always a)   r
+    execute st (Full p as) r
+        | matches st p r = execute st as r
+        | otherwise   = (st, "")
+
+instance Executor a => Executor [a] where
+    execute st [] _  = (st, "")
+    execute st [a] r = execute st a r
+    execute prevSt (a:as) r = (nextSt, thisText <> nextText)
+        where
+            (thisSt, thisText) = execute prevSt a r
+            (nextSt, nextText) = execute thisSt as r
 
 
 data Pattern =
@@ -67,16 +86,16 @@ data Pattern =
     deriving (Eq, Show)
 
 class Comparator a where
-    matches :: a -> Record -> Bool
+    matches :: AwkState -> a -> Record -> Bool
 
 instance Comparator Pattern where
-    matches Always       _ = True
-    matches (Regex p)    r = _line r =~ p
-    matches (Not p)      r = not $ matches p r
-    matches (And p1 p2)  r = matches p1 r && matches p2 r
-    matches (Or  p1 p2)  r = matches p1 r || matches p2 r
-    matches (Relation v) r = matches v r
-    matches _            _ = False
+    matches _  Always       _ = True
+    matches _  (Regex p)    r = _line r =~ p
+    matches st (Not p)      r = not $ matches st p r
+    matches st (And p1 p2)  r = matches st p1 r && matches st p2 r
+    matches st (Or  p1 p2)  r = matches st p1 r || matches st p2 r
+    matches st (Relation v) r = matches st v r
+    matches _  _            _ = False
 
 
 data Relation =
@@ -89,18 +108,18 @@ data Relation =
     deriving (Eq, Show)
 
 instance Comparator Relation where
-    matches (RelEq a b) r = comp (==) r a b
-    matches (RelNe a b) r = comp (/=) r a b
-    matches (RelLt a b) r = comp (<)  r a b
-    matches (RelLe a b) r = comp (<=) r a b
-    matches (RelGt a b) r = comp (>)  r a b
-    matches (RelGe a b) r = comp (>=) r a b
+    matches st (RelEq a b) r = comp (==) st r a b
+    matches st (RelNe a b) r = comp (/=) st r a b
+    matches st (RelLt a b) r = comp (<)  st r a b
+    matches st (RelLe a b) r = comp (<=) st r a b
+    matches st (RelGt a b) r = comp (>)  st r a b
+    matches st (RelGe a b) r = comp (>=) st r a b
 
-comp :: (Primitive -> Primitive -> Bool) -> Record -> Value -> Value -> Bool
-comp c r v1 v2 = c a b
+comp :: (Primitive -> Primitive -> Bool) -> AwkState -> Record -> Value -> Value -> Bool
+comp c st r v1 v2 = c a b
     where
-        a = expand r v1
-        b = expand r v2
+        a = expand st r v1
+        b = expand st r v2
 
 
 newtype Expr = ActionExpr
@@ -112,26 +131,40 @@ newtype Expr = ActionExpr
 data Action =
       PrintAll
     | PrintValue [Value]
+    | Assign Text Value
     deriving (Eq, Show)
 
 instance Executor Action where
-    execute PrintAll        r = _line r <> "\n"
-    execute (PrintValue vs) r = T.concat $ map (T.pack . show . expand r) vs <> ["\n"]
+    execute st PrintAll r =
+        (st, _line r <> "\n")
+    execute st (PrintValue vs) r =
+        (st, T.concat $ map (T.pack . show . expand st r) vs <> ["\n"])
+    execute st (Assign name value) r =
+        (st { sVariables = H.insert name prim $ sVariables st }, T.empty)
+        where
+            prim = expand st r value
 
 
 data Value =
       Primitive Primitive
     | FieldVar Int
+    | Variable Text
     | NumFields
+    | NumRecords
     deriving (Eq, Show)
 
-expand :: Record -> Value -> Primitive
-expand _ (Primitive p) = p
-expand r NumFields     = Number $ length $ _fields r
-expand r (FieldVar 0)  = String $ _line r
-expand r (FieldVar n)
-    | n <= length (_fields r) = fromRight (String value) primitive
-    | otherwise               = String ""
+expand :: AwkState -> Record -> Value -> Primitive
+expand _ _  (Primitive p)   = p
+expand _ r  NumFields       = Number $ length $ _fields r
+expand st _ NumRecords      = Number $ sRecords st
+
+expand st _ (Variable name) =
+    H.findWithDefault (String T.empty) name $ sVariables st
+
+expand _ r  (FieldVar 0)    = String $ _line r
+expand _ r  (FieldVar n)
+        | n <= length (_fields r) = fromRight (String value) primitive
+        | otherwise               = String T.empty
     where
         value = _fields r !! (n - 1)
         primitive = parse (pPrimitive <* eof) "fieldVar" value
@@ -205,14 +238,14 @@ pPattern = choice [try pNot, try pCond, try regex, try rel, try begin, end]
             pure $ Regex $ T.pack r
 
 pRelation :: Parser Relation
-pRelation = choice [try eq, try neq, try lt, try le, try gt, ge]
+pRelation = choice [try eq, try ne, try lt, try le, try gt, ge]
     where
-        neq = go "!=" RelNe
-        eq  = go "==" RelEq
-        lt  = go "<"  RelLt
-        le  = go "<=" RelLe
-        gt  = go ">"  RelGt
-        ge  = go ">=" RelGe
+        ne = go "!=" RelNe
+        eq = go "==" RelEq
+        lt = go "<"  RelLt
+        le = go "<=" RelLe
+        gt = go ">"  RelGt
+        ge = go ">=" RelGe
 
         go s b = do
             v1 <- pValue
@@ -228,7 +261,7 @@ pExpr = do
 
 pAction :: Parser Action
 pAction = do
-        o <- choice [try pVar, pAll]
+        o <- choice [try pVar, try pAll, pAssign]
         optional (char ';')
         pure o
     where
@@ -240,6 +273,14 @@ pAction = do
             spaces
             vs <- sepEndBy1 pValue spaces
             pure $ PrintValue vs
+
+pAssign :: Parser Action
+pAssign = do
+    name <- many1 alphaNum
+    spaces
+    _ <- char '='
+    spaces
+    Assign (T.pack name) <$> pValue
 
 pAny :: Parser Primitive
 pAny = String . T.pack <$> many1 anyChar
@@ -254,11 +295,17 @@ pPrimitive = choice [try quote, num]
             pure $ String $ T.pack s
         num = Number . read <$> many1 digit
 
+pKeywords :: Parser String
+pKeywords = choice [string "print"]
+
 pValue :: Parser Value
-pValue = choice [try sep, try field, try nf, pr]
+pValue = choice [try sep, try field, try nf, try pr, var]
     where
         pr = Primitive <$> pPrimitive
         nf = NumFields <$ string "NF"
+        var = do
+            skipMany pKeywords
+            Variable . T.pack <$> many1 alphaNum
 
         field = FieldVar <$> do
             _ <- char '$'
@@ -344,7 +391,7 @@ builder progSrc s sources =
 runAwk :: Options -> [Text] -> IO ()
 runAwk opts args = do
         options <- getOptions
-        either die ioAwk $ normalize options args
+        either die (void . ioAwk) $ normalize options args
     where
         getOptions = case opts of
             (Options Nothing s) -> pure $ Options Nothing s
@@ -353,8 +400,15 @@ runAwk opts args = do
                 p <- T.readFile $ T.unpack f
                 pure $ Options (Just p) s
 
+ioAwk :: Executable -> IO AwkState
+ioAwk (Executable s rs p) =
+        concat <$> mapM getRecords rs >>= foldM (ioExecute p) state
+    where
+        state = emptyState { sSeparator = s }
 
-ioAwk :: Executable -> IO ()
-ioAwk (Executable _ rs p) =
-    concat <$> mapM getRecords rs
-    >>= mapM_ (T.putStr . execute p)
+ioExecute :: Program -> AwkState -> Record -> IO AwkState
+ioExecute p st r = do
+        T.putStr newLine
+        pure newState
+    where
+        (newState, newLine) = execute st p r

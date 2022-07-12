@@ -75,4 +75,18 @@ ptest_multiple_comparison() {
     expect-file "$t" 'pineapple'
 }
 
+ptest_variables() {
+    temp i o
+cat << EOF > $i
+4
+3
+2
+8
+2
+EOF
+    awk '$1 > x { x = $1; print x; }' $i > $o
+    expect-file "$o" '4
+8'
+}
+
 run_tests awk
