@@ -49,8 +49,19 @@ fields = filter (not . T.null) . T.splitOn " "
 getRecord :: Text -> Record
 getRecord t = Record t (fields t)
 
+
 class Executor a where
     execute :: a -> AwkState -> Record -> (AwkState, Text)
+
+instance Executor a => Executor [a] where
+    execute []     st _ = (st, "")
+    execute [a]    st r = execute a st r
+    execute (a:as) st r = (nextSt, thisText <> nextText)
+        where
+            prevSt = st
+            (thisSt, thisText) = execute a  prevSt r
+            (nextSt, nextText) = execute as thisSt r
+
 
 data FullProgram = FullProgram
     { fBegin  :: [Program]
@@ -76,15 +87,6 @@ instance Executor Program where
     execute (Full p as) st r
         | matches p st r = execute as st r
         | otherwise   = (st, "")
-
-instance Executor a => Executor [a] where
-    execute []     st _ = (st, "")
-    execute [a]    st r = execute a st r
-    execute (a:as) st r = (nextSt, thisText <> nextText)
-        where
-            prevSt = st
-            (thisSt, thisText) = execute a prevSt r
-            (nextSt, nextText) = execute as thisSt r
 
 
 data Pattern =
@@ -139,7 +141,6 @@ newtype Expr = ActionExpr
     { _actions :: [Action]
     }
     deriving (Eq, Show)
-
 
 data Action =
       PrintAll
@@ -202,6 +203,55 @@ instance Ord Primitive where
     (<=) (Number n1) (Number n2) = n1 <= n2
     (<=) (String s1) (Number n2) = s1 <= T.pack (show n2)
     (<=) (Number n1) (String s2) = T.pack (show n1) <= s2
+
+
+-- | Execution
+
+awkMain :: [String] -> IO ()
+awkMain args = do
+        unless (null errors) $
+            die $ unlines errors
+        either die (`runAwk` arguments) $
+            foldM (flip id) defaultOptions opts
+    where
+        arguments = map T.pack other
+        (opts, other, errors) = getOpt RequireOrder optionDesc args
+
+data RecordSource = StdinRecord | FileRecord Text
+    deriving (Show, Eq)
+
+getRecords :: RecordSource -> IO [Record]
+getRecords StdinRecord    = extractRecords <$> L.getContents
+getRecords (FileRecord f) = extractRecords <$> L.readFile (T.unpack f)
+
+extractRecords :: L.Text -> [Record]
+extractRecords = map (getRecord . L.toStrict) . L.lines
+
+runAwk :: Options -> [Text] -> IO ()
+runAwk opts args = do
+        options <- getOptions
+        either die (void . ioAwk) $ normalize options args
+    where
+        getOptions = case opts of
+            (Options Nothing s) -> pure $ Options Nothing s
+            -- Replace the filepath with the file contents, yikes
+            (Options (Just f) s) -> do
+                p <- T.readFile $ T.unpack f
+                pure $ Options (Just p) s
+
+ioAwk :: Executable -> IO AwkState
+ioAwk (Executable s rs p) =
+        concat <$> mapM getRecords rs >>= foldM (ioExecute p) state
+    where
+        state = emptyState { sSeparator = s }
+
+ioExecute :: Program -> AwkState -> Record -> IO AwkState
+ioExecute p st r = do
+        T.putStr newLine
+        pure newState
+    where
+        (newState, newLine) = execute p incState r
+        incState = st { sRecords = sRecords st + 1 }
 
 
 -- | Parsing
@@ -328,6 +378,7 @@ pValue = choice [try sep, try field, try nf, try nr, try pr, var]
             _ <- char ','
             pure $ Primitive $ String " "
 
+
 -- | Options
 
 type Separator = Text
@@ -337,7 +388,6 @@ data Options = Options {
     , optSeparator :: Separator
     }
     deriving (Eq, Show)
-
 
 defaultOptions :: Options
 defaultOptions = Options {
@@ -365,26 +415,6 @@ optionDesc =
         "show this help text"
     ]
 
-awkMain :: [String] -> IO ()
-awkMain args = do
-        unless (null errors) $
-            die $ unlines errors
-        either die (`runAwk` arguments) $
-            foldM (flip id) defaultOptions opts
-    where
-        arguments = map T.pack other
-        (opts, other, errors) = getOpt RequireOrder optionDesc args
-
-data RecordSource = StdinRecord | FileRecord Text
-    deriving (Show, Eq)
-
-getRecords :: RecordSource -> IO [Record]
-getRecords StdinRecord    = extractRecords <$> L.getContents
-getRecords (FileRecord f) = extractRecords <$> L.readFile (T.unpack f)
-
-extractRecords :: L.Text -> [Record]
-extractRecords = map (getRecord . L.toStrict) . L.lines
-
 data Executable = Executable Separator [RecordSource] Program
     deriving (Show, Eq)
 
@@ -401,29 +431,3 @@ builder progSrc s sources =
         (Left . show)
         (Right . Executable s sources)
         $ parse (pProgram <* eof) "awk" progSrc
-
-runAwk :: Options -> [Text] -> IO ()
-runAwk opts args = do
-        options <- getOptions
-        either die (void . ioAwk) $ normalize options args
-    where
-        getOptions = case opts of
-            (Options Nothing s) -> pure $ Options Nothing s
-            -- Replace the filepath with the file contents, yikes
-            (Options (Just f) s) -> do
-                p <- T.readFile $ T.unpack f
-                pure $ Options (Just p) s
-
-ioAwk :: Executable -> IO AwkState
-ioAwk (Executable s rs p) =
-        concat <$> mapM getRecords rs >>= foldM (ioExecute p) state
-    where
-        state = emptyState { sSeparator = s }
-
-ioExecute :: Program -> AwkState -> Record -> IO AwkState
-ioExecute p st r = do
-        T.putStr newLine
-        pure newState
-    where
-        (newState, newLine) = execute p incState r
-        incState = st { sRecords = sRecords st + 1 }
