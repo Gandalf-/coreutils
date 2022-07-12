@@ -24,11 +24,7 @@ instance Util Awk where
     run _ = awkMain
 
 
-data Record = Record
-    { _line   :: Text
-    , _fields :: [Text]
-    }
-    deriving (Eq, Show)
+type Record = Text
 
 data AwkState = AwkState
     { sVariables :: H.HashMap Text Primitive
@@ -38,16 +34,13 @@ data AwkState = AwkState
     deriving (Eq, Show)
 
 emptyState :: AwkState
-emptyState = AwkState H.empty 0 T.empty
+emptyState = AwkState H.empty 0 " "
 
 emptyRecord :: Record
-emptyRecord = Record T.empty []
+emptyRecord = T.empty
 
-fields :: Text -> [Text]
-fields = filter (not . T.null) . T.splitOn " "
-
-getRecord :: Text -> Record
-getRecord t = Record t (fields t)
+fields :: AwkState -> Record -> [Text]
+fields st = filter (not . T.null) . T.splitOn (sSeparator st)
 
 
 class Executor a where
@@ -105,7 +98,7 @@ class Comparator a where
 
 instance Comparator Pattern where
     matches Always       _  _ = True
-    matches (Regex p)    _  r = _line r =~ p
+    matches (Regex p)    _  r = r =~ p
     matches (Not p)      st r = not $ matches p st r
     matches (And p1 p2)  st r = matches p1 st r && matches p2 st r
     matches (Or  p1 p2)  st r = matches p1 st r || matches p2 st r
@@ -150,7 +143,7 @@ data Action =
 
 instance Executor Action where
     execute PrintAll st r =
-        (st, _line r <> "\n")
+        (st, r <> "\n")
     execute (PrintValue vs) st r =
         (st, T.concat $ map (T.pack . show . expand st r) vs <> ["\n"])
     execute (Assign name value) st r =
@@ -168,19 +161,20 @@ data Value =
     deriving (Eq, Show)
 
 expand :: AwkState -> Record -> Value -> Primitive
-expand _ _  (Primitive p)   = p
-expand _ r  NumFields       = Number $ length $ _fields r
+expand _  _ (Primitive p)   = p
+expand st r NumFields       = Number $ length $ fields st r
 expand st _ NumRecords      = Number $ sRecords st
 
 expand st _ (Variable name) =
     H.findWithDefault (String T.empty) name $ sVariables st
 
-expand _ r  (FieldVar 0)    = String $ _line r
-expand _ r  (FieldVar n)
-        | n <= length (_fields r) = fromRight (String value) primitive
-        | otherwise               = String T.empty
+expand _  r (FieldVar 0)    = String r
+expand st r (FieldVar n)
+        | n <= length fs = fromRight (String value) primitive
+        | otherwise      = String T.empty
     where
-        value = _fields r !! (n - 1)
+        fs = fields st r
+        value = fs !! (n - 1)
         primitive = parse (pPrimitive <* eof) "fieldVar" value
 
 
@@ -225,7 +219,7 @@ getRecords StdinRecord    = extractRecords <$> L.getContents
 getRecords (FileRecord f) = extractRecords <$> L.readFile (T.unpack f)
 
 extractRecords :: L.Text -> [Record]
-extractRecords = map (getRecord . L.toStrict) . L.lines
+extractRecords = map L.toStrict . L.lines
 
 runAwk :: Options -> [Text] -> IO ()
 runAwk opts args = do

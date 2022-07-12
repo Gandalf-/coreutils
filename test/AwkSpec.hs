@@ -39,11 +39,11 @@ inputOutput = parallel $ do
 
     describe "ioExecute" $
         it "works" $ do
-            st1 <- ioExecute (program "$1 > x { x = $1 }") emptyState (getRecord "3")
+            st1 <- ioExecute (program "$1 > x { x = $1 }") emptyState "3"
             sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
             sRecords st1 `shouldBe` 1
 
-            st2 <- ioExecute (program "$1 > x { x = $1 }") st1 (getRecord "1")
+            st2 <- ioExecute (program "$1 > x { x = $1 }") st1 "1"
             sVariables st2 `shouldBe` H.fromList [("x", Number 3)]
             sRecords st2 `shouldBe` 2
 
@@ -91,16 +91,12 @@ execution = parallel $ do
 
     describe "fields" $
         it "works" $ do
-            fields "apple"          `shouldBe` ["apple"]
-            fields "a b c"          `shouldBe` ["a", "b", "c"]
-            fields "apple b c"      `shouldBe` ["apple", "b", "c"]
-            fields "  apple b c"    `shouldBe` ["apple", "b", "c"]
-            fields "  a   b   c"    `shouldBe` ["a", "b", "c"]
-            fields "  a   b   c   " `shouldBe` ["a", "b", "c"]
-
-    describe "records" $
-        it "works" $
-            getRecord "1 2 3" `shouldBe` Record "1 2 3" ["1", "2", "3"]
+            tFields " " "apple"          `shouldBe` ["apple"]
+            tFields " " "a b c"          `shouldBe` ["a", "b", "c"]
+            tFields " " "apple b c"      `shouldBe` ["apple", "b", "c"]
+            tFields " " "  apple b c"    `shouldBe` ["apple", "b", "c"]
+            tFields " " "  a   b   c"    `shouldBe` ["a", "b", "c"]
+            tFields " " "  a   b   c   " `shouldBe` ["a", "b", "c"]
 
     describe "expand" $ do
         it "works" $ do
@@ -134,13 +130,13 @@ execution = parallel $ do
             exec (PrintValue [FieldVar 3, Primitive (String " "), Primitive (String "!")]) "a b c"
                 `shouldBe` "c !\n"
 
-            let (st1, _) = execute (Assign "x" NumFields) emptyState (getRecord "a b c")
+            let (st1, _) = execute (Assign "x" NumFields) emptyState "a b c"
             sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
 
-            let (st2, _) = execute (Assign "y" (Variable "x")) st1 (getRecord "a b c")
+            let (st2, _) = execute (Assign "y" (Variable "x")) st1 "a b c"
             sVariables st2 `shouldBe` H.fromList [("x", Number 3), ("y", Number 3)]
 
-            let (st3, _) = execute (Assign "x" (Primitive (Number 7))) st2 (getRecord "a b c")
+            let (st3, _) = execute (Assign "x" (Primitive (Number 7))) st2 "a b c"
             sVariables st3 `shouldBe` H.fromList [("x", Number 7), ("y", Number 3)]
 
         it "program" $ do
@@ -148,6 +144,13 @@ execution = parallel $ do
             exec (Full (Regex ".*") [PrintAll]) "apple" `shouldBe` "apple\n"
             exec (Grep (Regex ".*"))            "apple" `shouldBe` "apple\n"
             exec (Exec [PrintAll])              "apple" `shouldBe` "apple\n"
+
+        it "separator" $ do
+            let (st1, _) = execute (program "{x = NF}") (sepState ",") "1,2,3"
+            H.lookup "x" (sVariables st1) `shouldBe` Just (Number 3)
+
+            let (st2, _) = execute (program "{x = NF}") (sepState "???") "1???2???3"
+            H.lookup "x" (sVariables st2) `shouldBe` Just (Number 3)
 
         it "fullProgram" $ do
             let fp = FullProgram [program "{x = 1}"] [program "{y = x}"] [program "{z = y}"]
@@ -379,6 +382,12 @@ parsing = parallel $ do
             pRun pProgram "{ print }"      `shouldBe` Right (Exec [PrintAll])
 
 
+sepState :: Text -> AwkState
+sepState s = emptyState { sSeparator = s}
+
+tFields :: Text -> Text -> [Text]
+tFields s = fields (sepState s)
+
 pRun :: Parsec Text () a -> Text -> Either ParseError a
 pRun p = parse (p <* eof) "test"
 
@@ -386,16 +395,16 @@ program :: Text -> Program
 program src = either undefined id $ pRun pProgram src
 
 exec :: Executor a => a -> Text -> Text
-exec a t = snd $ execute a emptyState (getRecord t)
+exec a = snd . execute a emptyState
 
 execs :: Executor a => AwkState -> a -> Text -> Text
-execs st a t = snd $ execute a st (getRecord t)
+execs st a = snd . execute a st
 
 expa :: Text -> Value -> Primitive
-expa t = expand emptyState (getRecord t)
+expa = expand emptyState
 
 match :: Text -> Text -> Bool
-match p r = matches pat emptyState (getRecord r)
+match p = matches pat emptyState
     where
         pat = case pRun pPattern p of
             (Left _)  -> undefined
