@@ -41,9 +41,11 @@ inputOutput = parallel $ do
         it "works" $ do
             st1 <- ioExecute (program "$1 > x { x = $1 }") emptyState (getRecord "3")
             sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
+            sRecords st1 `shouldBe` 1
 
             st2 <- ioExecute (program "$1 > x { x = $1 }") st1 (getRecord "1")
             sVariables st2 `shouldBe` H.fromList [("x", Number 3)]
+            sRecords st2 `shouldBe` 2
 
     describe "ioAwk" $ do
         it "simple" $ do
@@ -53,6 +55,10 @@ inputOutput = parallel $ do
         it "multi line" $ do
             st <- ioRun ["1", "3", "2"] "$1 > x { x = $1 }"
             sVariables st `shouldBe` H.fromList [("x", Number 3)]
+
+        it "num records" $ do
+            st <- ioRun ["1", "3", "2", "5"] "{ x = NR }"
+            sVariables st `shouldBe` H.fromList [("x", Number 4)]
 
     where
         simpleSrc = "{ print NF }"
@@ -384,7 +390,7 @@ expa :: Text -> Value -> Primitive
 expa t = expand emptyState (getRecord t)
 
 match :: Text -> Text -> Bool
-match p r = matches emptyState pat (getRecord r)
+match p r = matches pat emptyState (getRecord r)
     where
         pat = case pRun pPattern p of
             (Left _)  -> undefined

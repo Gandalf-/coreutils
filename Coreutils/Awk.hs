@@ -62,7 +62,7 @@ instance Executor Program where
     execute st (Grep p)   r = execute st (Full p [PrintAll]) r
     execute st (Exec a)   r = execute st (Full Always a)   r
     execute st (Full p as) r
-        | matches st p r = execute st as r
+        | matches p st r = execute st as r
         | otherwise   = (st, "")
 
 instance Executor a => Executor [a] where
@@ -86,16 +86,16 @@ data Pattern =
     deriving (Eq, Show)
 
 class Comparator a where
-    matches :: AwkState -> a -> Record -> Bool
+    matches :: a -> AwkState -> Record -> Bool
 
 instance Comparator Pattern where
-    matches _  Always       _ = True
-    matches _  (Regex p)    r = _line r =~ p
-    matches st (Not p)      r = not $ matches st p r
-    matches st (And p1 p2)  r = matches st p1 r && matches st p2 r
-    matches st (Or  p1 p2)  r = matches st p1 r || matches st p2 r
-    matches st (Relation v) r = matches st v r
-    matches _  _            _ = False
+    matches Always       _  _ = True
+    matches (Regex p)    _  r = _line r =~ p
+    matches (Not p)      st r = not $ matches p st r
+    matches (And p1 p2)  st r = matches p1 st r && matches p2 st r
+    matches (Or  p1 p2)  st r = matches p1 st r || matches p2 st r
+    matches (Relation v) st r = matches v st r
+    matches _            _  _ = False
 
 
 data Relation =
@@ -108,12 +108,12 @@ data Relation =
     deriving (Eq, Show)
 
 instance Comparator Relation where
-    matches st (RelEq a b) r = comp (==) st r a b
-    matches st (RelNe a b) r = comp (/=) st r a b
-    matches st (RelLt a b) r = comp (<)  st r a b
-    matches st (RelLe a b) r = comp (<=) st r a b
-    matches st (RelGt a b) r = comp (>)  st r a b
-    matches st (RelGe a b) r = comp (>=) st r a b
+    matches (RelEq a b) st r = comp (==) st r a b
+    matches (RelNe a b) st r = comp (/=) st r a b
+    matches (RelLt a b) st r = comp (<)  st r a b
+    matches (RelLe a b) st r = comp (<=) st r a b
+    matches (RelGt a b) st r = comp (>)  st r a b
+    matches (RelGe a b) st r = comp (>=) st r a b
 
 comp :: (Primitive -> Primitive -> Bool) -> AwkState -> Record -> Value -> Value -> Bool
 comp c st r v1 v2 = c a b
@@ -299,10 +299,11 @@ pKeywords :: Parser String
 pKeywords = choice [string "print"]
 
 pValue :: Parser Value
-pValue = choice [try sep, try field, try nf, try pr, var]
+pValue = choice [try sep, try field, try nf, try nr, try pr, var]
     where
-        pr = Primitive <$> pPrimitive
         nf = NumFields <$ string "NF"
+        nr = NumRecords <$ string "NR"
+        pr = Primitive <$> pPrimitive
         var = do
             skipMany pKeywords
             Variable . T.pack <$> many1 alphaNum
@@ -411,4 +412,5 @@ ioExecute p st r = do
         T.putStr newLine
         pure newState
     where
-        (newState, newLine) = execute st p r
+        (newState, newLine) = execute incState p r
+        incState = st { sRecords = sRecords st + 1 }
