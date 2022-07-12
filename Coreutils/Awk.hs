@@ -40,6 +40,9 @@ data AwkState = AwkState
 emptyState :: AwkState
 emptyState = AwkState H.empty 0 T.empty
 
+emptyRecord :: Record
+emptyRecord = Record T.empty []
+
 fields :: Text -> [Text]
 fields = filter (not . T.null) . T.splitOn " "
 
@@ -49,6 +52,15 @@ getRecord t = Record t (fields t)
 class Executor a where
     execute :: AwkState -> a -> Record -> (AwkState, Text)
 
+data FullProgram = FullProgram
+    { fBegin  :: [Program]
+    , sMiddle :: [Program]
+    , fEnd    :: [Program]
+    }
+    deriving (Eq, Show)
+
+instance Executor FullProgram where
+    execute st (FullProgram b m e) = execute st (b <> m <> e)
 
 data Program =
       Full Pattern [Action]

@@ -113,13 +113,13 @@ execution = parallel $ do
             expa "a b c" (FieldVar 4) `shouldBe` String ""
 
         it "reads state" $ do
-            expand emptyState { sRecords = 23 } (getRecord "") NumRecords
+            expand emptyState { sRecords = 23 } emptyRecord NumRecords
                 `shouldBe` Number 23
-            expand emptyState (getRecord "") (Variable "x")
+            expand emptyState emptyRecord (Variable "x")
                 `shouldBe` String ""
             expand
                 emptyState { sVariables = H.fromList [("x", Number 1)]}
-                (getRecord "")
+                emptyRecord
                 (Variable "x")
                 `shouldBe` Number 1
 
@@ -148,6 +148,11 @@ execution = parallel $ do
             exec (Full (Regex ".*") [PrintAll]) "apple" `shouldBe` "apple\n"
             exec (Grep (Regex ".*"))            "apple" `shouldBe` "apple\n"
             exec (Exec [PrintAll])              "apple" `shouldBe` "apple\n"
+
+        it "fullProgram" $ do
+            let fp = FullProgram [program "{x = 1}"] [program "{y = x}"] [program "{z = y}"]
+            let (st, _) = execute emptyState fp emptyRecord
+            sVariables st `shouldBe` H.fromList [("x", Number 1), ("y", Number 1), ("z", Number 1)]
 
     describe "matches" $ do
         it "basics" $ do
