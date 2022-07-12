@@ -50,7 +50,7 @@ getRecord :: Text -> Record
 getRecord t = Record t (fields t)
 
 class Executor a where
-    execute :: AwkState -> a -> Record -> (AwkState, Text)
+    execute :: a -> AwkState -> Record -> (AwkState, Text)
 
 data FullProgram = FullProgram
     { fBegin  :: [Program]
@@ -60,7 +60,7 @@ data FullProgram = FullProgram
     deriving (Eq, Show)
 
 instance Executor FullProgram where
-    execute st (FullProgram b m e) = execute st (b <> m <> e)
+    execute (FullProgram b m e) = execute (b <> m <> e)
 
 data Program =
       Full Pattern [Action]
@@ -70,20 +70,21 @@ data Program =
     deriving (Eq, Show)
 
 instance Executor Program where
-    execute st NoProgram  _ = (st, "")
-    execute st (Grep p)   r = execute st (Full p [PrintAll]) r
-    execute st (Exec a)   r = execute st (Full Always a)   r
-    execute st (Full p as) r
-        | matches p st r = execute st as r
+    execute NoProgram   st _ = (st, "")
+    execute (Grep p)    st r = execute (Full p [PrintAll]) st r
+    execute (Exec a)    st r = execute (Full Always a)     st r
+    execute (Full p as) st r
+        | matches p st r = execute as st r
         | otherwise   = (st, "")
 
 instance Executor a => Executor [a] where
-    execute st [] _  = (st, "")
-    execute st [a] r = execute st a r
-    execute prevSt (a:as) r = (nextSt, thisText <> nextText)
+    execute []     st _ = (st, "")
+    execute [a]    st r = execute a st r
+    execute (a:as) st r = (nextSt, thisText <> nextText)
         where
-            (thisSt, thisText) = execute prevSt a r
-            (nextSt, nextText) = execute thisSt as r
+            prevSt = st
+            (thisSt, thisText) = execute a prevSt r
+            (nextSt, nextText) = execute as thisSt r
 
 
 data Pattern =
@@ -147,11 +148,11 @@ data Action =
     deriving (Eq, Show)
 
 instance Executor Action where
-    execute st PrintAll r =
+    execute PrintAll st r =
         (st, _line r <> "\n")
-    execute st (PrintValue vs) r =
+    execute (PrintValue vs) st r =
         (st, T.concat $ map (T.pack . show . expand st r) vs <> ["\n"])
-    execute st (Assign name value) r =
+    execute (Assign name value) st r =
         (st { sVariables = H.insert name prim $ sVariables st }, T.empty)
         where
             prim = expand st r value
@@ -424,5 +425,5 @@ ioExecute p st r = do
         T.putStr newLine
         pure newState
     where
-        (newState, newLine) = execute incState p r
+        (newState, newLine) = execute p incState r
         incState = st { sRecords = sRecords st + 1 }

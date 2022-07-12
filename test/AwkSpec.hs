@@ -134,13 +134,13 @@ execution = parallel $ do
             exec (PrintValue [FieldVar 3, Primitive (String " "), Primitive (String "!")]) "a b c"
                 `shouldBe` "c !\n"
 
-            let (st1, _) = execute emptyState (Assign "x" NumFields) (getRecord "a b c")
+            let (st1, _) = execute (Assign "x" NumFields) emptyState (getRecord "a b c")
             sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
 
-            let (st2, _) = execute st1 (Assign "y" (Variable "x")) (getRecord "a b c")
+            let (st2, _) = execute (Assign "y" (Variable "x")) st1 (getRecord "a b c")
             sVariables st2 `shouldBe` H.fromList [("x", Number 3), ("y", Number 3)]
 
-            let (st3, _) = execute st2 (Assign "x" (Primitive (Number 7))) (getRecord "a b c")
+            let (st3, _) = execute (Assign "x" (Primitive (Number 7))) st2 (getRecord "a b c")
             sVariables st3 `shouldBe` H.fromList [("x", Number 7), ("y", Number 3)]
 
         it "program" $ do
@@ -151,7 +151,7 @@ execution = parallel $ do
 
         it "fullProgram" $ do
             let fp = FullProgram [program "{x = 1}"] [program "{y = x}"] [program "{z = y}"]
-            let (st, _) = execute emptyState fp emptyRecord
+            let (st, _) = execute fp emptyState emptyRecord
             sVariables st `shouldBe` H.fromList [("x", Number 1), ("y", Number 1), ("z", Number 1)]
 
     describe "matches" $ do
@@ -386,10 +386,10 @@ program :: Text -> Program
 program src = either undefined id $ pRun pProgram src
 
 exec :: Executor a => a -> Text -> Text
-exec a t = snd $ execute emptyState a (getRecord t)
+exec a t = snd $ execute a emptyState (getRecord t)
 
 execs :: Executor a => AwkState -> a -> Text -> Text
-execs st a t = snd $ execute st a (getRecord t)
+execs st a t = snd $ execute a st (getRecord t)
 
 expa :: Text -> Value -> Primitive
 expa t = expand emptyState (getRecord t)
