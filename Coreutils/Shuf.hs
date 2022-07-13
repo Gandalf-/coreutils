@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -Wno-unused-binds -Wno-unused-matches #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE LambdaCase                #-}
 
 module Coreutils.Shuf where
 
