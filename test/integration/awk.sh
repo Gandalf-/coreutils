@@ -84,9 +84,7 @@ cat << EOF > $i
 8
 2
 EOF
-    awk '$1 > x { x = $1; print x; }' $i > $o
-    expect-file "$o" '4
-8'
+    awk '$1 > x { x = $1 } END { print x }' $i | expect 8
 }
 
 run_tests awk

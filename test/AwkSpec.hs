@@ -39,30 +39,39 @@ inputOutput = parallel $ do
 
     describe "ioExecute" $
         it "works" $ do
-            st1 <- ioExecute (program "$1 > x { x = $1 }") emptyState "3"
+            st1 <- ioExecute incRecords (program "$1 > x { x = $1 }") emptyState "3"
             sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
             sRecords st1 `shouldBe` 1
 
-            st2 <- ioExecute (program "$1 > x { x = $1 }") st1 "1"
+            st2 <- ioExecute incRecords (program "$1 > x { x = $1 }") st1 "1"
             sVariables st2 `shouldBe` H.fromList [("x", Number 3)]
             sRecords st2 `shouldBe` 2
 
     describe "ioAwk" $ do
         it "simple" $ do
-            st <- ioRun ["1 2 3"] "{ x = $1 }"
+            st <- awk ["1 2 3"] "{ x = $1 }"
             sVariables st `shouldBe` H.fromList [("x", Number 1)]
 
         it "multi line" $ do
-            st <- ioRun ["1", "3", "2"] "$1 > x { x = $1 }"
+            st <- awk ["1", "3", "2"] "$1 > x { x = $1 }"
             sVariables st `shouldBe` H.fromList [("x", Number 3)]
 
         it "num records" $ do
-            st <- ioRun ["1", "3", "2", "5"] "{ x = NR }"
+            st <- awk ["1", "3", "2", "5"] "{ x = NR }"
             sVariables st `shouldBe` H.fromList [("x", Number 4)]
 
+        it "sorting" $ do
+            st <- awk ["1", "3", "5", "2"] "BEGIN { y = 0 }; $1 > x { x = $1 }; END { y = x }"
+            H.lookup "y" (sVariables st) `shouldBe` Just (Number 5)
+            sRecords st `shouldBe` 4
+
+        it "multiple begin and end" $ do
+            st <- awk [] "BEGIN {a = 1}; BEGIN {b = a}; END {c = b}; END {d = c}"
+            H.lookup "d" (sVariables st) `shouldBe` Just (Number 1)
+            sRecords st `shouldBe` 0
     where
         simpleSrc = "{ print NF }"
-        simpleProg = Exec [PrintValue [NumFields]]
+        simpleProg = FullProgram [] [Exec [PrintValue [NumFields]]] []
         progInOptions = Options (Just simpleSrc) " "
 
 execution :: Spec
@@ -210,6 +219,10 @@ execution = parallel $ do
             run "{print $0, NF; print \"!\"}" "apple" `shouldBe` "apple 1\n!\n"
             run "{x = 1; print x}" "" `shouldBe` "1\n"
             run "$1 > x {x = 1; print x; }" "4" `shouldBe` "1\n"
+            run "END { print \"a\" }" "" `shouldBe` "a\n"
+
+            run "BEGIN { print NR }" "" `shouldBe` "0\n"
+            run "END { print NR }" "" `shouldBe` "0\n"
 
 parsing :: Spec
 parsing = parallel $ do
@@ -361,7 +374,7 @@ parsing = parallel $ do
             pRun pExpr "{ print }" `shouldBe` Right (ActionExpr [PrintAll])
             pRun pExpr "{ print $1 }" `shouldBe`
                 Right (ActionExpr [PrintValue [FieldVar 1]])
-            pRun pExpr " { print $1 $2} " `shouldBe`
+            pRun pExpr "{ print $1 $2}" `shouldBe`
                 Right (ActionExpr [PrintValue [FieldVar 1, FieldVar 2]])
 
             pRun pExpr "{ print $1; print $2 }" `shouldBe`
@@ -376,10 +389,41 @@ parsing = parallel $ do
             pRun pEmptyProgram "{ }"   `shouldBe` Right NoProgram
             pRun pEmptyProgram " { } " `shouldBe` Right NoProgram
 
-        it "awk" $ do
+        it "program" $ do
             pRun pProgram "/.*/"           `shouldBe` Right (Grep (Regex ".*"))
             pRun pProgram "/.*/ { print }" `shouldBe` Right (Full (Regex ".*") [PrintAll])
             pRun pProgram "{ print }"      `shouldBe` Right (Exec [PrintAll])
+
+            pRun pProgram "BEGIN { print }" `shouldBe` Right (Full Begin [PrintAll])
+            pRun pProgram "BEGIN{ print }"  `shouldBe` Right (Full Begin [PrintAll])
+            pRun pProgram "BEGIN{ print}"   `shouldBe` Right (Full Begin [PrintAll])
+            pRun pProgram "BEGIN{print}"    `shouldBe` Right (Full Begin [PrintAll])
+
+        it "full program" $ do
+            pRun pFullProgram "/a/ {print}; /b/ {print}"
+                `shouldBe` Right (
+                    FullProgram [] [Full (Regex "a") [PrintAll], Full (Regex "b") [PrintAll]] []
+                )
+
+            pRun pFullProgram "BEGIN {print}; /b/ {print}"
+                `shouldBe` Right (
+                    FullProgram [Full Begin [PrintAll]] [Full (Regex "b") [PrintAll]] []
+                )
+
+            pRun pFullProgram "END {print}; /b/ {print}"
+                `shouldBe` Right (
+                    FullProgram [] [Full (Regex "b") [PrintAll]] [Full End [PrintAll]]
+                )
+
+            pRun pFullProgram "END {print}; /b/ {print}"
+                `shouldBe` pRun pFullProgram "END{print};/b/{print}"
+
+        it "program separators" $ do
+            let base = pRun pFullProgram "END {x=1}; /b/ {x=1}"
+
+            base `shouldBe` pRun pFullProgram "END {x=1} /b/ {x=1}"
+            -- base `shouldBe` pRun pFullProgram "END {x=1}/b/ {x=1}"
+
 
 
 sepState :: Text -> AwkState
@@ -393,6 +437,9 @@ pRun p = parse (p <* eof) "test"
 
 program :: Text -> Program
 program src = either undefined id $ pRun pProgram src
+
+fProgram :: Text -> FullProgram
+fProgram src = either undefined id $ pRun pFullProgram src
 
 exec :: Executor a => a -> Text -> Text
 exec a = snd . execute a emptyState
@@ -423,5 +470,10 @@ ioRun ls src = withSystemTempFile "data.txt" test
         test fname h = do
             hPutStr h $ unlines ls
             hClose h
-            let exe = Executable " " [FileRecord $ T.pack fname] $ program src
+            let exe = Executable " " [FileRecord $ T.pack fname] $ fProgram src
             ioAwk exe
+
+awk :: [Text] -> Text -> IO AwkState
+awk ls src = ioAwk exe
+    where
+        exe = Executable " " [TestRecord ls] $ fProgram src

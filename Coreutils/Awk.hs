@@ -98,12 +98,13 @@ class Comparator a where
 
 instance Comparator Pattern where
     matches Always       _  _ = True
+    matches Begin        _  _ = True
+    matches End          _  _ = True
     matches (Regex p)    _  r = r =~ p
     matches (Not p)      st r = not $ matches p st r
     matches (And p1 p2)  st r = matches p1 st r && matches p2 st r
     matches (Or  p1 p2)  st r = matches p1 st r || matches p2 st r
     matches (Relation v) st r = matches v st r
-    matches _            _  _ = False
 
 
 data Relation =
@@ -131,7 +132,7 @@ comp c st r v1 v2 = c a b
 
 
 newtype Expr = ActionExpr
-    { _actions :: [Action]
+    { eActions :: [Action]
     }
     deriving (Eq, Show)
 
@@ -161,9 +162,9 @@ data Value =
     deriving (Eq, Show)
 
 expand :: AwkState -> Record -> Value -> Primitive
-expand _  _ (Primitive p)   = p
-expand st r NumFields       = Number $ length $ fields st r
-expand st _ NumRecords      = Number $ sRecords st
+expand _  _ (Primitive p) = p
+expand st r NumFields     = Number $ length $ fields st r
+expand st _ NumRecords    = Number $ sRecords st
 
 expand st _ (Variable name) =
     H.findWithDefault (String T.empty) name $ sVariables st
@@ -211,12 +212,16 @@ awkMain args = do
         arguments = map T.pack other
         (opts, other, errors) = getOpt RequireOrder optionDesc args
 
-data RecordSource = StdinRecord | FileRecord Text
+data RecordSource =
+        StdinRecord
+      | FileRecord Text
+      | TestRecord [Text]
     deriving (Show, Eq)
 
 getRecords :: RecordSource -> IO [Record]
-getRecords StdinRecord    = extractRecords <$> L.getContents
-getRecords (FileRecord f) = extractRecords <$> L.readFile (T.unpack f)
+getRecords StdinRecord     = extractRecords <$> L.getContents
+getRecords (FileRecord f)  = extractRecords <$> L.readFile (T.unpack f)
+getRecords (TestRecord ts) = pure ts
 
 extractRecords :: L.Text -> [Record]
 extractRecords = map L.toStrict . L.lines
@@ -234,21 +239,51 @@ runAwk opts args = do
                 pure $ Options (Just p) s
 
 ioAwk :: Executable -> IO AwkState
-ioAwk (Executable s rs p) =
-        concat <$> mapM getRecords rs >>= foldM (ioExecute p) state
+ioAwk (Executable s rs (FullProgram bs ms es)) = do
+        bState <-
+            foldM (ioExecutes id bs) state brs
+        mState <-
+            concat <$> mapM getRecords rs
+            >>= foldM (ioExecutes incRecords ms) bState
+        foldM (ioExecutes id es) mState ers
     where
+        brs = replicate (length bs) emptyRecord
+        ers = replicate (length es) emptyRecord
         state = emptyState { sSeparator = s }
 
-ioExecute :: Program -> AwkState -> Record -> IO AwkState
-ioExecute p st r = do
+type StateUpdate = AwkState -> AwkState
+
+incRecords :: StateUpdate
+incRecords st = st { sRecords = sRecords st + 1 }
+
+ioExecutes :: StateUpdate -> [Program] -> AwkState -> Record -> IO AwkState
+ioExecutes update ps prevState r =
+        foldM (\st p -> ioExecute update p st r) prevState ps
+
+ioExecute :: StateUpdate -> Program -> AwkState -> Record -> IO AwkState
+ioExecute update p st r = do
         T.putStr newLine
         pure newState
     where
-        (newState, newLine) = execute p incState r
-        incState = st { sRecords = sRecords st + 1 }
+        (newState, newLine) = execute p (update st) r
 
 
 -- | Parsing
+
+type ProgramBins = ([Program], [Program], [Program])
+
+pFullProgram :: Parser FullProgram
+pFullProgram = do
+        ps <- sepEndBy pProgram sep
+        let (bs, ms, es) = foldl sorter ([], [], []) ps
+        pure $ FullProgram bs ms es
+    where
+        sorter :: ProgramBins -> Program -> ProgramBins
+        sorter (bs, ms, es) p@(Full Begin _) = (bs <> [p], ms, es)
+        sorter (bs, ms, es) p@(Full End   _) = (bs, ms, es <> [p])
+        sorter (bs, ms, es) p                = (bs, ms <> [p], es)
+
+        sep = choice [try space, spaces >> char ';'] >> spaces
 
 pProgram :: Parser Program
 pProgram = choice [try full, try exec, try grep, pEmptyProgram]
@@ -257,16 +292,16 @@ pProgram = choice [try full, try exec, try grep, pEmptyProgram]
         full = do
             p <- pPattern
             spaces
-            Full p . _actions <$> pExpr
-        exec = Exec . _actions <$> pExpr
+            Full p . eActions <$> pExpr
+        exec = Exec . eActions <$> pExpr
 
 pEmptyProgram :: Parser Program
-pEmptyProgram = choice [try emptyBrace, emptyString]
+pEmptyProgram = do
+        choice [try emptyBrace, emptyString]
+        pure NoProgram
     where
-        emptyString = spaces >> pure NoProgram
-        emptyBrace = do
-            spaces >> char '{' >> spaces >> char '}' >> spaces
-            pure NoProgram
+        emptyString = spaces
+        emptyBrace  = spaces >> char '{' >> spaces >> char '}' >> spaces
 
 pPattern :: Parser Pattern
 pPattern = choice [try pNot, try pCond, try regex, try rel, try begin, end]
@@ -281,18 +316,15 @@ pPattern = choice [try pNot, try pCond, try regex, try rel, try begin, end]
             spaces >> string "&&" >> spaces
             And p1 <$> pNorm
         pOr = do
-            p1 <- choice [try regex, pNot]
+            p1 <- choice [try pNot, try rel, regex]
             spaces >> string "||" >> spaces
             Or p1 <$> pNorm
         pNot =
             char '!' >> spaces >> Not <$> pNorm
 
         rel = Relation <$> pRelation
-        regex = do
-            _ <- char '/'
-            r <- many1 (noneOf "/")
-            _ <- char '/'
-            pure $ Regex $ T.pack r
+        regex = Regex . T.pack <$> between
+            (char '/') (char '/') (many1 (noneOf "/"))
 
 pRelation :: Parser Relation
 pRelation = choice [try eq, try ne, try lt, try le, try gt, ge]
@@ -310,11 +342,10 @@ pRelation = choice [try eq, try ne, try lt, try le, try gt, ge]
             b v1 <$> pValue
 
 pExpr :: Parser Expr
-pExpr = do
-    spaces >> char '{' >> spaces
-    as <- sepEndBy1 pAction spaces
-    spaces >> char '}' >> spaces
-    pure $ ActionExpr as
+pExpr = ActionExpr <$> between
+    (spaces >> char '{' >> spaces)
+    (spaces >> char '}')
+    (sepEndBy1 pAction spaces)
 
 pAction :: Parser Action
 pAction = do
@@ -322,21 +353,15 @@ pAction = do
         optional (char ';')
         pure o
     where
-        pAll = do
-            _ <- string "print"
-            pure PrintAll
+        pAll = string "print" >> pure PrintAll
         pVar = do
-            _ <- string "print"
-            spaces
-            vs <- sepEndBy1 pValue spaces
-            pure $ PrintValue vs
+            string "print" >> spaces
+            PrintValue <$> sepEndBy1 pValue spaces
 
 pAssign :: Parser Action
 pAssign = do
     name <- many1 alphaNum
-    spaces
-    _ <- char '='
-    spaces
+    spaces >> char '=' >> spaces
     Assign (T.pack name) <$> pValue
 
 pAny :: Parser Primitive
@@ -345,11 +370,8 @@ pAny = String . T.pack <$> many1 anyChar
 pPrimitive :: Parser Primitive
 pPrimitive = choice [try quote, num]
     where
-        quote = do
-            _ <- char '"'
-            s <- many1 (noneOf "\"")
-            _ <- char '"'
-            pure $ String $ T.pack s
+        quote = String . T.pack <$> between
+            (char '"') (char '"') (many1 (noneOf "\""))
         num = Number . read <$> many1 digit
 
 pKeywords :: Parser String
@@ -365,9 +387,7 @@ pValue = choice [try sep, try field, try nf, try nr, try pr, var]
             skipMany pKeywords
             Variable . T.pack <$> many1 alphaNum
 
-        field = FieldVar <$> do
-            _ <- char '$'
-            read <$> many1 digit
+        field = FieldVar <$> (char '$' >> read <$> many1 digit)
         sep = do
             _ <- char ','
             pure $ Primitive $ String " "
@@ -409,7 +429,7 @@ optionDesc =
         "show this help text"
     ]
 
-data Executable = Executable Separator [RecordSource] Program
+data Executable = Executable Separator [RecordSource] FullProgram
     deriving (Show, Eq)
 
 normalize :: Options -> [Text] -> Either String Executable
@@ -424,4 +444,4 @@ builder progSrc s sources =
     either
         (Left . show)
         (Right . Executable s sources)
-        $ parse (pProgram <* eof) "awk" progSrc
+        $ parse (pFullProgram <* eof) "awk" progSrc
