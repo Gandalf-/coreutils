@@ -25,9 +25,10 @@ instance Util Awk where
 
 
 type Record = Text
+type VariableMap = H.HashMap Text Primitive
 
 data AwkState = AwkState
-    { sVariables :: H.HashMap Text Primitive
+    { sVariables :: VariableMap
     , sRecords   :: Int
     , sSeparator :: Text
     }
@@ -232,14 +233,14 @@ runAwk opts args = do
         either die (void . ioAwk) $ normalize options args
     where
         getOptions = case opts of
-            (Options Nothing s) -> pure $ Options Nothing s
+            (Options Nothing s vs) -> pure $ Options Nothing s vs
             -- Replace the filepath with the file contents, yikes
-            (Options (Just f) s) -> do
+            (Options (Just f) s vs) -> do
                 p <- T.readFile $ T.unpack f
-                pure $ Options (Just p) s
+                pure $ Options (Just p) s vs
 
 ioAwk :: Executable -> IO AwkState
-ioAwk (Executable s rs (FullProgram bs ms es)) = do
+ioAwk (Executable state rs (FullProgram bs ms es)) = do
         bState <-
             foldM (ioExecutes id bs) state brs
         mState <-
@@ -249,7 +250,6 @@ ioAwk (Executable s rs (FullProgram bs ms es)) = do
     where
         brs = replicate (length bs) emptyRecord
         ers = replicate (length es) emptyRecord
-        state = emptyState { sSeparator = s }
 
 type StateUpdate = AwkState -> AwkState
 
@@ -364,6 +364,14 @@ pAssign = do
     spaces >> char '=' >> spaces
     Assign (T.pack name) <$> pValue
 
+pOptionAssign :: Parser (Text, Primitive)
+-- values must already be simplified primitives
+pOptionAssign = do
+    name <- many1 alphaNum
+    spaces >> char '=' >> spaces
+    prim <- pOptionPrimitive
+    pure (T.pack name, prim)
+
 pAny :: Parser Primitive
 pAny = String . T.pack <$> many1 anyChar
 
@@ -372,6 +380,13 @@ pPrimitive = choice [try quote, num]
     where
         quote = String . T.pack <$> between
             (char '"') (char '"') (many1 (noneOf "\""))
+        num = Number . read <$> many1 digit
+
+pOptionPrimitive :: Parser Primitive
+-- quotes are not included for strings
+pOptionPrimitive = choice [try num, str]
+    where
+        str = String . T.pack <$> many1 anyChar
         num = Number . read <$> many1 digit
 
 pKeywords :: Parser String
@@ -400,6 +415,7 @@ type Separator = Text
 data Options = Options {
       optProgram   :: Maybe Text
     , optSeparator :: Separator
+    , optAssigns   :: VariableMap
     }
     deriving (Eq, Show)
 
@@ -407,6 +423,7 @@ defaultOptions :: Options
 defaultOptions = Options {
       optProgram = Nothing
     , optSeparator = " "
+    , optAssigns = H.empty
     }
 
 optionDesc :: [OptDescr (Options -> Either String Options)]
@@ -423,25 +440,44 @@ optionDesc =
             "FS")
         "use FS for the input field separator"
 
+    , Option "v" ["assign"]
+        (ReqArg
+            assignOption
+            "var=val")
+        "assign the value val to var before execution of the program begins"
+
     , Option "h" ["help"]
         (NoArg
             (\_ -> Left $ usageInfo "awk" optionDesc))
         "show this help text"
     ]
 
-data Executable = Executable Separator [RecordSource] FullProgram
+assignOption :: String -> Options -> Either String Options
+assignOption arg opt =
+    case parse (pOptionAssign <* eof) "assignment" (T.pack arg) of
+        (Left err)           -> Left $ show err
+        (Right (name, prim)) -> Right $ opt { optAssigns = H.insert name prim $ optAssigns opt }
+
+
+data Executable = Executable AwkState [RecordSource] FullProgram
     deriving (Show, Eq)
 
 normalize :: Options -> [Text] -> Either String Executable
-normalize (Options Nothing _) []        = Left "no program provided"
-normalize (Options Nothing s) [p]       = builder p s [StdinRecord]
-normalize (Options Nothing s) (p:files) = builder p s $ map FileRecord files
-normalize (Options (Just p) s) []       = builder p s [StdinRecord]
-normalize (Options (Just p) s) files    = builder p s $ map FileRecord files
+normalize (Options Nothing  _ _ ) []        = Left "no program provided"
+normalize (Options Nothing  s vs) [p]       = builder p s vs [StdinRecord]
+normalize (Options Nothing  s vs) (p:files) = builder p s vs $ map FileRecord files
+normalize (Options (Just p) s vs) []        = builder p s vs [StdinRecord]
+normalize (Options (Just p) s vs) files     = builder p s vs $ map FileRecord files
 
-builder :: Text -> Separator -> [RecordSource] -> Either String Executable
-builder progSrc s sources =
+builder :: Text -> Separator -> VariableMap -> [RecordSource] -> Either String Executable
+builder progSrc s vs sources =
     either
         (Left . show)
-        (Right . Executable s sources)
+        (Right . Executable state sources)
         $ parse (pFullProgram <* eof) "awk" progSrc
+    where
+        state = AwkState
+            { sVariables = vs
+            , sRecords = 0
+            , sSeparator = s
+            }

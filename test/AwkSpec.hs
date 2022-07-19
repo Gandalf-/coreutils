@@ -21,21 +21,33 @@ spec = do
 
 inputOutput :: Spec
 inputOutput = parallel $ do
+    describe "assignOption" $
+        it "works" $ do
+            assignOption "x=1" defaultOptions
+                `shouldBe` Right (defaultOptions { optAssigns = H.fromList [("x", Number 1)]})
+            assignOption "x=hi there" defaultOptions
+                `shouldBe` Right (defaultOptions { optAssigns = H.fromList [("x", String "hi there")]})
+
+            assignOption "junk" defaultOptions `shouldSatisfy` isLeft
+            assignOption "junk=" defaultOptions `shouldSatisfy` isLeft
+            assignOption "=junk" defaultOptions `shouldSatisfy` isLeft
+            assignOption "=" defaultOptions `shouldSatisfy` isLeft
+
     describe "normalize" $ do
         it "missing values" $
             normalize defaultOptions [] `shouldSatisfy` isLeft
 
         it "parse error" $ do
             normalize defaultOptions ["???"] `shouldSatisfy` isLeft
-            normalize (Options (Just "???") " ") ["file.txt"] `shouldSatisfy` isLeft
+            normalize (Options (Just "???") " " H.empty) ["file.txt"] `shouldSatisfy` isLeft
 
         it "works" $ do
             normalize defaultOptions [simpleSrc, "file.txt"]
-                `shouldBe` Right (Executable " " [FileRecord "file.txt"] simpleProg)
+                `shouldBe` Right (Executable emptyState [FileRecord "file.txt"] simpleProg)
             normalize defaultOptions [simpleSrc]
-                `shouldBe` Right (Executable " " [StdinRecord] simpleProg)
+                `shouldBe` Right (Executable emptyState [StdinRecord] simpleProg)
             normalize progInOptions []
-                `shouldBe` Right (Executable " " [StdinRecord] simpleProg)
+                `shouldBe` Right (Executable emptyState [StdinRecord] simpleProg)
 
     describe "ioExecute" $
         it "works" $ do
@@ -72,7 +84,7 @@ inputOutput = parallel $ do
     where
         simpleSrc = "{ print NF }"
         simpleProg = FullProgram [] [Exec [PrintValue [NumFields]]] []
-        progInOptions = Options (Just simpleSrc) " "
+        progInOptions = Options (Just simpleSrc) " " H.empty
 
 execution :: Spec
 execution = parallel $ do
@@ -470,10 +482,10 @@ ioRun ls src = withSystemTempFile "data.txt" test
         test fname h = do
             hPutStr h $ unlines ls
             hClose h
-            let exe = Executable " " [FileRecord $ T.pack fname] $ fProgram src
+            let exe = Executable emptyState [FileRecord $ T.pack fname] $ fProgram src
             ioAwk exe
 
 awk :: [Text] -> Text -> IO AwkState
 awk ls src = ioAwk exe
     where
-        exe = Executable " " [TestRecord ls] $ fProgram src
+        exe = Executable emptyState [TestRecord ls] $ fProgram src

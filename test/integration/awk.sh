@@ -87,4 +87,8 @@ EOF
     awk '$1 > x { x = $1 } END { print x }' $i | expect 8
 }
 
+ptest_command_line_variables() {
+    echo 1 | awk -v x=99 'END { print x }' | expect 99
+}
+
 run_tests awk
