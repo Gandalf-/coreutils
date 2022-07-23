@@ -160,6 +160,16 @@ execution = parallel $ do
             let (st3, _) = execute (Assign "x" (Primitive (Number 7))) st2 "a b c"
             sVariables st3 `shouldBe` H.fromList [("x", Number 7), ("y", Number 3)]
 
+        it "assign add" $ do
+            let (st1, _) = execute (AssignAdd "x" NumFields) emptyState "a b c"
+            H.lookup "x" (sVariables st1) `shouldBe` Just (Number 3)
+
+            let (st2, _) = execute (AssignAdd "x" (Primitive (Number 7))) st1 emptyRecord
+            H.lookup "x" (sVariables st2) `shouldBe` Just (Number 10)
+
+            let (st3, _) = execute (AssignAdd "x" (Primitive (String "a"))) st2 emptyRecord
+            H.lookup "x" (sVariables st3) `shouldBe` Just (Number 10)
+
         it "program" $ do
             exec NoProgram                      "apple" `shouldBe` ""
             exec (Full (Regex ".*") [PrintAll]) "apple" `shouldBe` "apple\n"
@@ -274,6 +284,15 @@ parsing = parallel $ do
             pRun pValue "x" `shouldBe` Right (Variable "x")
             pRun pValue "abc2" `shouldBe` Right (Variable "abc2")
 
+            {-
+    describe "expression" $
+        it "works" $ do
+            let vNum = Val . Primitive . Number
+            pRun pExpression "1 + 2"
+                `shouldBe` Right (Add (vNum 1) (vNum 2))
+            pRun pExpression "1 + 2 + 3"
+                `shouldBe` Right (Add (vNum 1) (Add (vNum 2) (vNum 3)))
+            -}
 
     describe "parse pattern" $ do
         it "basics" $ do
@@ -342,7 +361,7 @@ parsing = parallel $ do
             pRun pAction ";" `shouldSatisfy` isLeft
 
         it "assignment" $ do
-            pRun pAction "x = 3"
+            pRun pAction "x=3"
                 `shouldBe` Right (Assign "x" (Primitive (Number 3)))
             pRun pAction "abc = \"hello\""
                 `shouldBe` Right (Assign "abc" (Primitive (String "hello")))
@@ -350,6 +369,12 @@ parsing = parallel $ do
                 `shouldBe` Right (Assign "x" NumFields)
             pRun pAction "x = $1"
                 `shouldBe` Right (Assign "x" (FieldVar 1))
+
+        it "add assign" $ do
+            pRun pAction "x += 3"
+                `shouldBe` Right (AssignAdd "x" (Primitive (Number 3)))
+            pRun pAction "x += \"hello\""
+                `shouldBe` Right (AssignAdd "x" (Primitive (String "hello")))
 
         it "negative" $ do
             pRun pAction "junk"        `shouldSatisfy` isLeft

@@ -141,6 +141,7 @@ data Action =
       PrintAll
     | PrintValue [Value]
     | Assign Text Value
+    | AssignAdd Text Value
     deriving (Eq, Show)
 
 instance Executor Action where
@@ -152,12 +153,19 @@ instance Executor Action where
         (st { sVariables = H.insert name prim $ sVariables st }, T.empty)
         where
             prim = expand st r value
+    execute (AssignAdd name value) st r =
+        (st { sVariables = H.alter (Just . alter) name $ sVariables st }, T.empty)
+        where
+            alter Nothing  = prim
+            alter (Just v) = Number $ toInt v + toInt prim
+            prim = expand st r value
 
 
 data Value =
       Primitive Primitive
     | FieldVar Int
     | Variable Text
+    | Expression Expression
     | NumFields
     | NumRecords
     deriving (Eq, Show)
@@ -167,6 +175,7 @@ expand _  _ (Primitive p) = p
 expand st r NumFields     = Number $ length $ fields st r
 expand st _ NumRecords    = Number $ sRecords st
 
+expand _  _ (Expression _)  = undefined
 expand st _ (Variable name) =
     H.findWithDefault (String T.empty) name $ sVariables st
 
@@ -178,6 +187,13 @@ expand st r (FieldVar n)
         fs = fields st r
         value = fs !! (n - 1)
         primitive = parse (pPrimitive <* eof) "fieldVar" value
+
+
+data Expression =
+      Add Expression Expression
+    | Sub Expression Expression
+    | Val Value
+    deriving (Eq, Show)
 
 
 data Primitive =
@@ -200,8 +216,11 @@ instance Ord Primitive where
     (<=) (String s1) (Number n2) = s1 <= T.pack (show n2)
     (<=) (Number n1) (String s2) = T.pack (show n1) <= s2
 
+-- Integral requires Real (requires Num, Ord), Enum
+toInt :: Primitive -> Int
+toInt (Number n) = n
+toInt (String _) = 0
 
--- | Execution
 
 awkMain :: [String] -> IO ()
 awkMain args = do
@@ -296,12 +315,10 @@ pProgram = choice [try full, try exec, try grep, pEmptyProgram]
         exec = Exec . eActions <$> pExpr
 
 pEmptyProgram :: Parser Program
-pEmptyProgram = do
-        choice [try emptyBrace, emptyString]
-        pure NoProgram
-    where
-        emptyString = spaces
-        emptyBrace  = spaces >> char '{' >> spaces >> char '}' >> spaces
+pEmptyProgram =
+    NoProgram <$ (
+        spaces >> optional (char '{' >> spaces >> char '}') >> spaces
+    )
 
 pPattern :: Parser Pattern
 pPattern = choice [try pNot, try pCond, try regex, try rel, try begin, end]
@@ -349,7 +366,7 @@ pExpr = ActionExpr <$> between
 
 pAction :: Parser Action
 pAction = do
-        o <- choice [try pVar, try pAll, pAssign]
+        o <- try pVar <|> try pAll <|> pAssign
         optional (char ';')
         pure o
     where
@@ -360,9 +377,15 @@ pAction = do
 
 pAssign :: Parser Action
 pAssign = do
-    name <- many1 alphaNum
-    spaces >> char '=' >> spaces
-    Assign (T.pack name) <$> pValue
+        name <- T.pack <$> many alphaNum
+        choice [try (direct name), add name]
+    where
+        direct name = do
+            spaces >> char '=' >> spaces
+            Assign name <$> pValue
+        add name = do
+            spaces >> string "+=" >> spaces
+            AssignAdd name <$> pValue
 
 pOptionAssign :: Parser (Text, Primitive)
 -- values must already be simplified primitives
@@ -375,8 +398,19 @@ pOptionAssign = do
 pAny :: Parser Primitive
 pAny = String . T.pack <$> many1 anyChar
 
+pExpression :: Parser Expression
+pExpression = do
+    v1 <- Val <$> pValue
+    void spaces
+    op <- anyChar
+    void spaces
+    v2 <- pExpression
+    case op of
+        '+' -> pure $ Add v1 v2
+        c   -> unexpected $ "Unsupported operator: " <> [c]
+
 pPrimitive :: Parser Primitive
-pPrimitive = choice [try quote, num]
+pPrimitive = num <|> quote
     where
         quote = String . T.pack <$> between
             (char '"') (char '"') (many1 (noneOf "\""))
@@ -384,13 +418,13 @@ pPrimitive = choice [try quote, num]
 
 pOptionPrimitive :: Parser Primitive
 -- quotes are not included for strings
-pOptionPrimitive = choice [try num, str]
+pOptionPrimitive = num <|> str
     where
         str = String . T.pack <$> many1 anyChar
         num = Number . read <$> many1 digit
 
 pKeywords :: Parser String
-pKeywords = choice [string "print"]
+pKeywords = string "print"
 
 pValue :: Parser Value
 pValue = choice [try sep, try field, try nf, try nr, try pr, var]
