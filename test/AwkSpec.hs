@@ -388,6 +388,11 @@ parsing = parallel $ do
             pRun pAction "x /= 3"
                 `shouldBe` Right (AssignDiv "x" (Primitive (Number 3)))
 
+            pRun pAction "x++"
+                `shouldBe` Right (AssignAdd "x" (Primitive (Number 1)))
+            pRun pAction "x--"
+                `shouldBe` Right (AssignSub "x" (Primitive (Number 1)))
+
         it "negative" $ do
             pRun pAction "junk"        `shouldSatisfy` isLeft
             pRun pAction "print $boop" `shouldSatisfy` isLeft

@@ -390,16 +390,26 @@ pAssign :: Parser Action
 pAssign = do
         name <- T.pack <$> many alphaNum
         spaces
-        op <- string "=" <|> string "+=" <|> string "-=" <|> string "*=" <|> string "/="
-        spaces
-        value <- pValue
-        pure $ case op of
-            "="  -> Assign name value
-            "+=" -> AssignAdd name value
-            "-=" -> AssignSub name value
-            "*=" -> AssignMul name value
-            "/=" -> AssignDiv name value
-            _    -> undefined
+        try (unary name) <|> binary name
+    where
+        unary :: Text -> Parser Action
+        unary name =
+                (string "++" >> pure (AssignAdd name one))
+            <|> (string "--" >> pure (AssignSub name one))
+
+        one = Primitive $ Number 1
+
+        binary name = do
+            op <- string "=" <|> string "+=" <|> string "-=" <|> string "*=" <|> string "/="
+            spaces
+            value <- pValue
+            pure $ case op of
+                "="  -> Assign    name value
+                "+=" -> AssignAdd name value
+                "-=" -> AssignSub name value
+                "*=" -> AssignMul name value
+                "/=" -> AssignDiv name value
+                _    -> undefined
 
 pOptionAssign :: Parser (Text, Primitive)
 -- values must already be simplified primitives
