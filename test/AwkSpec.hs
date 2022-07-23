@@ -51,25 +51,25 @@ inputOutput = parallel $ do
     describe "ioExecute" $
         it "works" $ do
             st1 <- ioExecute incRecords (program "$1 > x { x = $1 }") emptyState "3"
-            sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
+            H.lookup "x" (sVariables st1) `shouldBe` Just (Number 3)
             sRecords st1 `shouldBe` 1
 
             st2 <- ioExecute incRecords (program "$1 > x { x = $1 }") st1 "1"
-            sVariables st2 `shouldBe` H.fromList [("x", Number 3)]
+            H.lookup "x" (sVariables st2) `shouldBe` Just (Number 3)
             sRecords st2 `shouldBe` 2
 
     describe "ioAwk" $ do
         it "simple" $ do
             st <- awk ["1 2 3"] "{ x = $1 }"
-            sVariables st `shouldBe` H.fromList [("x", Number 1)]
+            H.lookup "x" (sVariables st) `shouldBe` Just (Number 1)
 
         it "multi line" $ do
             st <- awk ["1", "3", "2"] "$1 > x { x = $1 }"
-            sVariables st `shouldBe` H.fromList [("x", Number 3)]
+            H.lookup "x" (sVariables st) `shouldBe` Just (Number 3)
 
         it "num records" $ do
             st <- awk ["1", "3", "2", "5"] "{ x = NR }"
-            sVariables st `shouldBe` H.fromList [("x", Number 4)]
+            H.lookup "x" (sVariables st) `shouldBe` Just (Number 4)
 
         it "sorting" $ do
             st <- awk ["1", "3", "5", "2"] "BEGIN { y = 0 }; $1 > x { x = $1 }; END { y = x }"
@@ -150,14 +150,19 @@ execution = parallel $ do
             exec (PrintValue [FieldVar 3, Primitive (String " "), Primitive (String "!")]) "a b c"
                 `shouldBe` "c !\n"
 
+            exec (program "{ NF *= 3; print NF; }") "a b c"
+                `shouldBe` "9\n"
+
             let (st1, _) = execute (Assign "x" NumFields) emptyState "a b c"
-            sVariables st1 `shouldBe` H.fromList [("x", Number 3)]
+            H.lookup "x" (sVariables st1) `shouldBe` Just (Number 3)
 
             let (st2, _) = execute (Assign "y" (Variable "x")) st1 "a b c"
-            sVariables st2 `shouldBe` H.fromList [("x", Number 3), ("y", Number 3)]
+            H.lookup "x" (sVariables st2) `shouldBe` Just (Number 3)
+            H.lookup "y" (sVariables st2) `shouldBe` Just (Number 3)
 
             let (st3, _) = execute (Assign "x" (Primitive (Number 7))) st2 "a b c"
-            sVariables st3 `shouldBe` H.fromList [("x", Number 7), ("y", Number 3)]
+            H.lookup "x" (sVariables st3) `shouldBe` Just (Number 7)
+            H.lookup "y" (sVariables st3) `shouldBe` Just (Number 3)
 
         it "assign expr" $ do
             let (st1, _) = execute (AssignAdd "x" NumFields) emptyState "a b c"
@@ -198,7 +203,9 @@ execution = parallel $ do
         it "fullProgram" $ do
             let fp = FullProgram [program "{x = 1}"] [program "{y = x}"] [program "{z = y}"]
             let (st, _) = execute fp emptyState emptyRecord
-            sVariables st `shouldBe` H.fromList [("x", Number 1), ("y", Number 1), ("z", Number 1)]
+            H.lookup "x" (sVariables st) `shouldBe` Just (Number 1)
+            H.lookup "y" (sVariables st) `shouldBe` Just (Number 1)
+            H.lookup "z" (sVariables st) `shouldBe` Just (Number 1)
 
     describe "matches" $ do
         it "basics" $ do

@@ -43,6 +43,9 @@ emptyRecord = T.empty
 fields :: AwkState -> Record -> [Text]
 fields st = filter (not . T.null) . T.splitOn (sSeparator st)
 
+varAlter :: AwkState -> Text -> (Maybe Primitive -> Maybe Primitive) -> AwkState
+varAlter st name alter = st { sVariables = H.alter alter name $ sVariables st }
+
 
 class Executor a where
     execute :: a -> AwkState -> Record -> (AwkState, Text)
@@ -79,8 +82,10 @@ instance Executor Program where
     execute (Grep p)    st r = execute (Full p [PrintAll]) st r
     execute (Exec a)    st r = execute (Full Always a)     st r
     execute (Full p as) st r
-        | matches p st r = execute as st r
-        | otherwise   = (st, "")
+            | matches p st r = execute as state r
+            | otherwise      = (st, "")
+        where
+            state = varAlter st "NF" (const $ Just $ Number $ length $ fields st r)
 
 
 data Pattern =
@@ -90,7 +95,7 @@ data Pattern =
     | Relation Relation
     | Not Pattern
     | And Pattern Pattern
-    | Or Pattern Pattern
+    | Or  Pattern Pattern
     | Always
     deriving (Eq, Show)
 
@@ -154,11 +159,8 @@ instance Executor Action where
         (st, r <> "\n")
     execute (PrintValue vs) st r =
         (st, T.concat $ map (T.pack . show . expand st r) vs <> ["\n"])
-
     execute (Assign name value) st r =
-        (st { sVariables = H.insert name prim $ sVariables st }, T.empty)
-        where
-            prim = expand st r value
+        (varAlter st name (const $ Just $ expand st r value), T.empty)
 
     execute (AssignAdd name value) st r = exprAssign (+) name value st r
     execute (AssignSub name value) st r = exprAssign (-) name value st r
@@ -169,7 +171,7 @@ instance Executor Action where
 
 exprAssign :: (Int -> Int -> Int) -> Text -> Value -> AwkState -> Record -> (AwkState, Text)
 exprAssign f name value st r =
-    (st { sVariables = H.alter (Just . alter) name $ sVariables st }, T.empty)
+    (varAlter st name (Just . alter), T.empty)
     where
         alter Nothing  = prim
         alter (Just v) = Number $ toInt v `f` toInt prim
@@ -187,7 +189,9 @@ data Value =
 
 expand :: AwkState -> Record -> Value -> Primitive
 expand _  _ (Primitive p) = p
-expand st r NumFields     = Number $ length $ fields st r
+expand st r NumFields     =
+    H.findWithDefault (Number $ length $ fields st r) "NF" $ sVariables st
+
 expand st _ NumRecords    = Number $ sRecords st
 
 expand _  _ (Expression _)  = undefined
@@ -231,11 +235,13 @@ instance Ord Primitive where
     (<=) (String s1) (Number n2) = s1 <= T.pack (show n2)
     (<=) (Number n1) (String s2) = T.pack (show n1) <= s2
 
--- Integral requires Real (requires Num, Ord), Enum
 toInt :: Primitive -> Int
+-- Integral (toInteger) requires Real (requires Num, Ord), Enum
 toInt (Number n) = n
 toInt (String _) = 0
 
+
+-- | Input/Output
 
 awkMain :: [String] -> IO ()
 awkMain args = do
