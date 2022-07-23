@@ -91,4 +91,8 @@ ptest_command_line_variables() {
     echo 1 | awk -v x=99 'END { print x }' | expect 99
 }
 
+ptest_assignment_expressions() {
+    echo | awk 'END { x += 1; x *= 5; x -= 0; x **= 5; print x }' | expect 25
+}
+
 run_tests awk

@@ -173,6 +173,13 @@ execution = parallel $ do
             let (std, _) = execute (AssignDiv "x" (Primitive (Number 3))) st1 emptyRecord
             H.lookup "x" (sVariables std) `shouldBe` Just (Number 1)
 
+            let (sto, _) = execute (AssignMod "x" (Primitive (Number 1))) st1 emptyRecord
+            H.lookup "x" (sVariables sto) `shouldBe` Just (Number 0)
+
+            let (ste, _) = execute (AssignExp "x" (Primitive (Number 3))) st1 emptyRecord
+            H.lookup "x" (sVariables ste) `shouldBe` Just (Number 27)
+
+            -- string
             let (st3, _) = execute (AssignAdd "x" (Primitive (String "a"))) st1 emptyRecord
             H.lookup "x" (sVariables st3) `shouldBe` Just (Number 3)
 
@@ -387,6 +394,10 @@ parsing = parallel $ do
                 `shouldBe` Right (AssignMul "x" (Primitive (Number 3)))
             pRun pAction "x /= 3"
                 `shouldBe` Right (AssignDiv "x" (Primitive (Number 3)))
+            pRun pAction "x %= 3"
+                `shouldBe` Right (AssignMod "x" (Primitive (Number 3)))
+            pRun pAction "x **= 3"
+                `shouldBe` Right (AssignExp "x" (Primitive (Number 3)))
 
             pRun pAction "x++"
                 `shouldBe` Right (AssignAdd "x" (Primitive (Number 1)))

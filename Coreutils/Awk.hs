@@ -145,6 +145,8 @@ data Action =
     | AssignSub Text Value
     | AssignMul Text Value
     | AssignDiv Text Value
+    | AssignMod Text Value
+    | AssignExp Text Value
     deriving (Eq, Show)
 
 instance Executor Action where
@@ -162,6 +164,8 @@ instance Executor Action where
     execute (AssignSub name value) st r = exprAssign (-) name value st r
     execute (AssignMul name value) st r = exprAssign (*) name value st r
     execute (AssignDiv name value) st r = exprAssign div name value st r
+    execute (AssignMod name value) st r = exprAssign mod name value st r
+    execute (AssignExp name value) st r = exprAssign (^) name value st r
 
 exprAssign :: (Int -> Int -> Int) -> Text -> Value -> AwkState -> Record -> (AwkState, Text)
 exprAssign f name value st r =
@@ -393,6 +397,7 @@ pAssign = do
         try (unary name) <|> binary name
     where
         unary :: Text -> Parser Action
+        -- postfix only currently, but probably evaluated prefix
         unary name =
                 (string "++" >> pure (AssignAdd name one))
             <|> (string "--" >> pure (AssignSub name one))
@@ -400,16 +405,19 @@ pAssign = do
         one = Primitive $ Number 1
 
         binary name = do
-            op <- string "=" <|> string "+=" <|> string "-=" <|> string "*=" <|> string "/="
+            op <-  string "="  <|> string "+=" <|> string "-=" <|> string "/=" <|> string "%="
+               <|> try (string "*=") <|> string "**="
             spaces
             value <- pValue
             pure $ case op of
-                "="  -> Assign    name value
-                "+=" -> AssignAdd name value
-                "-=" -> AssignSub name value
-                "*=" -> AssignMul name value
-                "/=" -> AssignDiv name value
-                _    -> undefined
+                "="   -> Assign    name value
+                "+="  -> AssignAdd name value
+                "-="  -> AssignSub name value
+                "*="  -> AssignMul name value
+                "/="  -> AssignDiv name value
+                "%="  -> AssignMod name value
+                "**=" -> AssignExp name value
+                _     -> undefined
 
 pOptionAssign :: Parser (Text, Primitive)
 -- values must already be simplified primitives
