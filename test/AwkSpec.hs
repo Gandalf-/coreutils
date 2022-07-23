@@ -160,15 +160,21 @@ execution = parallel $ do
             let (st3, _) = execute (Assign "x" (Primitive (Number 7))) st2 "a b c"
             sVariables st3 `shouldBe` H.fromList [("x", Number 7), ("y", Number 3)]
 
-        it "assign add" $ do
+        it "assign expr" $ do
             let (st1, _) = execute (AssignAdd "x" NumFields) emptyState "a b c"
             H.lookup "x" (sVariables st1) `shouldBe` Just (Number 3)
 
-            let (st2, _) = execute (AssignAdd "x" (Primitive (Number 7))) st1 emptyRecord
-            H.lookup "x" (sVariables st2) `shouldBe` Just (Number 10)
+            let (stm, _) = execute (AssignMul "x" (Primitive (Number 7))) st1 emptyRecord
+            H.lookup "x" (sVariables stm) `shouldBe` Just (Number 21)
 
-            let (st3, _) = execute (AssignAdd "x" (Primitive (String "a"))) st2 emptyRecord
-            H.lookup "x" (sVariables st3) `shouldBe` Just (Number 10)
+            let (sts, _) = execute (AssignSub "x" (Primitive (Number 2))) st1 emptyRecord
+            H.lookup "x" (sVariables sts) `shouldBe` Just (Number 1)
+
+            let (std, _) = execute (AssignDiv "x" (Primitive (Number 3))) st1 emptyRecord
+            H.lookup "x" (sVariables std) `shouldBe` Just (Number 1)
+
+            let (st3, _) = execute (AssignAdd "x" (Primitive (String "a"))) st1 emptyRecord
+            H.lookup "x" (sVariables st3) `shouldBe` Just (Number 3)
 
         it "program" $ do
             exec NoProgram                      "apple" `shouldBe` ""
@@ -370,11 +376,17 @@ parsing = parallel $ do
             pRun pAction "x = $1"
                 `shouldBe` Right (Assign "x" (FieldVar 1))
 
-        it "add assign" $ do
+        it "expr assign" $ do
             pRun pAction "x += 3"
                 `shouldBe` Right (AssignAdd "x" (Primitive (Number 3)))
             pRun pAction "x += \"hello\""
                 `shouldBe` Right (AssignAdd "x" (Primitive (String "hello")))
+            pRun pAction "x -= 3"
+                `shouldBe` Right (AssignSub "x" (Primitive (Number 3)))
+            pRun pAction "x *= 3"
+                `shouldBe` Right (AssignMul "x" (Primitive (Number 3)))
+            pRun pAction "x /= 3"
+                `shouldBe` Right (AssignDiv "x" (Primitive (Number 3)))
 
         it "negative" $ do
             pRun pAction "junk"        `shouldSatisfy` isLeft

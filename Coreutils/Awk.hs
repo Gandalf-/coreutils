@@ -140,8 +140,11 @@ newtype Expr = ActionExpr
 data Action =
       PrintAll
     | PrintValue [Value]
-    | Assign Text Value
+    | Assign    Text Value
     | AssignAdd Text Value
+    | AssignSub Text Value
+    | AssignMul Text Value
+    | AssignDiv Text Value
     deriving (Eq, Show)
 
 instance Executor Action where
@@ -149,16 +152,24 @@ instance Executor Action where
         (st, r <> "\n")
     execute (PrintValue vs) st r =
         (st, T.concat $ map (T.pack . show . expand st r) vs <> ["\n"])
+
     execute (Assign name value) st r =
         (st { sVariables = H.insert name prim $ sVariables st }, T.empty)
         where
             prim = expand st r value
-    execute (AssignAdd name value) st r =
-        (st { sVariables = H.alter (Just . alter) name $ sVariables st }, T.empty)
-        where
-            alter Nothing  = prim
-            alter (Just v) = Number $ toInt v + toInt prim
-            prim = expand st r value
+
+    execute (AssignAdd name value) st r = exprAssign (+) name value st r
+    execute (AssignSub name value) st r = exprAssign (-) name value st r
+    execute (AssignMul name value) st r = exprAssign (*) name value st r
+    execute (AssignDiv name value) st r = exprAssign div name value st r
+
+exprAssign :: (Int -> Int -> Int) -> Text -> Value -> AwkState -> Record -> (AwkState, Text)
+exprAssign f name value st r =
+    (st { sVariables = H.alter (Just . alter) name $ sVariables st }, T.empty)
+    where
+        alter Nothing  = prim
+        alter (Just v) = Number $ toInt v `f` toInt prim
+        prim = expand st r value
 
 
 data Value =
@@ -378,14 +389,17 @@ pAction = do
 pAssign :: Parser Action
 pAssign = do
         name <- T.pack <$> many alphaNum
-        choice [try (direct name), add name]
-    where
-        direct name = do
-            spaces >> char '=' >> spaces
-            Assign name <$> pValue
-        add name = do
-            spaces >> string "+=" >> spaces
-            AssignAdd name <$> pValue
+        spaces
+        op <- string "=" <|> string "+=" <|> string "-=" <|> string "*=" <|> string "/="
+        spaces
+        value <- pValue
+        pure $ case op of
+            "="  -> Assign name value
+            "+=" -> AssignAdd name value
+            "-=" -> AssignSub name value
+            "*=" -> AssignMul name value
+            "/=" -> AssignDiv name value
+            _    -> undefined
 
 pOptionAssign :: Parser (Text, Primitive)
 -- values must already be simplified primitives
