@@ -29,13 +29,12 @@ type VariableMap = H.HashMap Text Primitive
 
 data AwkState = AwkState
     { sVariables :: VariableMap
-    , sRecords   :: Int
     , sSeparator :: Text
     }
     deriving (Eq, Show)
 
 emptyState :: AwkState
-emptyState = AwkState H.empty 0 " "
+emptyState = AwkState H.empty " "
 
 emptyRecord :: Record
 emptyRecord = T.empty
@@ -192,7 +191,8 @@ expand _  _ (Primitive p) = p
 expand st r NumFields     =
     H.findWithDefault (Number $ length $ fields st r) "NF" $ sVariables st
 
-expand st _ NumRecords    = Number $ sRecords st
+expand st _ NumRecords    =
+    H.findWithDefault (Number 0) "NR" $ sVariables st
 
 expand _  _ (Expression _)  = undefined
 expand st _ (Variable name) =
@@ -294,7 +294,10 @@ ioAwk (Executable state rs (FullProgram bs ms es)) = do
 type StateUpdate = AwkState -> AwkState
 
 incRecords :: StateUpdate
-incRecords st = st { sRecords = sRecords st + 1 }
+incRecords st = varAlter st "NR" (Just . Number . inc)
+    where
+        inc Nothing  = 1
+        inc (Just v) = toInt v + 1
 
 ioExecutes :: StateUpdate -> [Program] -> AwkState -> Record -> IO AwkState
 ioExecutes update ps prevState r =
@@ -550,6 +553,5 @@ builder progSrc s vs sources =
     where
         state = AwkState
             { sVariables = vs
-            , sRecords = 0
             , sSeparator = s
             }

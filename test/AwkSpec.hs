@@ -51,12 +51,12 @@ inputOutput = parallel $ do
     describe "ioExecute" $
         it "works" $ do
             st1 <- ioExecute incRecords (program "$1 > x { x = $1 }") emptyState "3"
-            H.lookup "x" (sVariables st1) `shouldBe` Just (Number 3)
-            sRecords st1 `shouldBe` 1
+            H.lookup "x"  (sVariables st1) `shouldBe` Just (Number 3)
+            H.lookup "NR" (sVariables st1) `shouldBe` Just (Number 1)
 
             st2 <- ioExecute incRecords (program "$1 > x { x = $1 }") st1 "1"
-            H.lookup "x" (sVariables st2) `shouldBe` Just (Number 3)
-            sRecords st2 `shouldBe` 2
+            H.lookup "x"  (sVariables st2) `shouldBe` Just (Number 3)
+            H.lookup "NR" (sVariables st2) `shouldBe` Just (Number 2)
 
     describe "ioAwk" $ do
         it "simple" $ do
@@ -73,13 +73,17 @@ inputOutput = parallel $ do
 
         it "sorting" $ do
             st <- awk ["1", "3", "5", "2"] "BEGIN { y = 0 }; $1 > x { x = $1 }; END { y = x }"
-            H.lookup "y" (sVariables st) `shouldBe` Just (Number 5)
-            sRecords st `shouldBe` 4
+            H.lookup "y"  (sVariables st) `shouldBe` Just (Number 5)
+            H.lookup "NR" (sVariables st) `shouldBe` Just (Number 4)
 
         it "multiple begin and end" $ do
             st <- awk [] "BEGIN {a = 1}; BEGIN {b = a}; END {c = b}; END {d = c}"
             H.lookup "d" (sVariables st) `shouldBe` Just (Number 1)
-            sRecords st `shouldBe` 0
+            H.lookup "NR" (sVariables st) `shouldBe` Nothing
+
+        it "NR manipulation" $ do
+            st <- awk ["a", "b", "c"] "BEGIN { NR += 10 }; { NR *= 2 }"
+            H.lookup "NR" (sVariables st) `shouldBe` Just (Number 94)
     where
         simpleSrc = "{ print NF }"
         simpleProg = FullProgram [] [Exec [PrintValue [NumFields]]] []
@@ -129,8 +133,6 @@ execution = parallel $ do
             expa "a b c" (FieldVar 4) `shouldBe` String ""
 
         it "reads state" $ do
-            expand emptyState { sRecords = 23 } emptyRecord NumRecords
-                `shouldBe` Number 23
             expand emptyState emptyRecord (Variable "x")
                 `shouldBe` String ""
             expand
