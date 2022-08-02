@@ -2,104 +2,111 @@
 
 module TrSpec where
 
-import qualified Data.ByteString.Char8 as C
 import           Coreutils.Tr
+import           Data.Array
+import           Data.ByteString.Char8 (ByteString)
+import           Data.Either
+import           Data.Word8
+import qualified Streaming.ByteString  as Q
 
 import           Test.Hspec
 
 spec :: Spec
-spec = parallel $ do
-    describe "parse" $
+spec = do
+    describe "translationTable" $ do
         it "works" $ do
-            parse "a-e" `shouldBe` Just "abcde"
-            parse "a*5" `shouldBe` Just "aaaaa"
+            let (Translator t) = translationTable False "abc" "ABC"
+            t ! _a `shouldBe` _A
+            t ! _b `shouldBe` _B
+            t ! _c `shouldBe` _C
+            t ! _d `shouldBe` _d
 
-            parse "a*hello" `shouldBe` Nothing
-            parse "a*" `shouldBe` Nothing
+        it "complement" $ do
+            let (Translator t) = translationTable True "abc" "ABC"
+            t ! _a `shouldBe` _a
+            t ! _0 `shouldBe` _C
+            t ! _1 `shouldBe` _C
 
-    describe "interpret" $
+    describe "translate" $
+        it "works" $
+            rt upperCase "abc123" `shouldReturn` "ABC123"
+
+        {- TODO, what should this do?
+        it "complement" $
+            rt cUpperCase "abc123" `shouldReturn` "abcZZZ"
+        -}
+
+    describe "deletionTable" $ do
         it "works" $ do
-            interpret "\\\\hello there" `shouldBe` "\\hello there"
-            interpret "\\\\hello \\rthere" `shouldBe` "\\hello \rthere"
+            let (Deleter t) = deletionTable False "123"
+            t ! _1 `shouldBe` False
+            t ! _2 `shouldBe` False
+            t ! _3 `shouldBe` False
+            t ! _a `shouldBe` True
+
+        it "complement" $ do
+            let (Deleter t) = deletionTable True "123"
+            t ! _1 `shouldBe` True
+            t ! _a `shouldBe` False
+            t ! _b `shouldBe` False
+
+    describe "delete" $ do
+        it "works" $
+            rt deleteNums "hello123" `shouldReturn` "hello"
+
+        it "complement" $
+            rt cDeleteNums "hello123" `shouldReturn` "123"
 
     describe "squeeze" $
         it "works" $ do
-            setSqueeze "hhello" `shouldBe` "helo"
-            setSqueeze "unique" `shouldBe` "unique"
-            setSqueeze "ababab" `shouldBe` "ababab"
-
-    describe "complement" $
-        it "works" $ do
-            setComplement "abcd" `shouldNotContain` "abcd"
-            setComplement "  aa  bb" `shouldNotContain` " ab"
+            squeeze "hello" `shouldBe` "helo"
+            squeeze "12345" `shouldBe` "12345"
+            squeeze "" `shouldBe` ""
 
     describe "truncate" $
         it "works" $ do
-            setTruncate "abcd" "1" `shouldBe` "a"
-            setTruncate "abcd" "1234" `shouldBe` "abcd"
-            setTruncate "a" "1234" `shouldBe` "a"
+            truncate' "abc" "hello" `shouldBe` "hel"
+            truncate' "hello" "abc" `shouldBe` "abc"
 
-    describe "delete" $
-        it "works" $ do
-            let f = trDelete "1234"
-            runDirect f "hello" `shouldBe` "hello"
-            runDirect f "hello123" `shouldBe` "hello"
-            runDirect f "123" `shouldBe` ""
+    describe "prepare" $ do
+        it "invalid" $ do
+            prepare opts []
+                `shouldBe` Left "At least one set must be provided"
+            prepare opts { optAction = Delete } ["1", "2"]
+                `shouldBe` Left "Deletion requires one set"
+            prepare opts { optAction = Translate } ["1"]
+                `shouldBe` Left "Translation requires two sets"
 
-    describe "translate" $ do
-        it "all to one" $ do
-            let f = trTranslate "1234" "a"
-            runDirect f "hello" `shouldBe` "hello"
-            runDirect f "hello123" `shouldBe` "helloaaa"
-            runDirect f "123" `shouldBe` "aaa"
+            prepare opts { optAction = Translate } ["1", "2", "3"]
+                `shouldSatisfy` isLeft
 
-        it "all to two" $ do
-            let f = trTranslate "1234" "ab"
-            runDirect f "hello" `shouldBe` "hello"
-            runDirect f "hello123" `shouldBe` "helloabb"
-            runDirect f "123" `shouldBe` "abb"
+        it "default translator" $ do
+            let (Right e) = prepare opts ["a", "1"]
+            rt e "abc" `shouldReturn` "1bc"
 
-    describe "tr" $ do
-        it "translate" $ do
-            run oTrans "1234" "a"
-                "hello123" "helloaaa"
+        it "default deleter" $ do
+            let (Right e) = prepare opts { optAction = Delete } ["123"]
+            rt e "abc123" `shouldReturn` "abc"
 
-            run oTrans "[:digit:]" "a"
-                "hello123" "helloaaa"
+        it "squeeze first" $ do
+            -- Hmm, not really testing much here
+            let (Right e) = prepare opts { optSqueeze = True, optAction = Delete } ["aabbc"]
+            rt e "abc123" `shouldReturn` "123"
 
-            run oTrans "[:lower:]" "[:upper:]"
-                "hello there!" "HELLO THERE!"
-
-            run oTrans "[:space:]" "-"
-                "hello there!" "hello-there!"
-
-        it "delete" $ do
-            run oDelete "1234" ""
-                "hello123" "hello"
-
-            run oDelete "[:lower:]" ""
-                "hello123" "123"
-
-            run oDelete "[:graph:]" ""
-                "hello123" ""
+        it "squeeze second" $ do
+            let (Right e) = prepare opts { optSqueeze = True } ["123", "aabbc"]
+            rt e "abc123" `shouldReturn` "abcabc"
     where
-        oTrans = defaultOptions
-        oDelete = defaultOptions { optAction = Delete }
+        opts = defaultOptions
+        lower = parse "[:lower:]"
+        upper = parse "[:upper:]"
+        digit = parse "[:digit:]"
 
+        upperCase = translationTable False lower upper
+        deleteNums = deletionTable False digit
 
-exe :: Either String TrFunc
-    -> C.ByteString
-    -> Either String C.ByteString
-exe func arg = do
-    f <- func
-    pure $ f arg
+        -- cUpperCase = translationTable True lower upper
+        cDeleteNums = deletionTable True digit
 
-run :: Options -> Set -> Set
-    -> C.ByteString -> C.ByteString
-    -> Expectation
-run o s1 s2 b a = do
-        let f = tr o s1 s2
-        exe f b `shouldBe` Right a
-
-runDirect :: TrFunc -> C.ByteString -> C.ByteString
-runDirect f = f
+rt :: Translator -> ByteString -> IO ByteString
+rt t = Q.toStrict_ . execute t . Q.fromStrict

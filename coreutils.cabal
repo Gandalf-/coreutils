@@ -60,6 +60,7 @@ library
 
   build-depends:
     base >= 4.7 && < 5,
+    array,
     directory,
     streaming,
     streaming-bytestring,
@@ -73,7 +74,8 @@ library
     unordered-containers,
     random-shuffle,
     process,
-    text
+    text,
+    word8
 
 executable utils
   hs-source-dirs:      src
@@ -103,9 +105,11 @@ test-suite test
   default-language:    Haskell2010
   build-depends:
     base >= 4.7 && < 5,
+    array,
     coreutils,
     directory,
     bytestring,
+    word8,
     streaming,
     streaming-bytestring,
     unordered-containers,

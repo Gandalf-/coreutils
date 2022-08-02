@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Coreutils.Tr where
 
@@ -7,108 +8,129 @@ module Coreutils.Tr where
 -- replace characters, supports -d and -c
 
 import           Control.Monad
+import           Data.Array
+import           Data.ByteString       (ByteString)
+import qualified Data.ByteString       as B
 import qualified Data.ByteString.Char8 as C
-import           Data.Char
-import qualified Data.HashMap.Strict   as H
 import qualified Data.Text             as T
+import           Data.Word8
+import           Streaming
+import qualified Streaming.ByteString  as Q
 import           System.Console.GetOpt
 import           System.Exit
-import           Text.Read
 
 import           Coreutils.Util
 
-type Set = String
-
 data Tr = Tr
-
-type TrFunc = (C.ByteString -> C.ByteString)
 
 instance Util Tr where
     run _ = trMain
 
-data Action = Delete | Translate
-    deriving (Show, Eq)
-
-data Options = Options {
-          optComplement :: Bool
-        , optAction     :: Action
-        , optSqueeze    :: Bool
-        , optTruncate   :: Bool
-    }
-    deriving (Show, Eq)
+-- | IO
 
 trMain :: [String] -> IO ()
 trMain args = do
         unless (null errors) $
             die $ unlines errors
 
-        either die (`runner` arguments) $
+        either die (`runner'` arguments) $
             foldM (flip id) defaultOptions opts
     where
         (opts, arguments, errors) = getOpt RequireOrder optionDesc args
-        runner o as = either die C.interact $ runTr o as
 
-runTr :: Options -> [String] -> Either String TrFunc
-runTr o [s]    = tr o s []
-runTr o [s, t] = tr o s t
-runTr _ _      = Left "exactly one or two sets may be provided"
-
-tr :: Options -> Set -> Set -> Either String TrFunc
-tr o s1 s2 = case (optAction o, s2) of
-        (Delete, [])    -> maybeEither "error" (trDelete <$> squeeze set1)
-        (Delete, _ )    -> Left "--delete does not allow a second SET"
-        (Translate, []) -> Left "translation requires two SETs"
-        (Translate, _ ) -> maybeEither "error" (trTranslate <$> set1 <*> squeeze set2)
+runner' :: Options -> [String] -> IO ()
+runner' o as = case prepare o sets of
+        (Left err)  -> die err
+        (Right exe) -> Q.stdout $ execute exe Q.stdin
     where
-        maybeEither e Nothing  = Left e
-        maybeEither _ (Just v) = Right v
-        squeeze = whenF (optSqueeze o) setSqueeze
+        sets = map parse as
 
-        set1 =
-            whenF (optTruncate o) (`setTruncate` s2)
-            $ whenF (optComplement o) setComplement
-            $ parse
-            $ interpret s1
 
-        set2 =
-            parse
-            $ interpret s2
+-- | Implementation
 
-whenF :: Applicative f => Bool -> (a -> a) -> f a -> f a
-whenF True  f = fmap f
-whenF False _ = id
+type Complement = Bool
 
-trDelete :: Set -> TrFunc
-trDelete s =
-        C.filter (`C.notElem` set)
+range' :: [Word8]
+range' = [0..255]
+
+bounds' :: (Word8, Word8)
+bounds' = (0, 255)
+
+data Translator =
+      Translator (Array Word8 Word8)
+    | Deleter    (Array Word8 Bool)
+    deriving (Show, Eq)
+
+translationTable :: Complement -> ByteString -> ByteString -> Translator
+-- map everything not in `from` to the last character in `to`
+translationTable True f t = Translator out
     where
-        set = C.pack s
-
-trTranslate :: Set -> Set -> TrFunc
-trTranslate s1 s2 =
-        C.map translate
+        out     = base // fmap (, final) notFrom
+        base    = array bounds' $ zip range' range'
+        notFrom = filter (`notElem` from) range'
+        from    = B.unpack f
+        final   = B.last t
+-- map everything in `from` to `to`
+translationTable False f t = Translator out
     where
-        table :: H.HashMap Char Char
-        table = H.fromList $ zip s1 (s2 <> repeat (last s2))
+        out  = base // zip from to
+        base = array bounds' $ zip range' range'
+        from = B.unpack f
+        to   = B.unpack t
 
-        translate c = H.lookupDefault c c table
+deletionTable :: Complement -> ByteString -> Translator
+deletionTable c r
+        | c         = Deleter (not <$> out)
+        | otherwise = Deleter out
+    where
+        out    = base // fmap (, False) remove
+        base   = array bounds' $ zip range' $ repeat True
+        remove = B.unpack r
 
--- | Set Processing
+execute :: MonadIO m => Translator -> Q.ByteStream m () -> Q.ByteStream m ()
+execute (Translator t) = Q.map (t !)
+execute (Deleter t)    = Q.filter (t !)
 
-setSqueeze :: String -> String
-setSqueeze [] = []
-setSqueeze [x] = [x]
-setSqueeze (x:y:xs)
-        | x == y    = x : setSqueeze xs
-        | otherwise = x : setSqueeze (y:xs)
+squeeze :: ByteString -> ByteString
+squeeze = C.pack . map C.head . C.group
 
-setComplement :: String -> String
-setComplement set = filter (`notElem` set) ascii
+truncate' :: ByteString -> ByteString -> ByteString
+truncate' f = C.take (C.length f)
 
-setTruncate :: Set -> Set -> Set
-setTruncate s1 s2 = take (length s2) s1
+prepare :: Options -> [ByteString] -> Either String Translator
+prepare _                      []     = Left "At least one set must be provided"
+prepare o@(Options True _ _ _) [a]    = prepare o { optSqueeze  = False } [squeeze a]
+prepare o@(Options True _ _ _) [a, b] = prepare o { optSqueeze  = False } [a, squeeze b]
+prepare o@(Options _ True _ _) [a, b] = prepare o { optTruncate = False } [a, truncate' a b]
+
+prepare (Options False False c Translate) [a, b] = Right $ translationTable c a b
+prepare (Options False False c Delete   ) [a]    = Right $ deletionTable c a
+
+prepare (Options _ _ _ Translate) [_] = Left "Translation requires two sets"
+prepare (Options _ _ _ Delete)  (_:_) = Left "Deletion requires one set"
+prepare _                      _      = Left "Invalid options"
+
 
 -- | Set Parsing
+
+parse :: String -> ByteString
+parse "[:alnum:]"   = B.filter isAlphaNum ascii
+parse "[:alpha:]"   = B.filter isAlpha ascii
+parse "[:blank:]"   = B.filter isSpace ascii
+parse "[:cntrl:]"   = B.filter isControl ascii
+parse "[:digit:]"   = B.filter isDigit ascii
+parse "[:lower:]"   = B.filter isLower ascii
+parse "[:print:]"   = B.filter isPrint ascii
+parse "[:punct:]"   = B.filter isPunctuation ascii
+parse "[:space:]"   = B.filter isSpace ascii
+parse "[:upper:]"   = B.filter isUpper ascii
+parse "[:graph:]"   = B.filter (\b -> isPrint b && not (isSpace b)) ascii
+parse "[:xdigit:]"  = B.filter isHexDigit ascii
+
+parse ['=', a, '='] = C.pack [a]
+parse [a, '-', b]   = C.pack [a..b]
+-- parse (a:'*':xs)    = undefined
+parse arg           = C.pack $ interpret arg
 
 interpret :: String -> String
 -- backslash interpretation
@@ -127,38 +149,22 @@ interpret = withString convert
               , ("\\v", "\v")
             ]
 
-parse :: String -> Maybe Set
-parse "[:alnum:]"   = Just $ filter isAlphaNum ascii
-parse "[:alpha:]"   = Just $ filter isAlpha ascii
-parse "[:blank:]"   = Just $ filter isSpace ascii    -- suspicious
-parse "[:cntrl:]"   = Just $ filter isControl ascii
-parse "[:digit:]"   = Just digit
-parse "[:graph:]"   = Just $ filter isPrint ascii
-parse "[:lower:]"   = Just lower
-parse "[:print:]"   = undefined
-parse "[:punct:]"   = Just $ filter isPunctuation ascii
-parse "[:space:]"   = Just $ filter isSpace ascii
-parse "[:upper:]"   = Just upper
-parse "[:xdigit:]"  = undefined
+ascii :: ByteString
+ascii = B.pack range'
 
-parse ['=', a, '='] = Just [a]
-parse [a, '-', b]   = Just [a..b]
-parse (a:'*':xs)    = flip replicate a <$> readMaybe xs
-parse arg           = Just arg
-
-upper :: String
-upper = ['A'..'Z']
-
-lower :: String
-lower = ['a'..'z']
-
-digit :: String
-digit = ['0'..'9']
-
-ascii :: String
-ascii = map chr [0..255]
 
 -- | Options
+
+data Action = Delete | Translate
+    deriving (Show, Eq)
+
+data Options = Options {
+          optSqueeze    :: Bool
+        , optTruncate   :: Bool
+        , optComplement :: Bool
+        , optAction     :: Action
+    }
+    deriving (Show, Eq)
 
 defaultOptions :: Options
 defaultOptions = Options {
