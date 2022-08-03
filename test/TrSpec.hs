@@ -2,6 +2,7 @@
 
 module TrSpec where
 
+import           Control.Exception
 import           Coreutils.Tr
 import           Data.Array
 import           Data.ByteString.Char8 (ByteString)
@@ -27,14 +28,14 @@ spec = do
             t ! _0 `shouldBe` _C
             t ! _1 `shouldBe` _C
 
-    describe "translate" $
+    describe "translate" $ do
         it "works" $
             rt upperCase "abc123" `shouldReturn` "ABC123"
 
-        {- TODO, what should this do?
-        it "complement" $
-            rt cUpperCase "abc123" `shouldReturn` "abcZZZ"
-        -}
+        -- GNU tr refuses entirely to do this
+        it "complement" $ do
+            let table = translationTable True (parse "[:digit:]") "Z"
+            rt table "abc123" `shouldReturn` "ZZZ123"
 
     describe "deletionTable" $ do
         it "works" $ do
@@ -96,6 +97,30 @@ spec = do
         it "squeeze second" $ do
             let (Right e) = prepare opts { optSqueeze = True } ["123", "aabbc"]
             rt e "abc123" `shouldReturn` "abcabc"
+
+    describe "parse" $ do
+        it "equivalent" $ do
+            parse "=a=" `shouldBe` "a"
+            parse "= =" `shouldBe` " "
+
+        it "range" $ do
+            parse "a-d" `shouldBe` "abcd"
+            parse "a-dx-z" `shouldBe` "abcdxyz"
+            parse "A-Z" `shouldBe` "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            parse "0-9" `shouldBe` parse "[:digit:]"
+            parse "9-0" `shouldBe` ""
+
+        it "copies" $ do
+            parse "a*5" `shouldBe`"aaaaa"
+            evaluate (parse "a*a") `shouldThrow` anyErrorCall
+
+        it "special" $ do
+            parse "\\n" `shouldBe` "\n"
+            parse "\\\\\n" `shouldBe` "\\\n"
+
+        it "combined" $ do
+            parse "[:digit:]abc" `shouldBe` "0123456789abc"
+            parse "a-d[:digit:]" `shouldBe` "abcd0123456789"
     where
         opts = defaultOptions
         lower = parse "[:lower:]"
@@ -105,7 +130,6 @@ spec = do
         upperCase = translationTable False lower upper
         deleteNums = deletionTable False digit
 
-        -- cUpperCase = translationTable True lower upper
         cDeleteNums = deletionTable True digit
 
 rt :: Translator -> ByteString -> IO ByteString

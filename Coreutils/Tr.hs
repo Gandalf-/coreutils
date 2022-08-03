@@ -12,7 +12,6 @@ import           Data.Array
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString       as B
 import qualified Data.ByteString.Char8 as C
-import qualified Data.Text             as T
 import           Data.Word8
 import           Streaming
 import qualified Streaming.ByteString  as Q
@@ -91,11 +90,8 @@ execute :: MonadIO m => Translator -> Q.ByteStream m () -> Q.ByteStream m ()
 execute (Translator t) = Q.map (t !)
 execute (Deleter t)    = Q.filter (t !)
 
-squeeze :: ByteString -> ByteString
-squeeze = C.pack . map C.head . C.group
 
-truncate' :: ByteString -> ByteString -> ByteString
-truncate' f = C.take (C.length f)
+-- | Preparation
 
 prepare :: Options -> [ByteString] -> Either String Translator
 prepare _                      []     = Left "At least one set must be provided"
@@ -110,44 +106,53 @@ prepare (Options _ _ _ Translate) [_] = Left "Translation requires two sets"
 prepare (Options _ _ _ Delete)  (_:_) = Left "Deletion requires one set"
 prepare _                      _      = Left "Invalid options"
 
+squeeze :: ByteString -> ByteString
+squeeze = C.pack . map C.head . C.group
+
+truncate' :: ByteString -> ByteString -> ByteString
+truncate' f = C.take (C.length f)
+
 
 -- | Set Parsing
 
 parse :: String -> ByteString
-parse "[:alnum:]"   = B.filter isAlphaNum ascii
-parse "[:alpha:]"   = B.filter isAlpha ascii
-parse "[:blank:]"   = B.filter isSpace ascii
-parse "[:cntrl:]"   = B.filter isControl ascii
-parse "[:digit:]"   = B.filter isDigit ascii
-parse "[:lower:]"   = B.filter isLower ascii
-parse "[:print:]"   = B.filter isPrint ascii
-parse "[:punct:]"   = B.filter isPunctuation ascii
-parse "[:space:]"   = B.filter isSpace ascii
-parse "[:upper:]"   = B.filter isUpper ascii
-parse "[:graph:]"   = B.filter (\b -> isPrint b && not (isSpace b)) ascii
-parse "[:xdigit:]"  = B.filter isHexDigit ascii
+parse ('[':':':'a':'l':'n':'u':'m':':':']':xs)     = next isAlphaNum xs
+parse ('[':':':'a':'l':'p':'h':'a':':':']':xs)     = next isAlpha xs
+parse ('[':':':'d':'i':'g':'i':'t':':':']':xs)     = next isDigit xs
+parse ('[':':':'u':'p':'p':'e':'r':':':']':xs)     = next isUpper xs
+parse ('[':':':'l':'o':'w':'e':'r':':':']':xs)     = next isLower xs
+parse ('[':':':'s':'p':'a':'c':'e':':':']':xs)     = next isSpace xs
+parse ('[':':':'p':'r':'i':'n':'t':':':']':xs)     = next isPrint xs
+parse ('[':':':'p':'u':'n':'c':'t':':':']':xs)     = next isPunctuation xs
+parse ('[':':':'b':'l':'a':'n':'k':':':']':xs)     = next isSpace xs
+parse ('[':':':'c':'n':'t':'r':'l':':':']':xs)     = next isControl xs
+parse ('[':':':'g':'r':'a':'p':'h':':':']':xs)     = next isGraph xs
+parse ('[':':':'x':'d':'i':'g':'i':'t':':':']':xs) = next isHexDigit xs
 
-parse ['=', a, '='] = C.pack [a]
-parse [a, '-', b]   = C.pack [a..b]
--- parse (a:'*':xs)    = undefined
-parse arg           = C.pack $ interpret arg
+parse ('=':a:'=':xs)                               = pack [a] xs
+parse (a:'-':b:xs)                                 = pack [a..b] xs
+parse (a:'*':xs)                                   = C.replicate (read xs) a
 
-interpret :: String -> String
--- backslash interpretation
-interpret = withString convert
-    where
-        withString f = T.unpack . f . T.pack
-        convert xs = foldr (\(from, to) ts -> T.replace from to ts) xs pairs
-        pairs = [
-                ("\\\\", "\\")
-              , ("\\a", "\a")
-              , ("\\b", "\b")
-              , ("\\f", "\f")
-              , ("\\n", "\n")
-              , ("\\r", "\r")
-              , ("\\t", "\t")
-              , ("\\v", "\v")
-            ]
+parse ('\\':'\\':xs)                               = pack "\\" xs
+parse ('\\':'a':xs)                                = pack "\a" xs
+parse ('\\':'b':xs)                                = pack "\b" xs
+parse ('\\':'f':xs)                                = pack "\f" xs
+parse ('\\':'n':xs)                                = pack "\n" xs
+parse ('\\':'r':xs)                                = pack "\r" xs
+parse ('\\':'t':xs)                                = pack "\t" xs
+parse ('\\':'v':xs)                                = pack "\v" xs
+
+parse (x:xs)                                       = C.singleton x <> parse xs
+parse []                                           = B.empty
+
+next :: (Word8 -> Bool) -> String -> ByteString
+next p xs = B.filter p ascii <> parse xs
+
+pack :: String -> String -> ByteString
+pack s xs = C.pack s <> parse xs
+
+isGraph :: Word8 -> Bool
+isGraph b = isPrint b && not (isSpace b)
 
 ascii :: ByteString
 ascii = B.pack range'
