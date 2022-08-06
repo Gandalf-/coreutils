@@ -41,6 +41,7 @@ library
     Coreutils.Echo
     Coreutils.Env
     Coreutils.Head
+    Coreutils.Nl
     Coreutils.Nologin
     Coreutils.Pwd
     Coreutils.Rev
@@ -59,22 +60,22 @@ library
     Coreutils.Yes
 
   build-depends:
-    base >= 4.7 && < 5,
     array,
-    directory,
-    streaming,
-    streaming-bytestring,
+    base >= 4.7 && < 5,
     bytestring,
-    split,
-    random,
+    containers,
+    directory,
     parsec,
+    process,
+    random-shuffle,
+    random,
     regex-tdfa >= 1.3.1.1,
     resourcet,
-    containers,
-    unordered-containers,
-    random-shuffle,
-    process,
+    split,
+    streaming-bytestring,
+    streaming,
     text,
+    unordered-containers,
     word8
 
 executable utils
@@ -104,39 +105,40 @@ test-suite test
 
   default-language:    Haskell2010
   build-depends:
-    base >= 4.7 && < 5,
     array,
+    base >= 4.7 && < 5,
+    bytestring,
     coreutils,
     directory,
-    bytestring,
-    word8,
-    streaming,
-    streaming-bytestring,
-    unordered-containers,
-    split,
-    temporary,
-    parsec,
     hspec,
+    parsec,
+    QuickCheck,
     random,
+    split,
+    streaming-bytestring,
+    streaming,
+    temporary,
     text,
-    QuickCheck
+    unordered-containers,
+    word8
 
   other-modules:
-    AwkSpec
     AwkParseSpec
+    AwkSpec
     CmpSpec
     CutSpec
-    EnvSpec
     DirnameSpec
-    SeqSpec
+    EnvSpec
+    NlSpec
     RevSpec
+    SeqSpec
+    ShufSpec
+    SleepSpec
+    SplitSpec
     TacSpec
     TestSpec
     TrSpec
     WcSpec
-    ShufSpec
-    SleepSpec
-    SplitSpec
     YesSpec
 
   build-tool-depends: hspec-discover:hspec-discover == 2.*
