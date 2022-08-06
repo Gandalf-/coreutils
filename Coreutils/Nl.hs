@@ -1,12 +1,15 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Coreutils.Nl where
 
-import           Data.ByteString.Char8 (ByteString)
-import qualified Data.ByteString.Char8 as C
-
+import           Control.Monad
 import           Data.Char             (isDigit)
 import           Data.Text             (Text)
 import qualified Data.Text             as T
+import qualified Data.Text.Lazy        as L
+import qualified Data.Text.Lazy.IO     as L
 import           System.Console.GetOpt
+import           System.Exit
 import           Text.Regex.TDFA       ((=~))
 
 import           Coreutils.Util
@@ -16,18 +19,44 @@ data Nl = Nl
 instance Util Nl where
     run _ = nlMain
 
+-- | IO
+
 nlMain :: [String] -> IO ()
-nlMain = undefined
+nlMain args = do
+        unless (null errors) $
+            die $ unlines errors
+        either die (`runNl` other) $
+            foldM (flip id) defaultOptions opts
+    where
+        (opts, other, errors) = getOpt RequireOrder optionDesc args
+
+runNl :: Options -> [String] -> IO ()
+runNl os [] = runNl os ["-"]
+runNl os fs = mapM_ (fetch >=> nl os) fs
+    where
+        fetch :: FilePath -> IO L.Text
+        fetch "-" = L.getContents
+        fetch f   = L.readFile f
+
+nl :: Options -> L.Text -> IO State
+nl os = foldM go initial . map L.toStrict . L.lines
+    where
+        go :: State -> Text -> IO State
+        go st t = do
+            let (new, out) = execute st t
+            L.putStrLn $ L.fromStrict out
+            return new
+
+        initial = getState $ getRuntime os
 
 -- | Implementation
 
-data Section = Header | Body | Footer
-    deriving (Eq, Show)
+type Line = Text
 
-execute :: State -> ByteString -> (State, ByteString)
+execute :: State -> Line -> (State, Line)
 execute st s = (new, prefix <> s)
     where
-        blank = C.null s
+        blank = T.null s
         matched
             | blank && skipBlank rt newBlanks = False
             | otherwise                       = select rt (position st) s
@@ -48,11 +77,14 @@ execute st s = (new, prefix <> s)
         }
         rt = runtime st
 
+data Section = Header | Body | Footer
+    deriving (Eq, Show)
+
 data State = State {
       position :: !Section
     , value    :: !Int
     , blanks   :: !Int
-    , runtime  :: Runtime
+    , runtime  :: !Runtime
     }
 
 getState :: Runtime -> State
@@ -64,13 +96,13 @@ getState rt = State {
     }
 
 data Runtime = Runtime {
-      number    :: Int -> ByteString
-    , noNumber  :: ByteString
-    , start     :: Int
-    , increment :: Int -> Int
-    , select    :: Section -> ByteString -> Bool
-    , section   :: ByteString -> Maybe Section
-    , skipBlank :: Int -> Bool
+      number    :: !(Int -> Line)
+    , noNumber  :: !Line
+    , start     :: !Int
+    , increment :: !(Int -> Int)
+    , select    :: !(Section -> Line -> Bool)
+    , section   :: !(Line -> Maybe Section)
+    , skipBlank :: !(Int -> Bool)
     }
 
 getRuntime :: Options -> Runtime
@@ -95,22 +127,22 @@ getRuntime os = Runtime {
 
         incrementer = (+ optLineIncrement os)
 
-        noNumberer = C.replicate (optNumberWidth os + 1) ' '
+        noNumberer = T.replicate (optNumberWidth os + T.length sep) " "
         numberer i = format (optNumberFormat os) (optNumberWidth os) i <> sep
-        sep = C.pack $ optNumberSeparator os
+        sep = T.pack $ optNumberSeparator os
 
-format :: Format -> NumberWidth -> Int -> ByteString
+format :: Format -> NumberWidth -> Int -> Line
 format f w i = case f of
-        LeftNoZeros  -> num <> C.replicate size ' '
-        RightNoZeros -> C.replicate size ' ' <> num
-        RightZeros   -> C.replicate size '0' <> num
+        LeftNoZeros  -> num <> T.replicate size " "
+        RightNoZeros -> T.replicate size " " <> num
+        RightZeros   -> T.replicate size "0" <> num
     where
-        size = w - C.length num
-        num = C.pack $ show i
+        size = w - T.length num
+        num = T.pack $ show i
 
-match :: Style -> ByteString -> Bool
+match :: Style -> Line -> Bool
 match AllLines _       = True
-match NonEmptyLines s  = not $ C.null s
+match NonEmptyLines s  = not $ T.null s
 match NoLines _        = False
 match (RegexLines t) s = s =~ t
 
@@ -194,7 +226,7 @@ optionDesc =
         (ReqArg
             (\arg opt -> Right opt { optSectionDelimiter = arg })
             "CC")
-        "use CC for logical line delimiters"
+        "use CC for logical page delimiters"
 
     , Option "f" ["footer-numbering"]
         (ReqArg

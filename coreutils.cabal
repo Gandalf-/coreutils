@@ -65,6 +65,7 @@ library
     bytestring,
     containers,
     directory,
+    mtl,
     parsec,
     process,
     random-shuffle,

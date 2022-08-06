@@ -48,13 +48,11 @@ _compare() {
     [[ "$mine" == "$system" ]] || {
         echo "failure, $*"
 
-        eval "timeout 1 stack exec utils -- $name ${@:2}" \
-            | head -c 1000
-
+        eval "timeout 1 stack exec utils -- $name ${@:2}"
         echo "==================================="
+        eval "timeout 1 $real ${@:2}"
 
-        eval "timeout 1 $real ${@:2}" \
-            | head -c 1000
+        exit 1
     }
 }
 
@@ -87,9 +85,9 @@ run_tests() {
             (( failures++ ))
 
             local test=${pids[$pid]}
-            name="${test/ptest_/}"
-            name="${name//_/ }"
-            echo "\tfailure: $name"
+            _name="${test/ptest_/}"
+            _name="${name//_/ }"
+            echo "\tfailure: $_name"
             ( $test )
         }
     done
