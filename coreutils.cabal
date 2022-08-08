@@ -44,6 +44,7 @@ library
     Coreutils.Nl
     Coreutils.Nologin
     Coreutils.Pwd
+    Coreutils.Random
     Coreutils.Rev
     Coreutils.Seq
     Coreutils.Shuf
@@ -131,6 +132,7 @@ test-suite test
     DirnameSpec
     EnvSpec
     NlSpec
+    RandomSpec
     RevSpec
     SeqSpec
     ShufSpec

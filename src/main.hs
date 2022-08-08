@@ -14,6 +14,7 @@ import           Coreutils.Head     (Head (..))
 import           Coreutils.Nl       (Nl (..))
 import           Coreutils.Nologin  (Nologin (..))
 import           Coreutils.Pwd      (Pwd (..))
+import           Coreutils.Random   (Random (..))
 import           Coreutils.Rev      (Rev (..))
 import           Coreutils.Seq      (Seq (..))
 import           Coreutils.Sleep    (Sleep (..))
@@ -54,6 +55,7 @@ dispatch ("head":xs)    = run Head xs
 dispatch ("nl":xs)      = run Nl xs
 dispatch ("nologin":xs) = run Nologin xs
 dispatch ("pwd":xs)     = run Pwd xs
+dispatch ("random":xs)  = run Random xs
 dispatch ("rev":xs)     = run Rev xs
 dispatch ("seq":xs)     = run Seq xs
 dispatch ("sleep":xs)   = run Sleep xs
@@ -83,6 +85,7 @@ usage = unlines $ ["", "usage:"] <> commands
             , "nl"
             , "nologin"
             , "pwd"
+            , "random"
             , "rev"
             , "seq"
             , "sleep"

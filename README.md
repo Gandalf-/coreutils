@@ -22,6 +22,7 @@ Goals are:
 | nl      | ✓         | 90       | -    | ✓    | ✓     |
 | nologin | ✓         | ✓        | -    | -    | -     |
 | pwd     | ✓         | ✓        | -    | -    | -     |
+| random  | ✓         | ✓        | -    | -    | ✓     |
 | rev     | ✓         | ✓        | ✓    | ✓    | ✓     |
 | seq     | ✓         | ✓        | ✓    | ✓    | ✓     |
 | sleep   | ✓         | ✓        | -    | -    | ✓     |
@@ -40,7 +41,7 @@ Goals are:
 |--------|--------------------|
 | ✓      | Fully complete     |
 | -      | Not applicable     |
-| n%     | % feature complete |
+| %      | % feature complete |
 
 # Usage
 
