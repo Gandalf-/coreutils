@@ -38,11 +38,7 @@ trMain args = do
         (opts, arguments, errors) = getOpt RequireOrder optionDesc args
 
 runner' :: Options -> [String] -> IO ()
-runner' o as = case prepare o sets of
-        (Left err)  -> die err
-        (Right exe) -> Q.stdout $ execute exe Q.stdin
-    where
-        sets = map parse as
+runner' o args = either die (Q.interact . execute) $ prepare o $ map parse args
 
 
 -- | Implementation
