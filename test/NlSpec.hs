@@ -3,7 +3,10 @@
 module NlSpec where
 
 import           Coreutils.Nl
+import qualified Data.ByteString       as B
+import           Data.ByteString.Char8 (ByteString)
 import           Data.Either
+import qualified Streaming.ByteString  as Q
 
 import           Test.Hspec
 
@@ -120,3 +123,7 @@ spec = do
     where
         dRuntime = getRuntime defaultOptions
         dState = getState dRuntime
+
+
+-- run :: NlState -> ByteString -> (ByteString, NlState)
+run st = runner st . Q.fromStrict

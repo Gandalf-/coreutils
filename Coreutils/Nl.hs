@@ -3,24 +3,58 @@
 module Coreutils.Nl where
 
 import           Control.Monad
-import           Data.Char             (isDigit)
-import           Data.Text             (Text)
-import qualified Data.Text             as T
-import qualified Data.Text.Lazy        as L
-import qualified Data.Text.Lazy.IO     as L
+import           Control.Monad.State
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as B
+import qualified Data.ByteString.Char8      as C
+import           Data.Char                  (isDigit)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T
+import qualified Data.Text.Lazy             as L
+import qualified Data.Text.Lazy.IO          as L
+import           Streaming
+import qualified Streaming.ByteString.Char8 as Q
+import qualified Streaming.Prelude          as S
 import           System.Console.GetOpt
 import           System.Exit
-import           Text.Regex.TDFA       ((=~))
+import           Text.Regex.TDFA            ((=~))
 
 import           Coreutils.Util
 
 data Nl = Nl
 
 instance Util Nl where
-    run _ = nlMain
+    run _ = undefined
+
+foo :: Line -> State NlState Line
+foo s = do
+    st <- get
+    let (new, line) = execute st s
+    put new
+    return line
+
+{-
+str s = flip runState s
+    $ Q.toLazy_
+    $ Q.unlines
+    $ S.subst Q.chunk
+    $ S.mapM foo
+    $ S.each ["a", "b", "c"]
+-}
+runner s =
+    Q.fromLazy
+    . fst
+    . flip runState s
+    . Q.toLazy_
+    . Q.unlines
+    . S.subst Q.chunk
+    . S.mapM foo
+    . mapped Q.toStrict
+    . Q.lines
 
 -- | IO
 
+{-
 nlMain :: [String] -> IO ()
 nlMain args = do
         unless (null errors) $
@@ -38,25 +72,26 @@ runNl os fs = mapM_ (fetch >=> nl os) fs
         fetch "-" = L.getContents
         fetch f   = L.readFile f
 
-nl :: Options -> L.Text -> IO State
+nl :: Options -> L.Text -> IO NlState
 nl os = foldM go initial . map L.toStrict . L.lines
     where
-        go :: State -> Text -> IO State
+        go :: NlState -> Text -> IO NlState
         go st t = do
             let (new, out) = execute st t
             L.putStrLn $ L.fromStrict out
             return new
 
         initial = getState $ getRuntime os
+-}
 
 -- | Implementation
 
-type Line = Text
+type Line = ByteString
 
-execute :: State -> Line -> (State, Line)
+execute :: NlState -> Line -> (NlState, Line)
 execute st s = (new, prefix <> s)
     where
-        blank = T.null s
+        blank = B.null s
         matched
             | blank && skipBlank rt newBlanks = False
             | otherwise                       = select rt (position st) s
@@ -69,7 +104,7 @@ execute st s = (new, prefix <> s)
         newBlanks
             | blank     = blanks st + 1
             | otherwise = 0
-        new = State {
+        new = NlState {
               position = position st
             , value    = newValue
             , blanks   = newBlanks
@@ -80,15 +115,18 @@ execute st s = (new, prefix <> s)
 data Section = Header | Body | Footer
     deriving (Eq, Show)
 
-data State = State {
+data NlState = NlState {
       position :: !Section
     , value    :: !Int
     , blanks   :: !Int
     , runtime  :: !Runtime
     }
 
-getState :: Runtime -> State
-getState rt = State {
+instance Show NlState where
+    show (NlState p v b _) = unwords [show p, show v, show b]
+
+getState :: Runtime -> NlState
+getState rt = NlState {
       position = Body
     , value    = start rt
     , blanks   = 0
@@ -127,22 +165,22 @@ getRuntime os = Runtime {
 
         incrementer = (+ optLineIncrement os)
 
-        noNumberer = T.replicate (optNumberWidth os + T.length sep) " "
+        noNumberer = C.replicate (optNumberWidth os + B.length sep) ' '
         numberer i = format (optNumberFormat os) (optNumberWidth os) i <> sep
-        sep = T.pack $ optNumberSeparator os
+        sep = C.pack $ optNumberSeparator os
 
 format :: Format -> NumberWidth -> Int -> Line
 format f w i = case f of
-        LeftNoZeros  -> num <> T.replicate size " "
-        RightNoZeros -> T.replicate size " " <> num
-        RightZeros   -> T.replicate size "0" <> num
+        LeftNoZeros  -> num <> C.replicate size ' '
+        RightNoZeros -> C.replicate size ' ' <> num
+        RightZeros   -> C.replicate size '0' <> num
     where
-        size = w - T.length num
-        num = T.pack $ show i
+        size = w - C.length num
+        num = C.pack $ show i
 
 match :: Style -> Line -> Bool
 match AllLines _       = True
-match NonEmptyLines s  = not $ T.null s
+match NonEmptyLines s  = not $ C.null s
 match NoLines _        = False
 match (RegexLines t) s = s =~ t
 
