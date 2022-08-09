@@ -5,11 +5,11 @@ module Coreutils.Seq where
 -- produce a sequence of numbers with eccentric formatting behavior
 
 import           Control.Monad
-import           Data.Maybe            (catMaybes, isJust)
+import           Data.Char
+import           Data.Maybe
 import           System.Console.GetOpt
 import           System.Exit
 import           Text.Printf           (printf)
-import           Text.Read             (readMaybe)
 
 import           Coreutils.Util
 
@@ -18,89 +18,120 @@ data Seq = Seq
 instance Util Seq where
     run _ = seqMain
 
+-- | IO
+
 seqMain :: [String] -> IO ()
 seqMain args = do
-        let (actions, nums, errors) = getOpt RequireOrder options args
+        unless (null errors) $
+            die $ unlines errors
 
-        unless (null errors) $ do
-            mapM_ putStr errors
-            exitFailure
-
-        case foldM (flip id) defaults actions of
-            Left   err -> die err
-            Right opts ->
-                case getSeqType nums of
-                    (Decimals width) -> do
-                        let arguments = map readMaybe nums
-                        case runSeq $ catMaybes arguments of
-                            (Left  err)     -> die $ "seq: " <> err
-                            (Right numbers) -> display dPrintf width opts numbers
-
-                    Ints -> do
-                        let arguments = map readMaybe nums
-                        case runSeq $ catMaybes arguments of
-                            (Left  err)     -> die $ "seq: " <> err
-                            (Right numbers) -> display iPrintf (0 :: Int) opts numbers
+        either die (`runner` arguments) $
+            foldM (flip id) defaultOptions opts
     where
-        display p w (Options _ _ t) [n]      = p ("%." <> show w <> "v" <> t) n
-        display p w o@(Options _ s _) (n:ns) = p ("%." <> show w <> "v" <> s) n >> display p w o ns
-        display _ _ _ []                       = return ()
+        (opts, arguments, errors) = getOpt RequireOrder options args
 
-data SeqType = Ints | Decimals Int
-    deriving (Show)
-
-getSeqType :: [String] -> SeqType
-getSeqType [_, i, _]
-        | integerAble = Ints
-        | doubleAble  = Decimals decimals
-        | otherwise   = Ints
+runner :: Options -> [String] -> IO ()
+runner os ss = either die exe (getRuntime os ss)
     where
-        integerAble = isJust (readMaybe i :: Maybe Integer)
-        doubleAble = isJust (readMaybe i :: Maybe Double)
+        exe rt = mapM_ (putStr . format rt) (values rt)
 
-        decimals = length (dropWhile (/= '.') i) - 1
+-- | Implementation
 
-getSeqType _ = Ints
+type Value = Double
 
-dPrintf :: String -> Double -> IO ()
-dPrintf = printf
+data Runtime = Runtime {
+      format :: Value -> String
+    , values :: [Value]
+}
 
-iPrintf :: String -> Integer -> IO ()
-iPrintf = printf
+getRuntime :: Options -> [String] -> Either String Runtime
+getRuntime os ss = do
+    (bs, f) <- getBounds ss
+    let fmt = fromMaybe (show f) (optFormat os) <> optSeparator os
+    pure $ Runtime {
+          format = printf fmt
+        , values = expand bs
+    }
 
-runSeq :: (Enum a, Ord a, Num a) => [a] -> Either String [a]
--- ^ produce a list of numbers, use pattern matching to represent the
--- default values and error handling
+data Bounds = Bounds {
+      _start :: Double
+    , _inc   :: Double
+    , _end   :: Double
+}
+    deriving (Eq, Show)
 
-runSeq [start, increment, end]
-        | start > end && increment > 0 = Left "increment must be negative for reverse ranges"
-        | otherwise                    = Right [start, start + increment .. end]
+expand :: Bounds -> [Value]
+expand (Bounds s i e) =
+        filter valid [s, s + i .. e]
+    where
+        valid = if i > 0 then (<= e) else (>= e)
 
-runSeq [start, end]
-        | start < end = runSeq [start,  1, end]
-        | otherwise   = runSeq [start, -1, end]
+data Format = IntFormat | DecFormat Int
+    deriving (Eq)
 
-runSeq [end]                   = runSeq [1, 1, end]
-runSeq _                       = Left "unable to parse arguments as numbers"
+instance Ord Format where
+    compare IntFormat      IntFormat    = EQ
+    compare IntFormat     (DecFormat _) = LT
+    compare (DecFormat _) IntFormat     = GT
+    compare (DecFormat a) (DecFormat b) = compare a b
 
-data Options = Options
-        { optFormat     :: String
-        , optSeparator  :: String
-        , optTerminator :: String
-        }
+instance Show Format where
+    show IntFormat     = "%.0f"
+    show (DecFormat w) = "%." <> show w <> "g"
 
-defaults :: Options
-defaults = Options
-        { optFormat     = "%v"
-        , optSeparator  = "\n"
-        , optTerminator = "\n"
-        }
+getBounds :: [String] -> Either String (Bounds, Format)
+getBounds [l] = do
+    (e, _) <- parse l
+    pure (Bounds 1 1 e, IntFormat)
+
+getBounds [f, l] = do
+    (start, sf) <- parse f
+    (end,   _ ) <- parse l
+    pure (Bounds start 1 end, sf)
+
+getBounds [f, i, l] = do
+    (start, sf) <- parse f
+    (inc,   cf) <- parse i
+    (end,   _ ) <- parse l
+    when (inc == 0) $ Left "the increment may not be zero"
+    pure (Bounds start inc end, maximum [sf, cf])
+
+getBounds [] = Left "too few arguments"
+getBounds _  = Left "too many arguments"
+
+parse :: String -> Either String (Double, Format)
+parse ('-':xs) = do
+    (v, f) <- parse xs
+    pure (negate v, f)
+parse ('.':xs) =
+    parse $ "0." <> xs
+parse s
+    | integerish s = Right (read s, IntFormat)
+    | doubleish s  = Right (read s, DecFormat width)
+    | otherwise    = Left $ s <> " is not a number"
+    where
+        integerish = all isDigit
+        doubleish  = all (\c -> isDigit c || c == '.')
+        width      = length $ tail $ dropWhile (/= '.') s
+
+-- | Options
+
+data Options = Options {
+      optFormat    :: Maybe String
+    , optSeparator :: String
+    }
+
+defaultOptions :: Options
+defaultOptions = Options {
+      optFormat     = Nothing
+    , optSeparator  = "\n"
+    }
 
 options :: [OptDescr (Options -> Either String Options)]
 options =
     [ Option "f" ["format"]
         (ReqArg
-            (\arg opt -> Right opt { optFormat = arg })
+            (\arg opt -> Right opt { optFormat = Just arg })
             "FORMAT")
         "provide the printf format to use while printing"
 
@@ -109,12 +140,6 @@ options =
             (\arg opt -> Right opt { optSeparator = arg})
             "SEPARATOR")
         "use this string between numbers"
-
-    , Option "t" ["terminator"]
-        (ReqArg
-            (\arg opt -> Right opt { optTerminator = arg})
-            "TERMINATOR")
-        "use this string to terminate the numbers"
 
     , Option "h" ["help"]
         (NoArg
