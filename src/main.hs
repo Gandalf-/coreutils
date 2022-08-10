@@ -27,6 +27,7 @@ import           Coreutils.Tr       (Tr (..))
 import           Coreutils.Uniq     (Uniq (..))
 import           Coreutils.Wc       (Wc (..))
 import           Coreutils.Which    (Which (..))
+import           Coreutils.Whoami   (Whoami (..))
 import           Coreutils.Yes      (Yes (..))
 
 import           Coreutils.Util
@@ -68,6 +69,7 @@ dispatch ("tr":xs)      = run Tr xs
 dispatch ("uniq":xs)    = run Uniq xs
 dispatch ("wc":xs)      = run Wc xs
 dispatch ("which":xs)   = run Which xs
+dispatch ("whoami":xs)  = run Whoami xs
 dispatch ("yes":xs)     = run Yes xs
 dispatch _              = die usage
 
@@ -98,5 +100,6 @@ usage = unlines $ ["", "usage:"] <> commands
             , "uniq"
             , "wc"
             , "which"
+            , "whoami"
             , "yes"
             ]

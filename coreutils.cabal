@@ -58,6 +58,7 @@ library
     Coreutils.Uniq
     Coreutils.Wc
     Coreutils.Which
+    Coreutils.Whoami
     Coreutils.Yes
 
   build-depends:

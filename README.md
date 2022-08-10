@@ -35,6 +35,7 @@ Goals are:
 | uniq    |           | 80       | 50   | ✓    |       |
 | wc      | ✓         | ✓        | ✓    | ✓    |       |
 | which   | ✓         | ✓        | -    | -    | -     |
+| whoami  | ✓         | ✓        | -    | -    | -     |
 | yes     | ✓         | ✓        | ✓    | ✓    | -     |
 
 | Symbol | Meaning            |

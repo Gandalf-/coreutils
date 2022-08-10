@@ -8,6 +8,8 @@
 * shuf
 * sort
 * strings
+* watch
+* sum
 
 * expr
 * sh
