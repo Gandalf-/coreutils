@@ -11,8 +11,6 @@ import qualified Data.ByteString.Char8      as C
 import           Data.Char                  (isDigit)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
-import qualified Data.Text.Lazy             as L
-import qualified Data.Text.Lazy.IO          as L
 import           Streaming
 import qualified Streaming.ByteString.Char8 as Q
 import qualified Streaming.Prelude          as S
@@ -28,22 +26,6 @@ data Nl = Nl
 instance Util Nl where
     run _ = nlMain
 
-type Op = StateT NlState IO
-
--- work :: NlState -> Q.ByteStream Op () -> Op ()
-work :: (Q.ByteStream Op () -> Op a) -> Q.ByteStream Op () -> NlState -> IO (a, NlState)
-work sink bs = runStateT (sink $ f bs)
-    where
-        f = Q.unlines . S.subst Q.chunk . S.mapM process . mapped Q.toStrict . Q.lines
-
-process :: Line -> Op Line
-process l = do
-    st <- get
-    let (!new, !line) = execute st l
-    put new
-    return line
-
-
 -- | IO
 
 nlMain :: [String] -> IO ()
@@ -57,23 +39,37 @@ nlMain args = do
 
 runNl :: Options -> [String] -> IO ()
 runNl os [] = runNl os ["-"]
-runNl os [f] = nl os $ fetch f
+runNl os fs = mapM_ runner fs
     where
-        fetch :: FilePath -> Q.ByteStream Op ()
-        fetch "-" = Q.stdin
-        fetch f   = undefined
+        runner :: FilePath -> IO ()
+        runner "-" = nl os Q.stdin
+        runner f   = withFile f ReadMode (nl os . Q.fromHandle)
 
 nl :: Options -> Q.ByteStream Op () -> IO ()
-nl os bs = void $ work Q.stdout bs initial
+nl os bs = void $ worker Q.stdout bs initial
     where
         initial = getState $ getRuntime os
+
+type Op = StateT NlState IO
+
+worker :: (Q.ByteStream Op () -> Op a) -> Q.ByteStream Op () -> NlState -> IO (a, NlState)
+worker sink bs = runStateT (sink $ go bs)
+    where
+        go = Q.unlines . S.subst Q.chunk . S.mapM process . mapped Q.toStrict . Q.lines
+
+process :: Line -> Op Line
+process l = do
+    st <- get
+    let (!new, !line) = execute st l
+    put new
+    return line
 
 -- | Implementation
 
 type Line = ByteString
 
 execute :: NlState -> Line -> (NlState, Line)
-execute st s = (new, prefix <> s)
+execute !st !s = (new, prefix <> s)
     where
         blank = B.null s
         matched
