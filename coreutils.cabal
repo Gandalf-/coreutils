@@ -51,6 +51,7 @@ library
     Coreutils.Sleep
     Coreutils.Split
     Coreutils.Sponge
+    Coreutils.Sum
     Coreutils.Tac
     Coreutils.Tee
     Coreutils.Test
@@ -139,6 +140,7 @@ test-suite test
     ShufSpec
     SleepSpec
     SplitSpec
+    SumSpec
     TacSpec
     TestSpec
     TrSpec

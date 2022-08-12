@@ -20,6 +20,7 @@ import           Coreutils.Seq      (Seq (..))
 import           Coreutils.Sleep    (Sleep (..))
 import           Coreutils.Split    (Split (..))
 import           Coreutils.Sponge   (Sponge (..))
+import           Coreutils.Sum      (Sum (..))
 import           Coreutils.Tac      (Tac (..))
 import           Coreutils.Tee      (Tee (..))
 import           Coreutils.Test     (Test (..))
@@ -62,6 +63,7 @@ dispatch ("seq":xs)     = run Seq xs
 dispatch ("sleep":xs)   = run Sleep xs
 dispatch ("split":xs)   = run Split xs
 dispatch ("sponge":xs)  = run Sponge xs
+dispatch ("sum":xs)     = run Sum xs
 dispatch ("tac":xs)     = run Tac xs
 dispatch ("tee":xs)     = run Tee xs
 dispatch ("test":xs)    = run Test xs
@@ -93,6 +95,7 @@ usage = unlines $ ["", "usage:"] <> commands
             , "sleep"
             , "split"
             , "sponge"
+            , "sum"
             , "tac"
             , "tee"
             , "test"

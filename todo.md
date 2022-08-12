@@ -10,6 +10,7 @@
 * strings
 * watch
 * sum
+* cksum
 
 * expr
 * sh
