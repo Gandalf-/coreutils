@@ -1,9 +1,10 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Coreutils.Nl where
 
 import           Control.Monad
-import           Control.Monad.State
+import           Control.Monad.State.Strict
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Char8      as C
@@ -17,6 +18,7 @@ import qualified Streaming.ByteString.Char8 as Q
 import qualified Streaming.Prelude          as S
 import           System.Console.GetOpt
 import           System.Exit
+import           System.IO
 import           Text.Regex.TDFA            ((=~))
 
 import           Coreutils.Util
@@ -24,37 +26,26 @@ import           Coreutils.Util
 data Nl = Nl
 
 instance Util Nl where
-    run _ = undefined
+    run _ = nlMain
 
-foo :: Line -> State NlState Line
-foo s = do
+type Op = StateT NlState IO
+
+-- work :: NlState -> Q.ByteStream Op () -> Op ()
+work :: (Q.ByteStream Op () -> Op a) -> Q.ByteStream Op () -> NlState -> IO (a, NlState)
+work sink bs = runStateT (sink $ f bs)
+    where
+        f = Q.unlines . S.subst Q.chunk . S.mapM process . mapped Q.toStrict . Q.lines
+
+process :: Line -> Op Line
+process l = do
     st <- get
-    let (new, line) = execute st s
+    let (!new, !line) = execute st l
     put new
     return line
 
-{-
-str s = flip runState s
-    $ Q.toLazy_
-    $ Q.unlines
-    $ S.subst Q.chunk
-    $ S.mapM foo
-    $ S.each ["a", "b", "c"]
--}
-runner s =
-    Q.fromLazy
-    . fst
-    . flip runState s
-    . Q.toLazy_
-    . Q.unlines
-    . S.subst Q.chunk
-    . S.mapM foo
-    . mapped Q.toStrict
-    . Q.lines
 
 -- | IO
 
-{-
 nlMain :: [String] -> IO ()
 nlMain args = do
         unless (null errors) $
@@ -66,23 +57,16 @@ nlMain args = do
 
 runNl :: Options -> [String] -> IO ()
 runNl os [] = runNl os ["-"]
-runNl os fs = mapM_ (fetch >=> nl os) fs
+runNl os [f] = nl os $ fetch f
     where
-        fetch :: FilePath -> IO L.Text
-        fetch "-" = L.getContents
-        fetch f   = L.readFile f
+        fetch :: FilePath -> Q.ByteStream Op ()
+        fetch "-" = Q.stdin
+        fetch f   = undefined
 
-nl :: Options -> L.Text -> IO NlState
-nl os = foldM go initial . map L.toStrict . L.lines
+nl :: Options -> Q.ByteStream Op () -> IO ()
+nl os bs = void $ work Q.stdout bs initial
     where
-        go :: NlState -> Text -> IO NlState
-        go st t = do
-            let (new, out) = execute st t
-            L.putStrLn $ L.fromStrict out
-            return new
-
         initial = getState $ getRuntime os
--}
 
 -- | Implementation
 
