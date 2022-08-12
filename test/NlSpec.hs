@@ -3,7 +3,10 @@
 module NlSpec where
 
 import           Coreutils.Nl
+import           Data.ByteString.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as B
 import           Data.Either
+import qualified Streaming.ByteString  as Q
 
 import           Test.Hspec
 
@@ -117,6 +120,16 @@ spec = do
             value  st3 `shouldBe` 3
             s3 `shouldBe` "     2\thello"
 
+    describe "io" $
+        it "works" $ do
+            (t, st) <- run dState "a\nb\nc\n"
+            B.lines t `shouldBe` ["     1\ta", "     2\tb", "     3\tc"]
+            value st `shouldBe` 4
+
     where
         dRuntime = getRuntime defaultOptions
         dState = getState dRuntime
+
+
+run :: NlState -> ByteString -> IO (ByteString, NlState)
+run st s = worker Q.toStrict_ (Q.fromStrict s) st

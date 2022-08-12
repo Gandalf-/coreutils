@@ -1,16 +1,23 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Coreutils.Nl where
 
 import           Control.Monad
-import           Data.Char             (isDigit)
-import           Data.Text             (Text)
-import qualified Data.Text             as T
-import qualified Data.Text.Lazy        as L
-import qualified Data.Text.Lazy.IO     as L
+import           Control.Monad.State.Strict
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as B
+import qualified Data.ByteString.Char8      as C
+import           Data.Char                  (isDigit)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T
+import           Streaming
+import qualified Streaming.ByteString.Char8 as Q
+import qualified Streaming.Prelude          as S
 import           System.Console.GetOpt
 import           System.Exit
-import           Text.Regex.TDFA       ((=~))
+import           System.IO
+import           Text.Regex.TDFA            ((=~))
 
 import           Coreutils.Util
 
@@ -32,31 +39,39 @@ nlMain args = do
 
 runNl :: Options -> [String] -> IO ()
 runNl os [] = runNl os ["-"]
-runNl os fs = mapM_ (fetch >=> nl os) fs
+runNl os fs = mapM_ runner fs
     where
-        fetch :: FilePath -> IO L.Text
-        fetch "-" = L.getContents
-        fetch f   = L.readFile f
+        runner :: FilePath -> IO ()
+        runner "-" = nl os Q.stdin
+        runner f   = withFile f ReadMode (nl os . Q.fromHandle)
 
-nl :: Options -> L.Text -> IO State
-nl os = foldM go initial . map L.toStrict . L.lines
+nl :: Options -> Q.ByteStream Op () -> IO ()
+nl os bs = void $ worker Q.stdout bs initial
     where
-        go :: State -> Text -> IO State
-        go st t = do
-            let (new, out) = execute st t
-            L.putStrLn $ L.fromStrict out
-            return new
-
         initial = getState $ getRuntime os
+
+type Op = StateT NlState IO
+
+worker :: (Q.ByteStream Op () -> Op a) -> Q.ByteStream Op () -> NlState -> IO (a, NlState)
+worker sink bs = runStateT (sink $ go bs)
+    where
+        go = Q.unlines . S.subst Q.chunk . S.mapM process . mapped Q.toStrict . Q.lines
+
+process :: Line -> Op Line
+process l = do
+    st <- get
+    let (!new, !line) = execute st l
+    put new
+    return line
 
 -- | Implementation
 
-type Line = Text
+type Line = ByteString
 
-execute :: State -> Line -> (State, Line)
-execute st s = (new, prefix <> s)
+execute :: NlState -> Line -> (NlState, Line)
+execute !st !s = (new, prefix <> s)
     where
-        blank = T.null s
+        blank = B.null s
         matched
             | blank && skipBlank rt newBlanks = False
             | otherwise                       = select rt (position st) s
@@ -69,7 +84,7 @@ execute st s = (new, prefix <> s)
         newBlanks
             | blank     = blanks st + 1
             | otherwise = 0
-        new = State {
+        new = NlState {
               position = position st
             , value    = newValue
             , blanks   = newBlanks
@@ -80,15 +95,18 @@ execute st s = (new, prefix <> s)
 data Section = Header | Body | Footer
     deriving (Eq, Show)
 
-data State = State {
+data NlState = NlState {
       position :: !Section
     , value    :: !Int
     , blanks   :: !Int
     , runtime  :: !Runtime
     }
 
-getState :: Runtime -> State
-getState rt = State {
+instance Show NlState where
+    show (NlState p v b _) = unwords [show p, show v, show b]
+
+getState :: Runtime -> NlState
+getState rt = NlState {
       position = Body
     , value    = start rt
     , blanks   = 0
@@ -127,22 +145,22 @@ getRuntime os = Runtime {
 
         incrementer = (+ optLineIncrement os)
 
-        noNumberer = T.replicate (optNumberWidth os + T.length sep) " "
+        noNumberer = C.replicate (optNumberWidth os + B.length sep) ' '
         numberer i = format (optNumberFormat os) (optNumberWidth os) i <> sep
-        sep = T.pack $ optNumberSeparator os
+        sep = C.pack $ optNumberSeparator os
 
 format :: Format -> NumberWidth -> Int -> Line
 format f w i = case f of
-        LeftNoZeros  -> num <> T.replicate size " "
-        RightNoZeros -> T.replicate size " " <> num
-        RightZeros   -> T.replicate size "0" <> num
+        LeftNoZeros  -> num <> C.replicate size ' '
+        RightNoZeros -> C.replicate size ' ' <> num
+        RightZeros   -> C.replicate size '0' <> num
     where
-        size = w - T.length num
-        num = T.pack $ show i
+        size = w - C.length num
+        num = C.pack $ show i
 
 match :: Style -> Line -> Bool
 match AllLines _       = True
-match NonEmptyLines s  = not $ T.null s
+match NonEmptyLines s  = not $ C.null s
 match NoLines _        = False
 match (RegexLines t) s = s =~ t
 
