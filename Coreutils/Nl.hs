@@ -6,7 +6,6 @@ module Coreutils.Nl where
 import           Control.Monad
 import           Control.Monad.State.Strict
 import           Data.ByteString            (ByteString)
-import qualified Data.ByteString            as B
 import qualified Data.ByteString.Char8      as C
 import           Data.Char                  (isDigit)
 import           Data.Text                  (Text)
@@ -20,6 +19,7 @@ import           System.IO
 import           Text.Regex.TDFA            ((=~))
 
 import           Coreutils.Util
+import Data.Maybe
 
 data Nl = Nl
 
@@ -69,11 +69,15 @@ process l = do
 type Line = ByteString
 
 execute :: NlState -> Line -> (NlState, Line)
-execute !st !s = (new, prefix <> s)
+execute !st !s = (newState, newLine)
     where
-        blank = B.null s
+        blank = C.null s
+        newLine
+            | isJust newSection = prefix
+            | otherwise         = prefix <> s
         matched
             | blank && skipBlank rt newBlanks = False
+            | isJust newSection               = False
             | otherwise                       = select rt (position st) s
         prefix
             | matched   = number rt (value st)
@@ -84,8 +88,9 @@ execute !st !s = (new, prefix <> s)
         newBlanks
             | blank     = blanks st + 1
             | otherwise = 0
-        new = NlState {
-              position = position st
+        newSection = section rt s
+        newState = NlState {
+              position = fromMaybe (position st) newSection
             , value    = newValue
             , blanks   = newBlanks
             , runtime  = rt
@@ -134,7 +139,7 @@ getRuntime os = Runtime {
         , skipBlank = blanker
         }
     where
-        sectioner _ = Nothing -- TODO
+        sectioner = getSection (optSectionDelimiter os)
         blanker n = n < optJoinBlankLines os
 
         starter = optStartingLineNumber os
@@ -145,7 +150,7 @@ getRuntime os = Runtime {
 
         incrementer = (+ optLineIncrement os)
 
-        noNumberer = C.replicate (optNumberWidth os + B.length sep) ' '
+        noNumberer = C.replicate (optNumberWidth os + C.length sep) ' '
         numberer i = format (optNumberFormat os) (optNumberWidth os) i <> sep
         sep = C.pack $ optNumberSeparator os
 
@@ -164,12 +169,19 @@ match NonEmptyLines s  = not $ C.null s
 match NoLines _        = False
 match (RegexLines t) s = s =~ t
 
+getSection :: Delimiter -> Line -> Maybe Section
+getSection d l
+    | d == l           = Just Footer
+    | d <> d == l      = Just Body
+    | d <> d <> d == l = Just Header
+    | otherwise = Nothing
+
 
 -- | Options
 -- https://www.ibm.com/docs/en/aix/7.2?topic=n-nl-command
 -- 130 lines of options, yikes
 
-type Delimiter = String
+type Delimiter = ByteString
 type NumberWidth = Int
 
 data Style = AllLines | NonEmptyLines | NoLines | RegexLines Text
@@ -242,7 +254,7 @@ optionDesc =
 
     , Option "d" ["section-delimiter"]
         (ReqArg
-            (\arg opt -> Right opt { optSectionDelimiter = arg })
+            (\arg opt -> Right opt { optSectionDelimiter = C.pack arg })
             "CC")
         "use CC for logical page delimiters"
 

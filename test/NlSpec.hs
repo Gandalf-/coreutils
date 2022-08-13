@@ -78,6 +78,16 @@ spec = do
             select rt1 Footer "data" `shouldBe` True
             select rt1 Footer ""     `shouldBe` False
 
+        it "sections" $ do
+            let rt = getRuntime defaultOptions { optSectionDelimiter = "!" }
+            section rt "!!!" `shouldBe` Just Header
+            section rt "!!" `shouldBe` Just Body
+            section rt "!" `shouldBe` Just Footer
+
+            section rt "hello" `shouldBe` Nothing
+            section rt "! hello" `shouldBe` Nothing
+            section rt "!!!!" `shouldBe` Nothing
+
     describe "execute" $ do
         it "works" $ do
             let (st, s) = execute dState "hello"
@@ -119,6 +129,20 @@ spec = do
             blanks st3 `shouldBe` 0
             value  st3 `shouldBe` 3
             s3 `shouldBe` "     2\thello"
+
+        it "sections" $ do
+            let rt = getRuntime defaultOptions { optSectionDelimiter = "!" }
+            let (st1, s1) = execute (getState rt) "!!!"
+            position st1 `shouldBe` Header
+            s1 `shouldBe` "       "
+
+            let (st2, s2) = execute st1 "hello"
+            position st2 `shouldBe` Header
+            s2 `shouldBe` "       hello"
+
+            let (st3, s3) = execute st2 "!!"
+            position st3 `shouldBe` Body
+            s3 `shouldBe` "       "
 
     describe "io" $
         it "works" $ do
