@@ -144,6 +144,7 @@ test-suite test
     TacSpec
     TestSpec
     TrSpec
+    UniqSpec
     WcSpec
     YesSpec
 
