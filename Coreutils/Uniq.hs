@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BangPatterns #-}
 module Coreutils.Uniq where
 
 -- uniq
@@ -24,7 +25,10 @@ import           Text.Printf      (printf)
 import           System.Console.GetOpt
 
 import           Coreutils.Util
-import Control.Monad
+import Control.Monad.State.Strict
+import qualified Streaming.ByteString.Char8 as Q
+import qualified Streaming.Prelude as S
+import Streaming
 
 helpText :: String
 helpText = concat
@@ -69,12 +73,12 @@ mutateContent flags content =
 
 mutateMap :: [Flag] -> WordMap -> WordMap
 mutateMap flags wm
-      | Unique `elem` flags = Map.filter (== 1) wm
-      | Repeat `elem` flags = Map.filter (/= 1) wm
+      | Unique' `elem` flags = Map.filter (== 1) wm
+      | Repeat  `elem` flags = Map.filter (/= 1) wm
       | otherwise           = wm
 
 
-data Flag = Count | Ignore | Unique | Repeat | Skip Int | First Int
+data Flag = Count | Ignore | Unique' | Repeat | Skip Int | First Int
     deriving (Eq)
 
 
@@ -99,7 +103,7 @@ handle flags arguments content =
         ("-h" : _   ) -> putStrLn helpText
 
         ("-c" : args) -> handle (Count  : flags) args content
-        ("-u" : args) -> handle (Unique : flags) args content
+        ("-u" : args) -> handle (Unique' : flags) args content
         ("-d" : args) -> handle (Repeat : flags) args content
         ("-i" : args) -> handle (Ignore : flags) args content
 
@@ -131,28 +135,60 @@ data Uniq = Uniq
 instance Util Uniq where
     run _ args = handle [] args Nothing
 
+-- | IO
+
+type Op = StateT UniqState IO
+
+unique :: Options -> Q.ByteStream Op () -> IO ()
+unique os bs = do
+        (_, st) <- worker Q.stdout bs initial
+        C.putStr $ finalize st
+    where
+        initial = getState $ getRuntime os
+
+worker :: (Q.ByteStream Op () -> Op a) -> Q.ByteStream Op () -> UniqState -> IO (a, UniqState)
+worker sink bs = runStateT (sink $ go bs)
+    where
+        go = Q.unlines . Q.denull . S.subst Q.chunk
+           . S.mapM process
+           . mapped Q.toStrict . Q.lines
+
+process :: Line -> Op Line
+process l = do
+    st <- get
+    let (!new, !line) = execute st l
+    put new
+    return line
+
 -- | Implementation
 
 type Line = ByteString
 
 data UniqState = UniqState {
-      count :: Int
-    , previous :: Line
-    , runtime :: Runtime
+      count    :: !Int
+    , previous :: !Line
+    , runtime  :: !Runtime
 }
 
 execute :: UniqState -> Line -> (UniqState, Line)
-execute st line =
-    case match rt prev nPrev line of
-        Nothing  -> (newState, C.empty)
-        Just out -> (newState, format rt nPrev out)
+execute st line
+    | match rt same n = (newState, format rt n prev)
+    | otherwise       = (newState, C.empty)
     where
-        rt = runtime st
-        nPrev = count st
-        prev = previous st
         newState
-            | line == prev = st { previous = line, count = nPrev + 1 }
-            | otherwise    = st { previous = line, count = 1}
+            | same      = st { previous = line, count = n + 1 }
+            | otherwise = st { previous = line, count = 1}
+        same = prep line == prep prev
+
+        rt = runtime st
+        n = count st
+        prep = prepare rt
+        prev = previous st
+
+finalize :: UniqState -> Line
+finalize st
+    | final (runtime st) (count st) = previous st <> "\n"
+    | otherwise = C.empty
 
 getState :: Runtime -> UniqState
 getState rt = UniqState {
@@ -163,42 +199,30 @@ getState rt = UniqState {
 
 data Runtime = Runtime {
     -- count
-      format :: Int -> Line -> Line
-    -- skip fields, skil chars, case insensitive
+      format  :: Int -> Line -> Line
+    -- skip fields, skip chars, case insensitive
     , prepare :: Line -> Line
-    -- previous -> count -> current
-    , match :: Line -> Int -> Line -> Maybe Line
-    , final :: Int -> Bool
+    -- same -> count -> print previous?
+    , match   :: Bool -> Int -> Bool
+    -- count -> print previous?
+    , final   :: Int -> Bool
 }
 
 getRuntime :: Options -> Runtime
 getRuntime os = Runtime {
           format = formatter
         , prepare = prepper
-        , match = matcher
-        , final = finaler
+        , match = getMatcher
+        , final = finalizer
         }
     where
-        matcher
-            | optUnique os      = uniqueMatcher
-            | optRepeated os    = repeatMatcher
-            | optAllRepeated os = allRepeatMatcher
-            | otherwise         = dedupeMatcher
+        getMatcher
+            | optUnique os      = matcher Unique
+            | optRepeated os    = matcher Repeat1
+            | optAllRepeated os = matcher RepeatA
+            | otherwise         = matcher Dedupe
 
-        uniqueMatcher prev nPrev curr = do
-            guard (prev /= curr && nPrev == 1)
-            return prev
-        repeatMatcher prev nPrev curr = do
-            guard (prev /= curr && nPrev > 1)
-            return prev
-        allRepeatMatcher prev nPrev curr = do
-            guard (prev == curr || nPrev > 1)
-            return prev
-        dedupeMatcher prev nPrev curr = do
-            guard (prev /= curr && nPrev /= 0)
-            return prev
-
-        finaler nPrev
+        finalizer nPrev
             | optUnique os      = nPrev == 1
             | optRepeated os    = nPrev > 1
             | optAllRepeated os = nPrev > 1
@@ -206,11 +230,20 @@ getRuntime os = Runtime {
 
         prepper line
             | optIgnoreCase os = C.map toLower line
+            -- TODO
             | otherwise        = line
 
         formatter n line
             | optCount os = C.pack (show n) <> " " <> line
             | otherwise   = line
+
+data Matcher = Unique | Repeat1 | RepeatA | Dedupe
+
+matcher :: Matcher -> Bool -> Int -> Bool
+matcher Unique  same n = not same && n == 1
+matcher Repeat1 same n = not same && n > 1
+matcher RepeatA same n = same || n > 1
+matcher Dedupe  same n = not same && n /= 0
 
 -- | Options
 

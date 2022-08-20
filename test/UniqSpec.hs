@@ -4,6 +4,8 @@ module UniqSpec where
 import Coreutils.Uniq
 import Test.Hspec
 import qualified Data.ByteString.Char8 as C
+import Data.ByteString.Char8 (ByteString)
+import qualified Streaming.ByteString.Char8 as Q
 
 spec :: Spec
 spec = do
@@ -24,40 +26,40 @@ spec = do
     describe "matches" $ do
         it "default dedupe" $ do
             -- not unique
-            match drt "a" 1 "a" `shouldBe` Nothing
+            match drt True  1 `shouldBe` False
             -- a is unique
-            match drt "a" 1 "b" `shouldBe` Just "a"
+            match drt False 1 `shouldBe` True
             -- a wasn't unique but we're at the end
-            match drt "a" 2 "b" `shouldBe` Just "a"
+            match drt False 2 `shouldBe` True
 
         it "unique" $ do
             let rt = getRuntime defaultOptions { optUnique = True }
             -- not unique
-            match rt "a" 1 "a" `shouldBe` Nothing
+            match rt True 1  `shouldBe` False
             -- only one seen before
-            match rt "a" 1 "b" `shouldBe` Just "a"
+            match rt False 1 `shouldBe` True
             -- seen several before
-            match rt "a" 2 "b" `shouldBe` Nothing
+            match rt False 2 `shouldBe` False
 
         it "repeated" $ do
             let rt = getRuntime defaultOptions { optRepeated = True }
             -- not repeated
-            match rt "a" 1 "b" `shouldBe` Nothing
+            match rt False 1 `shouldBe` False
             -- maybe not done repeating
-            match rt "b" 1 "b" `shouldBe` Nothing
+            match rt True 1 `shouldBe` False
             -- done repeating
-            match rt "b" 2 "c" `shouldBe` Just "b"
+            match rt False 2 `shouldBe` True
 
         it "all repeated" $ do
             let rt = getRuntime defaultOptions { optAllRepeated = True }
             -- not repeated
-            match rt "a" 1 "b" `shouldBe` Nothing
+            match rt False 1 `shouldBe` False
             -- repeating
-            match rt "b" 1 "b" `shouldBe` Just "b"
+            match rt True 1 `shouldBe` True
             -- still repeating
-            match rt "b" 2 "b" `shouldBe` Just "b"
+            match rt True 2 `shouldBe` True
             -- done repeating
-            match rt "b" 2 "c" `shouldBe` Just "b"
+            match rt False 2 `shouldBe` True
 
     describe "execute" $ do
         it "defaults" $ do
@@ -73,27 +75,33 @@ spec = do
 
     describe "uniquely" $ do
         it "defaults" $ do
-            uniquely drt ["a", "b", "c"] `shouldBe` ["a", "b", "c"]
-            uniquely drt ["a", "a", "c"] `shouldBe` ["a", "c"]
-            uniquely drt ["a", "a", "a"] `shouldBe` ["a"]
+            uniquely drt ["a", "b", "c"] `shouldReturn` ["a", "b", "c"]
+            uniquely drt ["a", "a", "c"] `shouldReturn` ["a", "c"]
+            uniquely drt ["a", "a", "a"] `shouldReturn` ["a"]
 
         it "unique" $ do
-            uniquely urt ["a", "b", "c"] `shouldBe` ["a", "b", "c"]
-            uniquely urt ["a", "a", "c"] `shouldBe` ["c"]
-            uniquely urt ["a", "a", "a"] `shouldBe` []
-            uniquely urt ["b", "a", "a"] `shouldBe` ["b"]
+            uniquely urt ["a", "b", "c"] `shouldReturn` ["a", "b", "c"]
+            uniquely urt ["a", "a", "c"] `shouldReturn` ["c"]
+            uniquely urt ["a", "a", "a"] `shouldReturn` []
+            uniquely urt ["b", "a", "a"] `shouldReturn` ["b"]
 
         it "repeated" $ do
-            uniquely rrt ["a", "b", "c"] `shouldBe` []
-            uniquely rrt ["a", "a", "c"] `shouldBe` ["a"]
-            uniquely rrt ["a", "a", "a"] `shouldBe` ["a"]
-            uniquely rrt ["b", "a", "a"] `shouldBe` ["a"]
+            uniquely rrt ["a", "b", "c"] `shouldReturn` []
+            uniquely rrt ["a", "a", "c"] `shouldReturn` ["a"]
+            uniquely rrt ["a", "a", "a"] `shouldReturn` ["a"]
+            uniquely rrt ["b", "a", "a"] `shouldReturn` ["a"]
 
         it "all repeated" $ do
-            uniquely art ["a", "b", "c"] `shouldBe` []
-            uniquely art ["a", "a", "c"] `shouldBe` ["a", "a"]
-            uniquely art ["a", "a", "a"] `shouldBe` ["a", "a", "a"]
-            uniquely art ["b", "a", "a"] `shouldBe` ["a", "a"]
+            uniquely art ["a", "b", "c"] `shouldReturn` []
+            uniquely art ["a", "a", "c"] `shouldReturn` ["a", "a"]
+            uniquely art ["a", "a", "a"] `shouldReturn` ["a", "a", "a"]
+            uniquely art ["b", "a", "a"] `shouldReturn` ["a", "a"]
+
+    -- TODO formatting
+
+    describe "io" $
+        it "works" $
+            run dst "a\nb\nc\n" `shouldReturn` "a\nb\nc\n"
     where
         drt = getRuntime defaultOptions
         urt = getRuntime defaultOptions { optUnique = True }
@@ -102,13 +110,13 @@ spec = do
 
         dst = getState drt
 
-uniquely :: Runtime -> [Line] -> [Line]
-uniquely rt = filter (not . C.null) . go st
+uniquely :: Runtime -> [Line] -> IO [Line]
+uniquely rt is =
+        C.lines <$> run st (C.unlines is)
     where
         st = getState rt
-        go st []
-            | final (runtime st) (count st) = [previous st]
-            | otherwise          = []
-        go st (x:xs) = o : go newSt xs
-            where
-                (newSt, o) = execute st x
+
+run :: UniqState -> ByteString -> IO ByteString
+run st s = do
+    (bs, ns) <- worker Q.toStrict_ (Q.fromStrict s) st
+    pure $ bs <> finalize ns
