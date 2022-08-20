@@ -34,6 +34,7 @@ library
     Coreutils.Util
 
     Coreutils.Awk
+    Coreutils.Basename
     Coreutils.Cat
     Coreutils.Cmp
     Coreutils.Cut
@@ -129,6 +130,7 @@ test-suite test
   other-modules:
     AwkParseSpec
     AwkSpec
+    BasenameSpec
     CmpSpec
     CutSpec
     DirnameSpec

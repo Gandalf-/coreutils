@@ -12,6 +12,7 @@ Goals are:
 | Utility | Idiomatic | Complete | Fast | Lazy | Tests |
 |---------|-----------|----------|------|------|-------|
 | awk     | ✓         | 40       |      | ✓    | ✓     |
+| basename| ✓         | ✓        | -    | -    | ✓     |
 | cat     | ✓         | ✓        | ✓    | ✓    |       |
 | cmp     | ✓         | 50       |      |      | ✓     |
 | cut     | ✓         | 90       | 75   | ✓    | 90    |
