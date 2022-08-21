@@ -70,7 +70,7 @@ parseMode xs@[u, g, o]
         | otherwise           = pure (read [u], read [g], read [o])
     where
         mode c = c `elem` ['0' .. '7']
-parseMode xs = Left $ xs <> " is not a valid mode"
+parseMode xs = Left $ xs <> " is not a valid octal mode"
 
 -- | Options
 

@@ -5,6 +5,8 @@ import System.Directory
 import Coreutils.Mkdir
 import Test.Hspec
 import Data.Either
+import Control.Monad
+import Control.Exception
 
 spec :: Spec
 spec = do
@@ -34,5 +36,42 @@ spec = do
             rwx (parsePerms 5) `shouldBe` (True,  False, True)
             rwx (parsePerms 6) `shouldBe` (True,  True,  False)
             rwx (parsePerms 7) `shouldBe` (True,  True,  True)
+
+    describe "runtime" $ do
+        it "defaults" $
+            withTempDir $ do
+                let (Right rt) = getRuntime defaultOptions
+                mkdir rt "a"
+                doesDirectoryExist "a" `shouldReturn` True
+
+        it "parents" $
+            withTempDir $ do
+                let (Right rt) = getRuntime defaultOptions { optParents  = True }
+                mkdir rt "a/b/c"
+                doesDirectoryExist "a"     `shouldReturn` True
+                doesDirectoryExist "a/b"   `shouldReturn` True
+                doesDirectoryExist "a/b/c" `shouldReturn` True
+
+        it "permssions" $
+            withTempDir $ do
+                let (Right rt) = getRuntime defaultOptions {
+                    optMode = Just (parsePerms 5)
+                }
+                mkdir rt "a"
+                chmod rt "a"
+                perms <- getPermissions "a"
+                rwx perms `shouldBe` (True, False, True)
     where
         rwx p = (readable p, writable p, searchable p)
+
+
+withTempDir :: IO a -> IO a
+withTempDir f = do
+    root <- getTemporaryDirectory
+    let tmp = root <> "/" <> "mkdir-test"
+
+    doesDirectoryExist tmp >>=
+        flip when (removeDirectoryRecursive tmp)
+    createDirectory tmp
+
+    withCurrentDirectory tmp f
