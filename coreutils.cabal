@@ -42,6 +42,7 @@ library
     Coreutils.Echo
     Coreutils.Env
     Coreutils.Head
+    Coreutils.Mkdir
     Coreutils.Nl
     Coreutils.Nologin
     Coreutils.Pwd
@@ -135,6 +136,7 @@ test-suite test
     CutSpec
     DirnameSpec
     EnvSpec
+    MkdirSpec
     NlSpec
     RandomSpec
     RevSpec

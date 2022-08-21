@@ -12,6 +12,7 @@ import           Coreutils.Dirname  (Dirname (..))
 import           Coreutils.Echo     (Echo (..))
 import           Coreutils.Env      (Env (..))
 import           Coreutils.Head     (Head (..))
+import           Coreutils.Mkdir    (Mkdir (..))
 import           Coreutils.Nl       (Nl (..))
 import           Coreutils.Nologin  (Nologin (..))
 import           Coreutils.Pwd      (Pwd (..))
@@ -56,6 +57,7 @@ dispatch ("dirname":xs) = run Dirname xs
 dispatch ("echo":xs)    = run Echo xs
 dispatch ("env":xs)     = run Env xs
 dispatch ("head":xs)    = run Head xs
+dispatch ("mkdir":xs)   = run Mkdir xs
 dispatch ("nl":xs)      = run Nl xs
 dispatch ("nologin":xs) = run Nologin xs
 dispatch ("pwd":xs)     = run Pwd xs
@@ -89,6 +91,7 @@ usage = unlines $ ["", "usage:"] <> commands
             , "echo"
             , "env"
             , "head"
+            , "mkdir"
             , "nl"
             , "nologin"
             , "pwd"
