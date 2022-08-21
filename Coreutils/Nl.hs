@@ -101,10 +101,10 @@ data Section = Header | Body | Footer
     deriving (Eq, Show)
 
 data NlState = NlState {
-      position :: !Section
-    , value    :: !Int
-    , blanks   :: !Int
-    , runtime  :: !Runtime
+      position :: Section
+    , value    :: Int
+    , blanks   :: Int
+    , runtime  :: Runtime
     }
 
 instance Show NlState where
@@ -119,13 +119,13 @@ getState rt = NlState {
     }
 
 data Runtime = Runtime {
-      number    :: !(Int -> Line)
-    , noNumber  :: !Line
-    , start     :: !Int
-    , increment :: !(Int -> Int)
-    , select    :: !(Section -> Line -> Bool)
-    , section   :: !(Line -> Maybe Section)
-    , skipBlank :: !(Int -> Bool)
+      number    :: Int -> Line
+    , noNumber  :: Line
+    , start     :: Int
+    , increment :: Int -> Int
+    , select    :: Section -> Line -> Bool
+    , section   :: Line -> Maybe Section
+    , skipBlank :: Int -> Bool
     }
 
 getRuntime :: Options -> Runtime

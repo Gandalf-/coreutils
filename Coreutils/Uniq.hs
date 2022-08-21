@@ -165,9 +165,9 @@ process l = do
 type Line = ByteString
 
 data UniqState = UniqState {
-      count    :: !Int
-    , previous :: !Line
-    , runtime  :: !Runtime
+      count    :: Int
+    , previous :: Line
+    , runtime  :: Runtime
 }
 
 execute :: UniqState -> Line -> (UniqState, Line)

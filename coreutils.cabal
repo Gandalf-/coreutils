@@ -21,6 +21,7 @@ library
   hs-source-dirs:
     .
   default-language:    Haskell2010
+  default-extensions:  StrictData
 
   ghc-options:
     -Wall
@@ -94,9 +95,6 @@ executable utils
 
   if flag(release)
     ghc-options: -O2 -threaded
-    -- ghc-options: -O2 -static -threaded
-    -- ld-options: -static -pthread
-    -- cc-options: -static
   else
     ghc-options: -O0
 
