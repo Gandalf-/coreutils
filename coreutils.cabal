@@ -50,6 +50,7 @@ library
     Coreutils.Random
     Coreutils.Rev
     Coreutils.Seq
+    Coreutils.Sh
     Coreutils.Shuf
     Coreutils.Sleep
     Coreutils.Split
@@ -139,6 +140,7 @@ test-suite test
     RandomSpec
     RevSpec
     SeqSpec
+    ShSpec
     ShufSpec
     SleepSpec
     SplitSpec
