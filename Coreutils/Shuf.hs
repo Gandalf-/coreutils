@@ -74,7 +74,7 @@ runRangeShuf :: Options -> (Int, Int) -> IO ()
 runRangeShuf o (l, h) = undefined
 
 runArgShuf :: Options -> [String] -> IO ()
-runArgShuf o xs = runFileShuf o xs
+runArgShuf = runFileShuf
 
 runFileShuf :: Options -> [FilePath] -> IO ()
 runFileShuf _ filenames = do

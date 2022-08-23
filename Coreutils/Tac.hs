@@ -28,7 +28,7 @@ tacMain args
         switch path = liftIO (withFile path ReadMode (Q.stdout . fileTac))
 
 stdinTac :: IO ()
-stdinTac = C.unlines . reverse . C.lines <$> C.getContents >>= C.putStr
+stdinTac = C.getContents >>= C.putStr . C.unlines . reverse . C.lines
 
 fileTac :: MonadIO m => Handle -> Q.ByteStream m ()
 fileTac = Q.unlines            -- Q.ByteString m ()

@@ -156,12 +156,12 @@ cutInput :: Options -> Handle -> IO ()
 cutInput o h =
         case selector o of
             (Chars field) ->
-                (lines <$> hGetContents h)
-                >>= mapM_ (putStrLn . runChars field)
+                hGetContents h >>=
+                    mapM_ (putStrLn . runChars field) . lines
 
             (Fields field) ->
-                (T.lines <$> T.hGetContents h)
-                >>= mapM_ (filterPrint . runFields field)
+                T.hGetContents h >>=
+                    mapM_ (filterPrint . runFields field) . T.lines
 
             (Bytes _) ->
                 die "not implemented"

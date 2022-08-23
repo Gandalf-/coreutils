@@ -49,8 +49,8 @@ clearEnv = getEnvironment >>= mapM_ (unsetEnv . fst)
 
 showEnv :: IO ()
 -- print every variable defined
-showEnv = sort <$> getEnvironment >>=
-        mapM_ (\(k, v) -> putStrLn $ k <> "=" <> v)
+showEnv = getEnvironment >>=
+        mapM_ (\(k, v) -> putStrLn $ k <> "=" <> v) . sort
 
 runEnv :: Options -> [String] -> IO ()
 -- clear environment, set working directory, set new variables, then run the

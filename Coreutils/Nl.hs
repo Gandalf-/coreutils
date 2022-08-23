@@ -61,7 +61,7 @@ process :: Line -> Op Line
 process l = do
     st <- get
     let (!new, !line) = execute st l
-    put new
+    put $! new
     return line
 
 -- | Implementation

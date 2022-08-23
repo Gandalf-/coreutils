@@ -284,8 +284,8 @@ ioAwk (Executable state rs (FullProgram bs ms es)) = do
         bState <-
             foldM (ioExecutes id bs) state brs
         mState <-
-            concat <$> mapM getRecords rs
-            >>= foldM (ioExecutes incRecords ms) bState
+            mapM getRecords rs >>=
+                foldM (ioExecutes incRecords ms) bState . concat
         foldM (ioExecutes id es) mState ers
     where
         brs = replicate (length bs) emptyRecord

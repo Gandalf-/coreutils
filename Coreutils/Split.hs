@@ -88,7 +88,7 @@ splitBytes f@(File h _) n (fn:fs) = do
 splitLines :: File -> Int -> [FilePath] -> IO ()
 -- create a stream of lines, group them, write them out
 splitLines (File h _) n paths =
-        L.split newline <$> L.hGetContents h >>= go paths
+        L.hGetContents h >>= go paths . L.split newline
     where
         go :: [FilePath] -> [L.ByteString] -> IO ()
         go [] _ = outOfFilenames
