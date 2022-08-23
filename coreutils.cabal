@@ -101,6 +101,7 @@ executable utils
 
   build-depends:
     base >= 4.7 && < 5,
+    unordered-containers,
     coreutils
 
 test-suite test
