@@ -4,6 +4,7 @@ import qualified Data.HashMap.Strict as H
 import           Data.List
 import           System.Environment
 import           System.Exit
+import           Coreutils.Util
 
 import           Coreutils.Awk       (Awk (..))
 import           Coreutils.Basename  (Basename (..))
@@ -34,8 +35,6 @@ import           Coreutils.Which     (Which (..))
 import           Coreutils.Whoami    (Whoami (..))
 import           Coreutils.Yes       (Yes (..))
 
-import           Coreutils.Util
-
 
 main :: IO ()
 main = getProgName >>= choose
@@ -50,42 +49,43 @@ choose name
 
 dispatch :: [String] -> IO ()
 dispatch (cmd:args) =
-    H.lookupDefault (const $ die usage) cmd table args
-dispatch _ = die usage
+    run (H.lookupDefault (Utility Usage) cmd table) args
+dispatch xs = run Usage xs
 
-usage :: String
-usage = unlines $ ["", "usage:"] <> commands
-    where
-        commands = map ("  " <>) $ sort $ H.keys table
+data Usage = Usage
+instance Util Usage where
+    run _ _ = die $ unlines $ ["", "usage:"] <> commands
+        where
+            commands = map ("  " <>) $ sort $ H.keys table
 
-table :: H.HashMap String ([String] -> IO ())
+table :: H.HashMap String Utility
 table = H.fromList
-    [ ("awk", run Awk)
-    , ("basename", run Basename)
-    , ("cat", run Cat)
-    , ("cut", run Cut)
-    , ("dirname", run Dirname)
-    , ("echo", run Echo)
-    , ("env", run Env)
-    , ("head", run Head)
-    , ("mkdir", run Mkdir)
-    , ("nl", run Nl)
-    , ("nologin", run Nologin)
-    , ("pwd", run Pwd)
-    , ("random", run Random)
-    , ("rev", run Rev)
-    , ("seq", run Seq)
-    , ("sleep", run Sleep)
-    , ("split", run Split)
-    , ("sponge", run Sponge)
-    , ("sum", run Sum)
-    , ("tac", run Tac)
-    , ("tee", run Tee)
-    , ("test", run Test)
-    , ("tr", run Tr)
-    , ("uniq", run Uniq)
-    , ("wc", run Wc)
-    , ("which", run Which)
-    , ("whoami", run Whoami)
-    , ("yes", run Yes)
+    [ ("awk", Utility Awk)
+    , ("basename", Utility Basename)
+    , ("cat", Utility Cat)
+    , ("cut", Utility Cut)
+    , ("dirname", Utility Dirname)
+    , ("echo", Utility Echo)
+    , ("env", Utility Env)
+    , ("head", Utility Head)
+    , ("mkdir", Utility Mkdir)
+    , ("nl", Utility Nl)
+    , ("nologin", Utility Nologin)
+    , ("pwd", Utility Pwd)
+    , ("random", Utility Random)
+    , ("rev", Utility Rev)
+    , ("seq", Utility Seq)
+    , ("sleep", Utility Sleep)
+    , ("split", Utility Split)
+    , ("sponge", Utility Sponge)
+    , ("sum", Utility Sum)
+    , ("tac", Utility Tac)
+    , ("tee", Utility Tee)
+    , ("test", Utility Test)
+    , ("tr", Utility Tr)
+    , ("uniq", Utility Uniq)
+    , ("wc", Utility Wc)
+    , ("which", Utility Which)
+    , ("whoami", Utility Whoami)
+    , ("yes", Utility Yes)
     ]
