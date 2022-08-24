@@ -19,7 +19,7 @@ import           System.IO
 import           Text.Regex.TDFA            ((=~))
 
 import           Coreutils.Util
-import Data.Maybe
+import           Data.Maybe
 
 data Nl = Nl
 

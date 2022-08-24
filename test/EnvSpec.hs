@@ -1,7 +1,7 @@
 module EnvSpec where
 
-import Coreutils.Env
-import Test.Hspec
+import           Coreutils.Env
+import           Test.Hspec
 
 spec :: Spec
 spec = parallel $ do

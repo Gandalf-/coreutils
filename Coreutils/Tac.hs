@@ -4,10 +4,10 @@ module Coreutils.Tac where
 --
 -- read files from the command line or echo stdin and print them with lines reversed
 
-import qualified Data.ByteString.Char8           as C
-import qualified Streaming.ByteString.Char8      as Q
+import qualified Data.ByteString.Char8      as C
 import           Streaming
-import qualified Streaming.Prelude               as S
+import qualified Streaming.ByteString.Char8 as Q
+import qualified Streaming.Prelude          as S
 import           System.IO
 
 import           Coreutils.Util

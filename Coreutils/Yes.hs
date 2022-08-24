@@ -2,8 +2,8 @@
 
 module Coreutils.Yes where
 
-import qualified Data.ByteString.Char8     as C
-import qualified Streaming.ByteString      as Q
+import qualified Data.ByteString.Char8 as C
+import qualified Streaming.ByteString  as Q
 
 import           Coreutils.Util
 

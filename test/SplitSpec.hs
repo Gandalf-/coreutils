@@ -1,9 +1,9 @@
 module SplitSpec where
 
-import Data.List
-import Coreutils.Split
+import           Coreutils.Split
+import           Data.List
 
-import Test.Hspec
+import           Test.Hspec
 
 spec :: Spec
 spec = parallel $ do

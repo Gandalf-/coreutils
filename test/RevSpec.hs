@@ -2,10 +2,10 @@
 
 module RevSpec where
 
-import qualified Data.ByteString.Char8           as C
-import qualified Streaming.ByteString            as Q
-import Coreutils.Rev
-import Test.Hspec
+import           Coreutils.Rev
+import qualified Data.ByteString.Char8 as C
+import qualified Streaming.ByteString  as Q
+import           Test.Hspec
 
 spec :: Spec
 spec = parallel $

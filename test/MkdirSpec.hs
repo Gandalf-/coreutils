@@ -1,12 +1,12 @@
 module MkdirSpec where
 
-import Data.Bits
-import System.Directory
-import Coreutils.Mkdir
-import Test.Hspec
-import Data.Either
-import Control.Monad
-import Control.Exception
+import           Control.Exception
+import           Control.Monad
+import           Coreutils.Mkdir
+import           Data.Bits
+import           Data.Either
+import           System.Directory
+import           Test.Hspec
 
 spec :: Spec
 spec = do

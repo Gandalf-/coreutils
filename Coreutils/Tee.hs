@@ -2,7 +2,7 @@ module Coreutils.Tee where
 
 import           Control.Exception
 import           Control.Monad
-import qualified Streaming.ByteString      as Q
+import qualified Streaming.ByteString  as Q
 import           System.Console.GetOpt
 import           System.Exit
 import           System.IO

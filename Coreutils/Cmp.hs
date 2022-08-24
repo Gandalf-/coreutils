@@ -4,7 +4,7 @@
 module Coreutils.Cmp where
 
 import           Control.Monad
-import qualified Data.ByteString as B
+import qualified Data.ByteString       as B
 import           Data.Char
 -- import  Data.ByteString (ByteString)
 import           Data.Word             (Word8)
@@ -91,8 +91,8 @@ applySkips r@(Runtime opts f1 f2) = do
 
 data Runtime = Runtime
     { _runOptions :: Options
-    , _lfile :: File
-    , _rfile :: File
+    , _lfile      :: File
+    , _rfile      :: File
     }
 
 getRuntime :: Config -> IO Runtime
@@ -121,7 +121,7 @@ getFile name = do
 
 data Config = Config
     { _options :: Options
-    , _files :: (FilePath, FilePath)
+    , _files   :: (FilePath, FilePath)
     }
     deriving (Show, Eq)
 
@@ -153,7 +153,7 @@ getConfig args = do
 
         readSkip :: String -> Either String Integer
         readSkip s = case parseASkip s of
-            Nothing -> Left $ s <> " could not be parsed as SKIP"
+            Nothing  -> Left $ s <> " could not be parsed as SKIP"
             (Just v) -> Right v
 
 -- Parsing
@@ -212,7 +212,7 @@ parseSkip skip =
 parseASkip :: String -> Maybe Integer
 parseASkip skip =
     case parse (parseOneSkip <* eof) "cmp" skip of
-        (Left _) -> Nothing
+        (Left _)       -> Nothing
         (Right (t, _)) -> Just t
 
 -- Options
@@ -222,9 +222,9 @@ data Volume = Quiet | Normal | Verbose
 
 data Options = Options
     { optPrintBytes :: Bool
-    , optIgnore :: (Integer, Integer)
-    , optLimit :: Integer
-    , optVolume :: Volume
+    , optIgnore     :: (Integer, Integer)
+    , optLimit      :: Integer
+    , optVolume     :: Volume
     }
     deriving (Show, Eq)
 
@@ -257,7 +257,7 @@ options =
         (ReqArg
             (\arg opt -> case parseASkip arg of
               Just n -> Right opt { optLimit = n }
-              _         -> Left $ "error: '" <> arg <> "' is not a number")
+              _      -> Left $ "error: '" <> arg <> "' is not a number")
             "LIMIT")
         "compare at most LIMIT bytes"
 

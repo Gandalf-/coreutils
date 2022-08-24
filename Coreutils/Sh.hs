@@ -5,12 +5,12 @@ module Coreutils.Sh where
 -- POSIX compliant shell, functional as a login shell if you bootstrap the
 -- environment manually. Doesn't require any other shell to be present on the system.
 
-import System.Process
+import           System.Process
 
-import Coreutils.Util
-import System.Directory
-import GHC.IO.Handle
-import System.IO
+import           Coreutils.Util
+import           GHC.IO.Handle
+import           System.Directory
+import           System.IO
 
 data Sh = Sh
 
@@ -19,10 +19,10 @@ instance Util Sh where
 
 
 data ShState = ShState {
-      shCwd :: FilePath
+      shCwd    :: FilePath
     , shOldCwd :: FilePath
-    , shEnv :: [(String, String)]
-    , shStdin :: Handle
+    , shEnv    :: [(String, String)]
+    , shStdin  :: Handle
     , shStdout :: Handle
     , shStderr :: Handle
 }
@@ -41,7 +41,7 @@ execute st exe opts = (proc exe opts) {
 
 tryBuiltin :: ShState -> String -> [String] -> Maybe (IO ShState)
 tryBuiltin st "cd" opts = Just $ builtin Cd st opts
-tryBuiltin _ _ _ = Nothing
+tryBuiltin _ _ _        = Nothing
 
 class Builtin a where
     builtin :: a -> ShState -> [String] -> IO ShState

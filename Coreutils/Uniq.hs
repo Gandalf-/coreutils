@@ -1,5 +1,5 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE BangPatterns #-}
 module Coreutils.Uniq where
 
 -- uniq
@@ -12,23 +12,23 @@ module Coreutils.Uniq where
 -- flags either control output, filtering before output, or modification
 -- before input
 
-import           Data.Char        (isSpace, toLower)
-import           Data.List        (sortOn)
-import qualified Data.Map.Strict  as Map
-import           Data.Maybe       (fromMaybe)
-import           Data.Ord         (Down (..))
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString.Char8      as C
-import           System.Directory (doesFileExist)
-import           System.Exit      (die)
-import           Text.Printf      (printf)
+import           Data.Char                  (isSpace, toLower)
+import           Data.List                  (sortOn)
+import qualified Data.Map.Strict            as Map
+import           Data.Maybe                 (fromMaybe)
+import           Data.Ord                   (Down (..))
 import           System.Console.GetOpt
+import           System.Directory           (doesFileExist)
+import           System.Exit                (die)
+import           Text.Printf                (printf)
 
+import           Control.Monad.State.Strict
 import           Coreutils.Util
-import Control.Monad.State.Strict
+import           Streaming
 import qualified Streaming.ByteString.Char8 as Q
-import qualified Streaming.Prelude as S
-import Streaming
+import qualified Streaming.Prelude          as S
 
 helpText :: String
 helpText = concat
@@ -248,15 +248,15 @@ matcher Dedupe  same n = not same && n /= 0
 -- | Options
 
 data Options = Options {
-      optCount :: Bool
+      optCount       :: Bool
 
-    , optRepeated :: Bool
+    , optRepeated    :: Bool
     , optAllRepeated :: Bool
-    , optUnique :: Bool
+    , optUnique      :: Bool
 
-    , optSkipFields :: Int
-    , optSkipChars :: Int
-    , optIgnoreCase :: Bool
+    , optSkipFields  :: Int
+    , optSkipChars   :: Int
+    , optIgnoreCase  :: Bool
     }
     deriving (Show, Eq)
 

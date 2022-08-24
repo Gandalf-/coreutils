@@ -2,8 +2,8 @@
 
 module TacSpec where
 
-import Coreutils.Tac
-import Test.Hspec
+import           Coreutils.Tac
+import           Test.Hspec
 
 spec :: Spec
 spec = parallel $

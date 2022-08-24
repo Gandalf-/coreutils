@@ -4,10 +4,10 @@ module Coreutils.Basename where
 --
 -- Return the non-directory portion of a pathname
 
-import Data.List.Split
-import System.Exit
+import           Data.List.Split
+import           System.Exit
 
-import Coreutils.Util
+import           Coreutils.Util
 
 data Basename = Basename
 

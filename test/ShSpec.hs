@@ -1,6 +1,6 @@
 module ShSpec where
 
-import Test.Hspec
+import           Test.Hspec
 
 spec :: Spec
 spec =

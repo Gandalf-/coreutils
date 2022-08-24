@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module CmpSpec (spec) where
 
-import Coreutils.Cmp
+import           Coreutils.Cmp
 
-import qualified Data.ByteString as B
-import Numeric
-import Control.Monad
-import Test.Hspec
-import Data.Either
-import System.Directory
-import System.IO
+import           Control.Monad
+import qualified Data.ByteString  as B
+import           Data.Either
+import           Numeric
+import           System.Directory
+import           System.IO
+import           Test.Hspec
 
 spec :: Spec
 spec = parallel $ do

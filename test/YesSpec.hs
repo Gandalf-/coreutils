@@ -1,8 +1,8 @@
 module YesSpec where
 
-import Coreutils.Yes
-import Data.List.Split
-import Test.Hspec
+import           Coreutils.Yes
+import           Data.List.Split
+import           Test.Hspec
 
 spec :: Spec
 spec = parallel $

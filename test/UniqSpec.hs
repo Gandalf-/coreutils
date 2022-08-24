@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module UniqSpec where
 
-import Coreutils.Uniq
-import Test.Hspec
-import qualified Data.ByteString.Char8 as C
-import Data.ByteString.Char8 (ByteString)
+import           Coreutils.Uniq
+import           Data.ByteString.Char8      (ByteString)
+import qualified Data.ByteString.Char8      as C
 import qualified Streaming.ByteString.Char8 as Q
+import           Test.Hspec
 
 spec :: Spec
 spec = do

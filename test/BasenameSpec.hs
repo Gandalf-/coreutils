@@ -1,8 +1,8 @@
 module BasenameSpec where
 
-import Coreutils.Basename
-import Test.Hspec
-import Data.Either
+import           Coreutils.Basename
+import           Data.Either
+import           Test.Hspec
 
 -- | https://pubs.opengroup.org/onlinepubs/9699919799/utilities/basename.html
 

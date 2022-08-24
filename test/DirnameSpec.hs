@@ -1,8 +1,8 @@
 module DirnameSpec (spec) where
 
-import Coreutils.Dirname
+import           Coreutils.Dirname
 
-import Test.Hspec
+import           Test.Hspec
 
 spec :: Spec
 spec = parallel $

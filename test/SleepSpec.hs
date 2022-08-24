@@ -1,8 +1,8 @@
 module SleepSpec where
 
-import Coreutils.Sleep
+import           Coreutils.Sleep
 
-import Test.Hspec
+import           Test.Hspec
 
 spec :: Spec
 spec = parallel $

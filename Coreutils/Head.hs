@@ -11,12 +11,12 @@ module Coreutils.Head where
 -- this has constant memory usage even with negative values on streams
 
 import           Control.Monad
-import qualified Data.ByteString.Lazy            as L
-import qualified Data.ByteString.Lazy.Char8      as BC
-import qualified Streaming.ByteString            as Q
-import qualified Streaming.ByteString.Char8      as C
-import           GHC.Int                         (Int64)
-import qualified Streaming.Prelude               as S
+import qualified Data.ByteString.Lazy       as L
+import qualified Data.ByteString.Lazy.Char8 as BC
+import           GHC.Int                    (Int64)
+import qualified Streaming.ByteString       as Q
+import qualified Streaming.ByteString.Char8 as C
+import qualified Streaming.Prelude          as S
 import           System.Console.GetOpt
 import           System.Exit
 import           System.IO
