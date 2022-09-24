@@ -44,14 +44,11 @@ data Runtime = Runtime {
 
 getRuntime :: Options -> Either String Runtime
 getRuntime os = do
-    pure Runtime {
-          mkdir = doMkdir
-        , chmod = doChmod
-    }
+    pure Runtime { .. }
     where
-        doChmod = maybe doNothing (flip setPermissions) (optMode os)
+        chmod = maybe doNothing (flip setPermissions) (optMode os)
         doNothing _ = pure ()
-        doMkdir
+        mkdir
             | optParents os = createDirectoryIfMissing True
             | otherwise     = createDirectory
 

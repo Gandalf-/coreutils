@@ -209,31 +209,26 @@ data Runtime = Runtime {
 }
 
 getRuntime :: Options -> Runtime
-getRuntime os = Runtime {
-          format = formatter
-        , prepare = prepper
-        , match = getMatcher
-        , final = finalizer
-        }
+getRuntime os = Runtime { .. }
     where
-        getMatcher
+        match
             | optUnique os      = matcher Unique
             | optRepeated os    = matcher Repeat1
             | optAllRepeated os = matcher RepeatA
             | otherwise         = matcher Dedupe
 
-        finalizer nPrev
+        final nPrev
             | optUnique os      = nPrev == 1
             | optRepeated os    = nPrev > 1
             | optAllRepeated os = nPrev > 1
             | otherwise         = True
 
-        prepper line
+        prepare line
             | optIgnoreCase os = C.map toLower line
             -- TODO
             | otherwise        = line
 
-        formatter n line
+        format n line
             | optCount os = C.pack (show n) <> " " <> line
             | otherwise   = line
 

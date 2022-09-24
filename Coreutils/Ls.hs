@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 module Coreutils.Ls where
 
 import           Control.Exception

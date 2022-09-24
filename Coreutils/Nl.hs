@@ -129,29 +129,21 @@ data Runtime = Runtime {
     }
 
 getRuntime :: Options -> Runtime
-getRuntime os = Runtime {
-          number    = numberer
-        , noNumber  = noNumberer
-        , start     = starter
-        , increment = incrementer
-        , select    = selecter
-        , section   = sectioner
-        , skipBlank = blanker
-        }
+getRuntime os = Runtime { .. }
     where
-        sectioner = getSection (optSectionDelimiter os)
-        blanker n = n < optJoinBlankLines os
+        section = getSection (optSectionDelimiter os)
+        skipBlank n = n < optJoinBlankLines os
 
-        starter = optStartingLineNumber os
+        start = optStartingLineNumber os
 
-        selecter Header = match (optHeaderNumbering os)
-        selecter Body   = match (optBodyNumbering os)
-        selecter Footer = match (optFooterNumbering os)
+        select Header = match (optHeaderNumbering os)
+        select Body   = match (optBodyNumbering os)
+        select Footer = match (optFooterNumbering os)
 
-        incrementer = (+ optLineIncrement os)
+        increment = (+ optLineIncrement os)
 
-        noNumberer = C.replicate (optNumberWidth os + C.length sep) ' '
-        numberer i = format (optNumberFormat os) (optNumberWidth os) i <> sep
+        noNumber = C.replicate (optNumberWidth os + C.length sep) ' '
+        number i = format (optNumberFormat os) (optNumberWidth os) i <> sep
         sep = C.pack $ optNumberSeparator os
 
 format :: Format -> NumberWidth -> Int -> Line
