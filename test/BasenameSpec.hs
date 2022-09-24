@@ -7,7 +7,7 @@ import           Test.Hspec
 -- | https://pubs.opengroup.org/onlinepubs/9699919799/utilities/basename.html
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "runner" $
         it "works" $ do
             runner []              `shouldSatisfy` isLeft

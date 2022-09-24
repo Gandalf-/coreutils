@@ -19,7 +19,7 @@ instance Show Runtime where
     show _ = ""
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "random" $ do
         it "step 1" $
             property $ \b seed -> do

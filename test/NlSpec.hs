@@ -11,7 +11,7 @@ import qualified Streaming.ByteString  as Q
 import           Test.Hspec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "parsing" $ do
         it "getFormat" $ do
             getFormat "ln" `shouldBe` Right LeftNoZeros
