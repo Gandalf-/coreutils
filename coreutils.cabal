@@ -43,6 +43,7 @@ library
     Coreutils.Echo
     Coreutils.Env
     Coreutils.Head
+    Coreutils.Ls
     Coreutils.Mkdir
     Coreutils.Nl
     Coreutils.Nologin
@@ -83,6 +84,7 @@ library
     streaming-bytestring,
     streaming,
     text,
+    time,
     unordered-containers,
     word8
 
@@ -125,6 +127,7 @@ test-suite test
     streaming,
     temporary,
     text,
+    time,
     unordered-containers,
     word8
 
@@ -136,6 +139,7 @@ test-suite test
     CutSpec
     DirnameSpec
     EnvSpec
+    LsSpec
     MkdirSpec
     NlSpec
     RandomSpec

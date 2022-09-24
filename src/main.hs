@@ -1,10 +1,10 @@
 module Main where
 
+import           Coreutils.Util
 import qualified Data.HashMap.Strict as H
 import           Data.List
 import           System.Environment
 import           System.Exit
-import           Coreutils.Util
 
 import           Coreutils.Awk       (Awk (..))
 import           Coreutils.Basename  (Basename (..))
@@ -14,6 +14,7 @@ import           Coreutils.Dirname   (Dirname (..))
 import           Coreutils.Echo      (Echo (..))
 import           Coreutils.Env       (Env (..))
 import           Coreutils.Head      (Head (..))
+import           Coreutils.Ls        (Ls (..))
 import           Coreutils.Mkdir     (Mkdir (..))
 import           Coreutils.Nl        (Nl (..))
 import           Coreutils.Nologin   (Nologin (..))
@@ -68,6 +69,7 @@ table = H.fromList
     , ("echo", Utility Echo)
     , ("env", Utility Env)
     , ("head", Utility Head)
+    , ("ls", Utility Ls)
     , ("mkdir", Utility Mkdir)
     , ("nl", Utility Nl)
     , ("nologin", Utility Nologin)

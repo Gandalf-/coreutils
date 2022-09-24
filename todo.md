@@ -62,3 +62,8 @@
 stack build --profile --flag coreutils:release
 stack exec --profile -- utils cut -c 1,3,4,5- ~/working/pi/ping-data.csv +RTS -p | wc -c
 ```
+
+## Testing
+```
+stack test --file-watch --test-arguments --match=/Ls
+```
