@@ -8,16 +8,12 @@ import           Coreutils.Util
 data Sponge = Sponge
 
 instance Util Sponge where
-    run _ = spongeMain
-
-spongeMain :: [String] -> IO ()
-spongeMain []         = sponge B.putStr
-spongeMain ["-"]      = sponge B.putStr
-
-spongeMain ["-h"]     = putStrLn usage
-spongeMain ["--help"] = putStrLn usage
-
-spongeMain xs         = sponge (forM_ xs . flip B.writeFile)
+    run _ args = case args of
+        []         -> sponge B.putStr
+        ["-"]      -> sponge B.putStr
+        ["-h"]     -> putStrLn usage
+        ["--help"] -> putStrLn usage
+        xs         -> sponge (forM_ xs . flip B.writeFile)
 
 sponge :: (B.ByteString -> IO ()) -> IO ()
 sponge writer = B.getContents >>= writer
