@@ -28,12 +28,19 @@ lsMain args = do
 
 runLs :: Options -> [FilePath] -> IO ()
 runLs os [] = runLs os ["."]
-runLs os ps = do
-        fs <- concat <$> mapM (list rt) ps
-        es <- sorter rt <$> mapM (fill rt) fs
-        mapM_ (putStrLn . format rt) es
+runLs os ps =
+        execute rt ps >>= mapM_ putStrLn
     where
         rt = getRuntime os
+
+execute :: Runtime -> [FilePath] -> IO [String]
+execute rt ps = do
+        fs <- concat <$> mapM list' ps
+        map format' . sorter rt <$> mapM fill' fs
+    where
+        list' = list rt
+        fill' = fill rt
+        format' = format rt
 
 -- | Runtime
 

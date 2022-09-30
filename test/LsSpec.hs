@@ -81,6 +81,19 @@ spec = parallel $ do
             "."    `elem` es `shouldBe` False
             ".."   `elem` es `shouldBe` False
             ".git" `elem` es `shouldBe` True
+
+    describe "ls" $
+        it "works" $ do
+            let mList "." = pure ["b", "a", "c"]
+                mList xs  = fail xs
+
+                mFill "a" = pure $ entry "a"
+                mFill "b" = pure $ entry "b"
+                mFill "c" = pure $ entry "c"
+                mFill xs  = fail xs
+
+                rt = (getRuntime defaultOptions) { fill = mFill, list = mList }
+            execute rt ["."] `shouldReturn` ["a", "b", "c"]
     where
         entry n = Entry n Nothing Nothing Nothing Nothing
         sEntry n size = Entry n (Just size) Nothing Nothing Nothing

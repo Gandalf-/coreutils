@@ -9,8 +9,7 @@
 * sort
 * strings
 * watch
-* sum
-* cksum
+* nc
 
 * expr
 * sh
@@ -28,7 +27,6 @@
 
 ## tr
 - [ ] Something unusual going on when `-c -d [:graph:]` on binary files
-- [ ] slow, could be streaming
 
 ## which
 - [ ] Need tests, not sure how to do this in a platform independent way
