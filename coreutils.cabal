@@ -139,6 +139,7 @@ test-suite test
     CutSpec
     DirnameSpec
     EnvSpec
+    HeadSpec
     LsSpec
     MkdirSpec
     NlSpec
