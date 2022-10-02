@@ -4,156 +4,64 @@ module Coreutils.Uniq where
 
 -- uniq
 --
--- where the ordering of lines is completely ignored
--- equivalent to sort | uniq
--- supports the majority of the GNU util's options
---
--- internally, we use a hashmap to count lines after they've been processed
--- flags either control output, filtering before output, or modification
--- before input
-
-import           Data.ByteString            (ByteString)
-import qualified Data.ByteString.Char8      as C
-import           Data.Char                  (isSpace, toLower)
-import           Data.List                  (sortOn)
-import qualified Data.Map.Strict            as Map
-import           Data.Maybe                 (fromMaybe)
-import           Data.Ord                   (Down (..))
-import           System.Console.GetOpt
-import           System.Directory           (doesFileExist)
-import           System.Exit                (die)
-import           Text.Printf                (printf)
+-- Functionally equivalent to BSD uniq except for nonsense option combinations
+-- like --unique --repeated
 
 import           Control.Monad.State.Strict
-import           Coreutils.Util
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString.Char8      as C
+import           Data.Char                  (toLower)
 import           Streaming
 import qualified Streaming.ByteString.Char8 as Q
 import qualified Streaming.Prelude          as S
+import           System.Console.GetOpt
+import           System.Exit
+import           System.IO
 
-helpText :: String
-helpText = concat
-    ["uniq [option ...] [files ...]"
-    ,""
-    ,"  -h     show this help"
-    ,"  -c     prefix lines with the number of occurences"
-    ,"  -u     only show unique lines"
-    ,"  -d     only show repeated lines"
-    ,"  -i     do not consider case while making a match"
-    ,"  -s n   do not compare the first n characters"
-    ,"  -w n   only compare the first n characters"
-    ]
-
-type WordMap = Map.Map String Integer
-
-
-singleton :: WordMap
-singleton = Map.empty
-
-
-increment :: WordMap -> String -> WordMap
-increment wm word =
-      Map.alter add word wm
-  where
-      add :: Maybe Integer -> Maybe Integer
-      add Nothing  = Just 1
-      add (Just i) = Just $ i + 1
-
-
-mutateContent :: [Flag] -> String -> [String]
-mutateContent flags content =
-      case flags of
-        (Ignore  : fs) -> mutateContent fs $ map toLower content
-        (Skip  n : fs) -> mutateContent fs $ apply (drop n) content
-        (First n : fs) -> mutateContent fs $ apply (take n) content
-        (_       : fs) -> mutateContent fs content
-        []             -> map (dropWhile isSpace) $ lines content
-  where
-      apply f ls = unlines $ map f $ lines ls
-
-
-mutateMap :: [Flag] -> WordMap -> WordMap
-mutateMap flags wm
-      | Unique' `elem` flags = Map.filter (== 1) wm
-      | Repeat  `elem` flags = Map.filter (/= 1) wm
-      | otherwise           = wm
-
-
-data Flag = Count | Ignore | Unique' | Repeat | Skip Int | First Int
-    deriving (Eq)
-
-
-countWords :: [Flag] -> String -> IO ()
-countWords flags content
-      | Count `elem` flags  = mapM_ printCount list
-      | otherwise           = mapM_ printPlain list
-  where
-      list = extract $ mutateMap flags wm
-      wm = foldl increment singleton $ mutateContent flags content
-
-      extract :: WordMap -> [(String, Integer)]
-      extract = sortOn (Down . snd) . Map.toList
-
-      printCount (s, i) = putStrLn $ printf "% 5d %s" i s
-      printPlain (s, _) = putStrLn s
-
-
-handle :: [Flag] -> [String] -> Maybe String -> IO ()
-handle flags arguments content =
-      case arguments of
-        ("-h" : _   ) -> putStrLn helpText
-
-        ("-c" : args) -> handle (Count  : flags) args content
-        ("-u" : args) -> handle (Unique' : flags) args content
-        ("-d" : args) -> handle (Repeat : flags) args content
-        ("-i" : args) -> handle (Ignore : flags) args content
-
-        ("-s" : n : args) ->
-            handle (Skip (read n :: Int) : flags) args content
-
-        ("-w" : n : args) ->
-            handle (First (read n :: Int) : flags) args content
-
-        (file : args) -> do
-            exists <- doesFileExist file
-            if exists
-              then do
-                fileContent <- readFile file
-                handle flags args $ Just (fileContent ++ fromMaybe "" content)
-
-              else die $
-                "uniq: " ++ file ++ ": No such file or directory"
-
-        [] -> output content
-  where
-      output :: Maybe String -> IO ()
-      output Nothing  = getContents >>= countWords flags
-      output (Just c) = countWords flags c
-
+import           Coreutils.Util
+import           Data.Maybe
 
 data Uniq = Uniq
 
 instance Util Uniq where
-    run _ args = handle [] args Nothing
+    run _ = uniqMain
 
 -- | IO
+
+uniqMain :: [String] -> IO ()
+uniqMain args = do
+        unless (null errors) $
+            die $ unlines errors
+        either die (`runUniq` other) $
+            foldM (flip id) defaultOptions opts
+    where
+        (opts, other, errors) = getOpt RequireOrder optionDesc args
+
+runUniq :: Options -> [String] -> IO ()
+runUniq os [] = runUniq os ["-"]
+runUniq os fs = mapM_ runner fs
+    where
+        runner :: FilePath -> IO ()
+        runner "-" = unique os Q.stdin
+        runner f   = withFile f ReadMode (unique os . Q.fromHandle)
 
 type Op = StateT UniqState IO
 
 unique :: Options -> Q.ByteStream Op () -> IO ()
 unique os bs = do
         (_, st) <- worker Q.stdout bs initial
-        C.putStr $ finalize st
+        C.putStr $ fromMaybe C.empty (finalize st)
     where
         initial = getState $ getRuntime os
 
 worker :: (Q.ByteStream Op () -> Op a) -> Q.ByteStream Op () -> UniqState -> IO (a, UniqState)
 worker sink bs = runStateT (sink $ go bs)
     where
-        go = Q.unlines . Q.denull . S.subst Q.chunk
-           . S.mapM process
+        go = Q.unlines . S.subst Q.chunk
+           . S.mapMaybeM process
            . mapped Q.toStrict . Q.lines
 
-process :: Line -> Op Line
+process :: Line -> Op (Maybe Line)
 process l = do
     st <- get
     let (!new, !line) = execute st l
@@ -163,49 +71,64 @@ process l = do
 -- | Implementation
 
 type Line = ByteString
+type Prepped = ByteString
 
 data UniqState = UniqState {
       count    :: Int
-    , previous :: Line
+    , previous :: Maybe (Prepped, Line)
+    , leader   :: Maybe Line
     , runtime  :: Runtime
 }
 
-execute :: UniqState -> Line -> (UniqState, Line)
+execute :: UniqState -> Line -> (UniqState, Maybe Line)
 execute st line
-    | match rt same n = (newState, format rt n prev)
-    | otherwise       = (newState, C.empty)
+    | match rt same n = (newState, emit st)
+    | otherwise       = (newState, Nothing)
     where
-        newState
-            | same      = st { previous = line, count = n + 1 }
-            | otherwise = st { previous = line, count = 1}
-        same = prep line == prep prev
+        newState = st
+            { previous = Just (prepped, line)
+            , leader = newLeader
+            , count = newCount
+            }
+        newCount
+            | same      = n + 1
+            | otherwise = 1
+        newLeader
+            | isNothing (leader st) = Just line
+            | same                  = leader st
+            | otherwise             = Just line
+
+        prepped = prepare rt line -- We'll only prepare each line once
+        same = (Just prepped ==) $ fst <$> previous st
 
         rt = runtime st
         n = count st
-        prep = prepare rt
-        prev = previous st
 
-finalize :: UniqState -> Line
+emit :: UniqState -> Maybe Line
+emit st = format rt n <$> emitLine rt st
+    where
+        rt = runtime st
+        n = count st
+
+finalize :: UniqState -> Maybe Line
 finalize st
-    | final (runtime st) (count st) = previous st <> "\n"
-    | otherwise = C.empty
+    | emitFinal (runtime st) (count st) = (<> "\n") <$> emit st
+    | otherwise = Nothing
 
 getState :: Runtime -> UniqState
 getState rt = UniqState {
       count = 0
-    , previous = C.empty
+    , previous = Nothing
+    , leader = Nothing
     , runtime = rt
     }
 
 data Runtime = Runtime {
-    -- count
-      format  :: Int -> Line -> Line
-    -- skip fields, skip chars, case insensitive
-    , prepare :: Line -> Line
-    -- same -> count -> print previous?
-    , match   :: Bool -> Int -> Bool
-    -- count -> print previous?
-    , final   :: Int -> Bool
+      format    :: Int -> Line -> Line
+    , prepare   :: Line -> Line
+    , match     :: Bool -> Int -> Bool
+    , emitFinal :: Int -> Bool
+    , emitLine  :: UniqState -> Maybe Line
 }
 
 getRuntime :: Options -> Runtime
@@ -217,20 +140,39 @@ getRuntime os = Runtime { .. }
             | optAllRepeated os = matcher RepeatA
             | otherwise         = matcher Dedupe
 
-        final nPrev
+        emitFinal nPrev
             | optUnique os      = nPrev == 1
             | optRepeated os    = nPrev > 1
             | optAllRepeated os = nPrev > 1
             | otherwise         = True
 
-        prepare line
-            | optIgnoreCase os = C.map toLower line
-            -- TODO
-            | otherwise        = line
+        emitLine st
+            | optAllRepeated os = snd <$> previous st
+            | otherwise         = leader st
+
+        prepare = preparer os
 
         format n line
-            | optCount os = C.pack (show n) <> " " <> line
+            | optCount os = C.concat [buffer, count, " ", line]
             | otherwise   = line
+            where
+                count  = C.pack $ show n
+                buffer = C.replicate (4 - C.length count) ' '
+
+preparer :: Options -> ByteString -> ByteString
+-- ^ Prepare a line for comparison
+preparer os =
+        -- This appears to be the order that BSD uniq uses
+        lower . fields . chars
+    where
+        lower
+            | optIgnoreCase os = C.map toLower
+            | otherwise        = id
+        chars = C.drop (optSkipChars os)
+        fields
+            | optSkipFields os /= 0 =
+                C.unwords . drop (optSkipFields os) . C.words
+            | otherwise = id
 
 data Matcher = Unique | Repeat1 | RepeatA | Dedupe
 
@@ -273,10 +215,10 @@ getInt = undefined
 
 optionDesc :: [OptDescr (Options -> Either String Options)]
 optionDesc =
-    [ Option "c" ["count"]
+    [ Option "u" ["unique"]
         (NoArg
-            (\opt -> Right opt { optCount = True }))
-        "Precede each output line with an occurrence count"
+            (\opt -> Right opt { optUnique = True }))
+        "Output all lines that are not repeated"
 
     , Option "d" ["repeated"]
         (NoArg
@@ -287,6 +229,11 @@ optionDesc =
         (NoArg
             (\opt -> Right opt { optAllRepeated = True }))
         "Output all lines that are repeated"
+
+    , Option "i" ["ignore-case"]
+        (NoArg
+            (\opt -> Right opt { optIgnoreCase = True }))
+        "Case insenstive comparision of lines"
 
     , Option "f" ["skip-fields"]
         (ReqArg
@@ -300,15 +247,10 @@ optionDesc =
             "CHARS")
         "Ignore the first CHARS characters in each line, after any fields"
 
-    , Option "i" ["ignore-case"]
+    , Option "c" ["count"]
         (NoArg
-            (\opt -> Right opt { optIgnoreCase = True }))
-        "Case insenstive comparision of lines"
-
-    , Option "u" ["unique"]
-        (NoArg
-            (\opt -> Right opt { optUnique = True }))
-        "Output all lines that are not repeated"
+            (\opt -> Right opt { optCount = True }))
+        "Precede each output line with an occurrence count"
 
     , Option "" ["help"]
         (NoArg

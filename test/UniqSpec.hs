@@ -9,19 +9,24 @@ import           Test.Hspec
 
 spec :: Spec
 spec = do
-    describe "getRuntime" $ do
-        it "defaults" $ do
-            format drt 0 "123 Hello" `shouldBe` "123 Hello"
-            prepare drt "123 Hello" `shouldBe` "123 Hello"
-            -- match rt "abc" 0 "def" `shouldBe` True
+    describe "prepare" $ do
+        it "ignore case" $ do
+            let os = defaultOptions { optIgnoreCase = True }
+            preparer os "heLLo" `shouldBe` "hello"
 
-        it "formats" $ do
-            let rt = getRuntime defaultOptions { optCount = True }
-            format rt 5 "hello" `shouldBe` "5 hello"
+        it "skip chars" $ do
+            let os = defaultOptions { optSkipChars = 2 }
+            preparer os "hello" `shouldBe` "llo"
 
-        it "prepares" $ do
-            let rt = getRuntime defaultOptions { optIgnoreCase = True }
-            prepare rt "heLLo" `shouldBe` "hello"
+        it "skip fields" $ do
+            let os = defaultOptions { optSkipFields = 1 }
+            preparer os "apple sauce" `shouldBe` "sauce"
+
+        it "combined" $ do
+            let os = defaultOptions {
+                optIgnoreCase = True, optSkipChars = 2, optSkipFields = 1
+            }
+            preparer os "boop HELLO" `shouldBe` "hello"
 
     describe "matches" $ do
         it "default dedupe" $ do
@@ -61,18 +66,6 @@ spec = do
             -- done repeating
             match rt False 2 `shouldBe` True
 
-    describe "execute" $ do
-        it "defaults" $ do
-            let (st1, l1) = execute dst "a"
-            l1 `shouldBe` C.empty
-            previous st1 `shouldBe` "a"
-            count st1 `shouldBe` 1
-
-            let (st2, l2) = execute st1 "b"
-            l2 `shouldBe` "a"
-            previous st2 `shouldBe` "b"
-            count st2 `shouldBe` 1
-
     describe "uniquely" $ do
         it "defaults" $ do
             uniquely drt ["a", "b", "c"] `shouldReturn` ["a", "b", "c"]
@@ -97,11 +90,63 @@ spec = do
             uniquely art ["a", "a", "a"] `shouldReturn` ["a", "a", "a"]
             uniquely art ["b", "a", "a"] `shouldReturn` ["a", "a"]
 
-    -- TODO formatting
+    describe "formatting" $ do
+        it "defaults" $ do
+            let rt = getRuntime defaultOptions
+            format rt 9 "hello" `shouldBe` "hello"
 
-    describe "io" $
-        it "works" $
-            run dst "a\nb\nc\n" `shouldReturn` "a\nb\nc\n"
+        it "counts" $ do
+            let rt = getRuntime defaultOptions { optCount = True }
+            format rt     9 "hello" `shouldBe` "   9 hello"
+            format rt    19 "hello" `shouldBe` "  19 hello"
+            format rt  9919 "hello" `shouldBe` "9919 hello"
+            format rt 19919 "hello" `shouldBe` "19919 hello"
+
+    describe "uniq" $ do
+        it "defaults" $ do
+            test defaultOptions ["A", "a", "b", "", "cd", "ed"]
+
+        it "ignore case" $ do
+            let os = defaultOptions { optIgnoreCase = True }
+            test os ["A", "b", "", "cd", "ed"]
+
+        it "unique" $ do
+            let os = defaultOptions { optUnique = True }
+            test os ["A", "b", ""]
+
+        it "repeated" $ do
+            let os = defaultOptions { optRepeated = True }
+            test os ["a", "cd", "ed"]
+
+        it "all repeated" $ do
+            let os = defaultOptions { optAllRepeated = True }
+            test os ["a", "a", "cd", "cd", "ed", "ed"]
+
+        it "skip chars" $ do
+            let os = defaultOptions { optSkipChars = 1 }
+            test os ["A", "cd"]
+
+        it "count, unique" $ do
+            let os = defaultOptions { optUnique = True, optCount = True }
+            test os ["   1 A", "   1 b", "   1 "]
+
+        it "all repeated, skip char" $ do
+            let os = defaultOptions { optAllRepeated = True, optSkipChars = 1 }
+            test os ["A", "a", "a", "b", "", "cd", "cd", "ed", "ed"]
+
+        it "all repeated, ignore case" $ do
+            let os = defaultOptions { optAllRepeated = True, optIgnoreCase = True }
+            test os ["A", "a", "a", "cd", "cd", "ed", "ed"]
+
+        it "repeated, ignore case, count" $ do
+            let os = defaultOptions {
+                optRepeated = True, optIgnoreCase = True, optCount = True
+            }
+            test os ["   3 A", "   2 cd", "   2 ed"]
+
+        it "unique, ignore case" $ do
+            let os = defaultOptions { optUnique = True, optIgnoreCase = True }
+            test os ["b", ""]
     where
         drt = getRuntime defaultOptions
         urt = getRuntime defaultOptions { optUnique = True }
@@ -109,6 +154,10 @@ spec = do
         art = getRuntime defaultOptions { optAllRepeated = True }
 
         dst = getState drt
+
+        txt = C.unlines ["A", "a", "a", "b", "", "cd", "cd", "ed", "ed"]
+        test rt ex = run (getState $ getRuntime rt) txt `shouldReturn` C.unlines ex
+
 
 uniquely :: Runtime -> [Line] -> IO [Line]
 uniquely rt is =
