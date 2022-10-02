@@ -31,7 +31,6 @@ trMain :: [String] -> IO ()
 trMain args = do
         unless (null errors) $
             die $ unlines errors
-
         either die (`runner'` arguments) $
             foldM (flip id) defaultOptions opts
     where
@@ -39,7 +38,6 @@ trMain args = do
 
 runner' :: Options -> [String] -> IO ()
 runner' o args = either die (Q.interact . execute) $ prepare o $ map parse args
-
 
 -- | Implementation
 
@@ -86,7 +84,6 @@ execute :: MonadIO m => Translator -> Q.ByteStream m () -> Q.ByteStream m ()
 execute (Translator t) = Q.map (t !)
 execute (Deleter t)    = Q.filter (t !)
 
-
 -- | Preparation
 
 prepare :: Options -> [ByteString] -> Either String Translator
@@ -107,7 +104,6 @@ squeeze = C.pack . map C.head . C.group
 
 truncate' :: ByteString -> ByteString -> ByteString
 truncate' f = C.take (C.length f)
-
 
 -- | Set Parsing
 
@@ -152,7 +148,6 @@ isGraph b = isPrint b && not (isSpace b)
 
 ascii :: ByteString
 ascii = B.pack range'
-
 
 -- | Options
 
