@@ -11,12 +11,30 @@ import           Test.Hspec
 
 spec :: Spec
 spec = do
-    describe "parse" $
+    describe "parse" $ do
         it "positiveInt" $ do
-            positiveInt "123" `shouldBe` Right 123
-            positiveInt "0"   `shouldBe` Right 0
-            positiveInt "a"   `shouldSatisfy` isLeft
-            positiveInt "-3"  `shouldSatisfy` isLeft
+            parseNumber "123" `shouldBe` Right 123
+            parseNumber "0"   `shouldBe` Right 0
+
+            (parseNumber "a" :: Either String Int)  `shouldSatisfy` isLeft
+            (parseNumber "-3" :: Either String Int) `shouldSatisfy` isLeft
+
+        it "bytes invalid" $ do
+            parseBytes "a"    `shouldSatisfy` isLeft
+            parseBytes "-3"   `shouldSatisfy` isLeft
+            parseBytes "1foo" `shouldSatisfy` isLeft
+            parseBytes "foo"  `shouldSatisfy` isLeft
+            parseBytes "MB"   `shouldSatisfy` isLeft
+
+        it "bytes valid" $ do
+            parseBytes "123" `shouldBe` Right 123
+            parseBytes "0"   `shouldBe` Right 0
+            parseBytes "1b"  `shouldBe` Right 512
+            parseBytes "4kB" `shouldBe` Right 4000
+            parseBytes "4K"  `shouldBe` Right 4096
+            parseBytes "8MB" `shouldBe` Right 8000000
+            parseBytes "1M"  `shouldBe` Right 1048576
+            parseBytes "2PB" `shouldBe` Right 2000000000000000
 
     describe "runtime" $ do
         it "not quiet, not last" $ do

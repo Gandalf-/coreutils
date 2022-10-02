@@ -61,11 +61,11 @@ single os f = case f of
 
 -- | Implementation
 
-data Action = HeadBytes Int64 | HeadLines Int64
+data Action = HeadBytes Int64 | HeadLines Int
 
 execute :: MonadIO m => Action -> Q.ByteStream m () -> Q.ByteStream m ()
 execute (HeadBytes n) = Q.take n
-execute (HeadLines n) = Q.unlines . S.take (fromIntegral n) . Q.lines
+execute (HeadLines n) = Q.unlines . S.take n . Q.lines
 
 data Runtime = Runtime {
       action  :: Action
@@ -106,17 +106,36 @@ defaultOptions = Options {
     , optLast = False
     }
 
-positiveInt :: String -> Either String Int64
-positiveInt xs
+parseNumber :: Read a => String -> Either String a
+parseNumber xs
+    | null xs              = Left "no number provided"
     | not (all isDigit xs) = Left $ xs <> " is not a number"
     | otherwise            = Right $ read xs
+
+parseBytes :: String -> Either String Int64
+parseBytes xs =
+        (*) <$> parseNumber digits <*> get suffix
+    where
+        (digits, suffix) = span isDigit xs
+        get :: String -> Either String Int64
+        get []      = pure 1
+        get "b"     = pure 512
+        get [p]     = (1024 ^) <$> power p
+        get (p:"B") = (1000 ^) <$> power p
+        get bs      = Left $ bs <> " is not a recognized byte suffix"
+
+power :: Char -> Either String Int64
+power 'k' = pure 1
+power p = case C.elemIndex p " KMGTPEY" of
+    Just i  -> pure $ fromIntegral i
+    Nothing -> Left $ p : " is not a recognized byte suffix"
 
 optionDesc :: [OptDescr (Options -> Either String Options)]
 optionDesc =
     [ Option "n" ["lines"]
         (ReqArg
             (\arg opt -> do
-                n <- positiveInt arg
+                n <- parseNumber arg
                 Right opt { optAction = HeadLines n }
             )
             "LINES")
@@ -125,11 +144,11 @@ optionDesc =
     , Option "c" ["bytes"]
         (ReqArg
             (\arg opt -> do
-                n <- positiveInt arg
+                n <- parseBytes arg
                 Right opt { optAction = HeadBytes n }
             )
             "CHARS")
-        "Number of characters"
+        "Number of characters, may include a suffix like kB, M, MB, G, GB, etc"
 
     , Option "q" ["quiet", "silent"]
         (NoArg
