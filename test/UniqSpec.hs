@@ -4,6 +4,7 @@ module UniqSpec where
 import           Coreutils.Uniq
 import           Data.ByteString.Char8      (ByteString)
 import qualified Data.ByteString.Char8      as C
+import           Data.Maybe
 import qualified Streaming.ByteString.Char8 as Q
 import           Test.Hspec
 
@@ -168,4 +169,4 @@ uniquely rt is =
 run :: UniqState -> ByteString -> IO ByteString
 run st s = do
     (bs, ns) <- worker Q.toStrict_ (Q.fromStrict s) st
-    pure $ bs <> finalize ns
+    pure $ bs <> fromMaybe C.empty (finalize ns)
