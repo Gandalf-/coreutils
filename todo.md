@@ -55,6 +55,8 @@
 
 # Notes
 
+http://www.maizure.org/projects/decoded-gnu-coreutils/index.html
+
 ## Profiling
 ```
 stack build --profile --flag coreutils:release

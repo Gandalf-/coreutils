@@ -49,6 +49,7 @@ library
     Coreutils.Nologin
     Coreutils.Pwd
     Coreutils.Random
+    Coreutils.Realpath
     Coreutils.Rev
     Coreutils.Seq
     Coreutils.Sh
@@ -144,6 +145,7 @@ test-suite test
     MkdirSpec
     NlSpec
     RandomSpec
+    RealpathSpec
     RevSpec
     SeqSpec
     ShSpec
