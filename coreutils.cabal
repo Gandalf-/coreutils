@@ -45,6 +45,7 @@ library
     Coreutils.Head
     Coreutils.Ls
     Coreutils.Mkdir
+    Coreutils.Netcat
     Coreutils.Nl
     Coreutils.Nologin
     Coreutils.Pwd
@@ -75,6 +76,7 @@ library
     containers,
     directory,
     mtl,
+    network,
     parsec,
     process,
     random-shuffle,
@@ -121,6 +123,7 @@ test-suite test
     directory,
     hspec,
     parsec,
+    network,
     QuickCheck,
     random,
     split,
@@ -143,6 +146,7 @@ test-suite test
     HeadSpec
     LsSpec
     MkdirSpec
+    NetcatSpec
     NlSpec
     RandomSpec
     RealpathSpec
