@@ -6,7 +6,6 @@ module Coreutils.Seq where
 
 import           Control.Monad
 import           Data.Char
-import           Data.Maybe
 import           System.Console.GetOpt
 import           System.Exit
 import           Text.Printf           (printf)
@@ -46,10 +45,16 @@ data Runtime = Runtime {
 
 getRuntime :: Options -> [String] -> Either String Runtime
 getRuntime os ss = do
-    (bs, f) <- getBounds ss
-    let fmt = fromMaybe (show f) (optFormat os) <> optSeparator os
+    (bs, ftype) <- getBounds ss
+    let format = case (ftype, optFormat os) of
+            (IntFormat, Nothing) ->
+                \v -> show (floor v :: Int) <> optSeparator os
+            (decformat, Nothing) ->
+                printf (show decformat <> optSeparator os)
+            (_, Just fmt) ->
+                printf (fmt <> optSeparator os)
     pure $ Runtime {
-          format = printf fmt
+          format = format
         , values = expand bs
     }
 

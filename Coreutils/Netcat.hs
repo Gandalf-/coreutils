@@ -70,7 +70,7 @@ listenerRuntime os [pDesc] = do
 listenerRuntime _ _ = Left "listener usage: [options] port"
 
 connectorRuntime :: Options -> [String] -> Either String (IO Socket -> Runtime)
-connectorRuntime os [name, pDesc] = do
+connectorRuntime _ [name, pDesc] = do
     ports <- case parsePort pDesc of
         (Left _)  -> parsePortRange pDesc
         (Right p) -> Right [p]

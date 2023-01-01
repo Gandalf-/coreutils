@@ -68,6 +68,13 @@ spec = parallel $ do
             format rt 3 `shouldBe` "3\n"
             values rt `shouldBe` [1, 2, 3, 4, 5]
 
+        {-
+        it "decimal" $ do
+            let (Right rt) = getRuntime defaultOptions ["1", "0.1", "1.5"]
+            map (format rt) (values rt)
+                `shouldBe` ["1\n", "1.1\n", "1.2\n", "1.3\n", "1.4\n", "1.5\n"]
+        -}
+
         it "format" $ do
             let opts = defaultOptions { optFormat = Just "%.5f" }
             let (Right rt) = getRuntime opts ["5"]
