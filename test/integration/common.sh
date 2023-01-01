@@ -86,8 +86,8 @@ run_tests() {
 
             local test=${pids[$pid]}
             _name="${test/ptest_/}"
-            _name="${name//_/ }"
-            echo "\tfailure: $_name"
+            _name="${_name//_/ }"
+            printf "\tfailure: $_name\n"
             ( $test )
         }
     done

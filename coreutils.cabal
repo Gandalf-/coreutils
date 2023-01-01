@@ -42,6 +42,7 @@ library
     Coreutils.Dirname
     Coreutils.Echo
     Coreutils.Env
+    Coreutils.Exit
     Coreutils.Head
     Coreutils.Ls
     Coreutils.Mkdir
