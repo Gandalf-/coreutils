@@ -102,7 +102,16 @@ TEMPORARIES=()
 
 temp() {
     while [[ $1 ]]; do
-        local out="$( mktemp -p /tmp coreutils-${FUNCNAME[1]}-XXXXX )"
+        local out="$(
+            case $OSTYPE in
+            darwin*)
+                mktemp -t coreutils-${FUNCNAME[1]}
+                ;;
+            *)
+                mktemp -p /tmp coreutils-${FUNCNAME[1]}-XXXXX
+                ;;
+            esac
+        )"
         TEMPORARIES+=( "$out" )
         eval "$1"="$out"
         shift
