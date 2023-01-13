@@ -44,6 +44,7 @@ library
     Coreutils.Env
     Coreutils.Exit
     Coreutils.Head
+    Coreutils.Jot
     Coreutils.Ls
     Coreutils.Mkdir
     Coreutils.Netcat
@@ -145,6 +146,7 @@ test-suite test
     DirnameSpec
     EnvSpec
     HeadSpec
+    JotSpec
     LsSpec
     MkdirSpec
     NetcatSpec
