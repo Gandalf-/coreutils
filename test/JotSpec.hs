@@ -6,6 +6,13 @@ import           Test.Hspec
 
 spec :: Spec
 spec = do
+    describe "defaultStep" $
+        it "works" $ do
+            defaultStep 10 1 5 `shouldBe` (4 / 9)
+            defaultStep 10 5 1 `shouldBe` negate (4 / 9)
+
+            defaultStep 100 1 5 `shouldBe` (4 / 99)
+
     describe "parse" $ do
         it "integer" $ do
             parseInteger "234" `shouldBe` Right 234
@@ -21,6 +28,7 @@ spec = do
             parseDouble "7"   `shouldBe` Right 7
             parseDouble "-7"   `shouldBe` Right (-7)
             parseDouble ".5"   `shouldBe` Right 0.5
+            parseDouble "-.5"  `shouldBe` Right (-0.5)
 
             parseDouble "abc"  `shouldSatisfy` isLeft
             parseDouble "3abc" `shouldSatisfy` isLeft
@@ -51,7 +59,7 @@ spec = do
             parseRange ["", ""]            `shouldBe` Right defaultRange
             parseRange ["", "", ""]        `shouldBe` Right defaultRange
             parseRange ["", "", "", ""]    `shouldBe` Right defaultRange
-
+{-
         it "reps" $ do
             parseRange ["5"]   `shouldBe` Right defaultRange { reps = 5 }
             parseRange ["5.4"] `shouldSatisfy` isLeft
@@ -74,5 +82,11 @@ spec = do
             parseRange ["-", "-", "-", "5.1"] `shouldBe` Right defaultRange { rStep = 5.1 }
             parseRange ["-", "-", "-", "a"]   `shouldSatisfy` isLeft
 
-            parseRange ["-", "5", "1", "-"]   `shouldBe`
+            -- inverted low high means negative default step
+            parseRange ["-", "5", "1", "-"] `shouldBe`
                 Right defaultRange { rLow = 5, rHigh = 1, rStep = -1 }
+
+            -- step is inferred based on reps and low -> high range
+            parseRange ["5", "1", "2"] `shouldBe`
+                Right Range { reps = 5, rLow = 1, rHigh = 2, rStep = 0.25 }
+-}

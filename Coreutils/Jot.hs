@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Coreutils.Jot where
 
 import           Coreutils.Util
@@ -21,6 +22,30 @@ data Range = Range
     }
     deriving (Show, Eq)
 
+data RangeHole = RangeHole
+    (Maybe Integer)
+    (Maybe Double)
+    (Maybe Double)
+    (Maybe Double)
+
+{-
+ranger :: [String] -> Either String RangeHole
+ranger xs = do
+    (a, b, c, d) <- normalizeRange xs
+    r <- go parseInteger a
+
+    l <- go parseBound   1 b
+    h <- go parseBound 100 c
+
+    s <- parseDefault parseDouble 1 d
+    Left "!"
+-}
+
+go :: (String -> Either String a) -> String -> Either String (Maybe a)
+go _     ""  = Right Nothing
+go _     "-" = Right Nothing
+go parse xs  = Just <$> parse xs
+
 defaultRange :: Range
 defaultRange = Range 100 1 100 1
 
@@ -33,6 +58,12 @@ data Options = Options
     }
     deriving (Show, Eq)
 
+defaultStep :: Integer -> Double -> Double -> Double
+-- if reps are omitted, this is always 1 or -1
+defaultStep n low high
+    | low <= high = (high - low) / fromIntegral (n - 1)
+    | otherwise   = negate $ defaultStep n high low
+
 normalizeRange :: [String] -> Either String (String, String, String, String)
 normalizeRange []           = Left $ usageInfo "jot" options
 normalizeRange [a]          = Right (a, "-", "-", "-")
@@ -44,20 +75,23 @@ normalizeRange _            = Left "Too many arguments"
 parseRange :: [String] -> Either String Range
 parseRange xs = do
     (a, b, c, d) <- normalizeRange xs
-    reps  <- parseDefault parseInteger 100 a
+    (reps, defReps) <- parseDefault parseInteger 100 a
 
-    rLow  <- parseDefault parseBound     1 b
-    rHigh <- parseDefault parseBound   100 c
+    (rLow,  _) <- parseDefault parseBound   1 b
+    (rHigh, _) <- parseDefault parseBound 100 c
 
-    let dStep = if rLow < rHigh then 1 else -1
-    rStep <- parseDefault parseDouble  dStep d
+    let dStep = if defReps
+        then if rLow < rHigh then 1 else -1
+        else defaultStep reps rLow rHigh
+    (pStep, _) <- parseDefault parseDouble dStep d
+    let rStep = min dStep pStep
 
     Right $ Range {..}
 
-parseDefault :: (String -> Either String a) -> a -> String -> Either String a
-parseDefault _     d ""  = Right d
-parseDefault _     d "-" = Right d
-parseDefault parse _ xs  = parse xs
+parseDefault :: (String -> Either String a) -> a -> String -> Either String (a, Bool)
+parseDefault _     d ""  = Right (d, True)
+parseDefault _     d "-" = Right (d, True)
+parseDefault parse _ xs  = (, False) <$> parse xs
 
 parseBound :: String -> Either String Double
 -- ASCII character or double
@@ -68,7 +102,8 @@ parseBound xs = case parseDouble xs of
     Right b -> Right b
 
 parseDouble :: String -> Either String Double
-parseDouble ('.':xs) = parseDouble $ "0." <> xs
+parseDouble ('-':'.':xs) = parseDouble $ "-0." <> xs
+parseDouble ('.':xs)     = parseDouble $ "0." <> xs
 parseDouble xs =
     case readMaybe xs of
         Nothing  -> Left $ xs <> " is not a number"
