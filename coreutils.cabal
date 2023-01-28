@@ -43,6 +43,7 @@ library
     Coreutils.Echo
     Coreutils.Env
     Coreutils.Exit
+    Coreutils.Fold
     Coreutils.Head
     Coreutils.Jot
     Coreutils.Ls
@@ -145,6 +146,7 @@ test-suite test
     CutSpec
     DirnameSpec
     EnvSpec
+    FoldSpec
     HeadSpec
     JotSpec
     LsSpec
