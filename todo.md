@@ -67,3 +67,36 @@ stack exec --profile -- utils cut -c 1,3,4,5- ~/working/pi/ping-data.csv +RTS -p
 ```
 stack test --file-watch --test-arguments --match=/Ls
 ```
+
+## Parallel Builds
+
+- stack clean
+- time make release
+
+Default
+```
+Executed in   59.93 secs    fish           external
+   usr time   57.02 secs   43.00 micros   57.02 secs
+   sys time    2.47 secs  353.00 micros    2.47 secs
+```
+
+`-j4`
+```
+Executed in   21.25 secs    fish           external
+   usr time   70.56 secs   57.00 micros   70.56 secs
+   sys time    8.80 secs  454.00 micros    8.80 secs
+```
+
+`-j`
+```
+Executed in   28.86 secs    fish           external
+   usr time   87.54 secs   44.00 micros   87.54 secs
+   sys time   17.37 secs  364.00 micros   17.37 secs
+```
+
+`-j2`
+```
+Executed in   35.03 secs    fish           external
+   usr time   63.73 secs   50.00 micros   63.73 secs
+   sys time    3.63 secs  445.00 micros    3.63 secs
+```

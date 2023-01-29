@@ -25,6 +25,7 @@ library
 
   ghc-options:
     -Wall
+    -j4
 
   if flag(release)
     ghc-options: -O2
@@ -66,6 +67,7 @@ library
     Coreutils.Tee
     Coreutils.Test
     Coreutils.Tr
+    Coreutils.Truncate
     Coreutils.Uniq
     Coreutils.Wc
     Coreutils.Which
@@ -165,6 +167,7 @@ test-suite test
     TacSpec
     TestSpec
     TrSpec
+    TruncateSpec
     UniqSpec
     WcSpec
     YesSpec
