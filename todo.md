@@ -2,6 +2,8 @@
 
 # Future commands to implement
 
+* jot
+* fold
 * column
 * dc
 * du

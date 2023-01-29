@@ -44,7 +44,7 @@ spec = do
             parseBound "3abc" `shouldSatisfy` isLeft
             parseBound ""     `shouldSatisfy` isLeft
 
-    describe "parseRange" $ do
+    describe "parseRange defaults" $ do
         it "errors" $ do
             parseRange [] `shouldSatisfy` isLeft
             parseRange ["1", "2", "3", "4", "5"] `shouldSatisfy` isLeft
@@ -59,7 +59,8 @@ spec = do
             parseRange ["", ""]            `shouldBe` Right defaultRange
             parseRange ["", "", ""]        `shouldBe` Right defaultRange
             parseRange ["", "", "", ""]    `shouldBe` Right defaultRange
-{-
+
+    xdescribe "parseRange" $ do
         it "reps" $ do
             parseRange ["5"]   `shouldBe` Right defaultRange { reps = 5 }
             parseRange ["5.4"] `shouldSatisfy` isLeft
@@ -89,4 +90,3 @@ spec = do
             -- step is inferred based on reps and low -> high range
             parseRange ["5", "1", "2"] `shouldBe`
                 Right Range { reps = 5, rLow = 1, rHigh = 2, rStep = 0.25 }
--}

@@ -45,14 +45,12 @@ basics = do
             pair2 <- tcpSocketPair AF_UNSPEC "127.0.0.1"
             pingPong pair2
 
-        {-
-        it "v4 udp works" $ do
+        xit "v4 udp works" $ do
             (l, r) <- udpSocketPair AF_INET "127.0.0.1"
             a <- socketToHandle l ReadWriteMode
             b <- socketToHandle r ReadWriteMode
             hPutStrLn a "ping"
             hGetLine b `shouldReturn` "ping"
-        -}
 
         it "v6 tcp works" $ do
             pair1 <- v6TcpSocketPair

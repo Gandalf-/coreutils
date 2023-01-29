@@ -47,15 +47,13 @@ spec = parallel $ do
             pRun pValue "x" `shouldBe` Right (Variable "x")
             pRun pValue "abc2" `shouldBe` Right (Variable "abc2")
 
-            {-
-    describe "expression" $
+    xdescribe "expression" $
         it "works" $ do
             let vNum = Val . Primitive . Number
             pRun pExpression "1 + 2"
                 `shouldBe` Right (Add (vNum 1) (vNum 2))
             pRun pExpression "1 + 2 + 3"
                 `shouldBe` Right (Add (vNum 1) (Add (vNum 2) (vNum 3)))
-            -}
 
     describe "pattern" $ do
         it "basics" $ do
