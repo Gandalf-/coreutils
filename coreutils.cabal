@@ -52,6 +52,7 @@ library
     Coreutils.Netcat
     Coreutils.Nl
     Coreutils.Nologin
+    Coreutils.Paste
     Coreutils.Pwd
     Coreutils.Random
     Coreutils.Realpath
@@ -155,6 +156,7 @@ test-suite test
     MkdirSpec
     NetcatSpec
     NlSpec
+    PasteSpec
     RandomSpec
     RealpathSpec
     RevSpec

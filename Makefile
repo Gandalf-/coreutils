@@ -7,6 +7,10 @@ build-release:
 release:
 	stack install --flag coreutils:release
 
+.PHONY: test
+test:
+	stack test
+
 profile:
 	stack build --flag coreutils:release --profile
 	@echo
