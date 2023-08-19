@@ -1,15 +1,19 @@
 all:
 	stack build
 
-build-release:
-	stack build --flag coreutils:release 2>&1 | grep -v relocation
-
 release:
 	stack install --flag coreutils:release
 
-.PHONY: test
+
+.PHONY: test format lint profile
 test:
 	stack test
+
+format:
+	stylish-haskell -i */*.hs
+
+lint:
+	hlint */*.hs
 
 profile:
 	stack build --flag coreutils:release --profile
