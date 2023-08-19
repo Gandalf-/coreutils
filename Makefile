@@ -5,7 +5,9 @@ release:
 	stack install --flag coreutils:release
 
 
-.PHONY: test format lint profile
+.PHONY: ready test format lint profile
+ready: format lint test
+
 test:
 	stack test
 
@@ -13,7 +15,7 @@ format:
 	stylish-haskell -i */*.hs
 
 lint:
-	hlint */*.hs
+	hlint -j */*.hs
 
 profile:
 	stack build --flag coreutils:release --profile

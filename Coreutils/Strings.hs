@@ -17,8 +17,8 @@ instance Util Strings where
 
 stringsMain :: [String] -> IO ()
 stringsMain args = do
-    (o, files) <- either die return $ parseArgs args
-    let search = mapM_ B.putStrLn . strings (optLength o)
+    (opts, files) <- either die return $ parseArgs args
+    let search = mapM_ B.putStrLn . strings (optLength opts)
 
     if null files
         then B.getContents >>= search
@@ -46,26 +46,26 @@ dirt x
 
 -- | Options
 
+newtype Options = Options { optLength :: Int }
+    deriving (Eq, Show)
+
+defaultOptions :: Options
+defaultOptions = Options 4
+
 parseArgs :: [String] -> Either String (Options, [FilePath])
 parseArgs = parser defaultOptions
 
 parser :: Options -> [String] -> Either String (Options, [String])
 parser o [] = Right (o, [])
 parser o ("-n":n:xs) = do
-        n' <- getNumber n
-        parser (o { optLength = n' }) xs
+    v <- getNumber n
+    parser (o { optLength = v }) xs
 parser o (('-':x):xs) = do
-        value <- getNumber x
-        parser (o { optLength = value }) xs
+    v <- getNumber x
+    parser (o { optLength = v }) xs
 parser o (x:xs) = do
-        (o', xs') <- parser o xs
-        return (o', x:xs')
-
-newtype Options = Options { optLength :: Int }
-    deriving (Eq, Show)
-
-defaultOptions :: Options
-defaultOptions = Options 4
+    (o', xs') <- parser o xs
+    return (o', x:xs')
 
 getNumber :: String -> Either String Int
 getNumber s
