@@ -12,23 +12,27 @@ instance Util Fold where
 
 folder :: Options -> String -> String
 folder os xs =
-        go 0 (optWidth os) ixs
+        go 0 (optWidth os) $ enumerate os xs
+
+enumerate :: Options -> String -> [(Int, Char)]
+enumerate os xs =
+        zip pos xs
     where
-        ixs = zip pos xs
         pos = map (positions (optPosition os)) xs
 
 go :: Int -> Int -> [(Int, Char)] -> String
 go _ _ [] = ""
-go i l xs@((p, c):ixs)
-    | p + i > l = '\n' : go 0 l xs
-    | otherwise = c : go (i + p) l ixs
+go index len xs@((p, c):ixs)
+    | c == '\n'       = c : go 0 len ixs
+    | p + index > len = '\n' : go (index - len) len xs
+    | otherwise       = c : go (index + p) len ixs
 
 data Position = Bytes | Columns
 
 positions :: Position -> Char -> Int
 positions Bytes _      = 1
 positions Columns '\t' = 8
-positions Columns '\r' = 0
+positions Columns '\r' = -1
 positions Columns '\b' = -1
 positions Columns _    = 1
 

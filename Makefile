@@ -10,6 +10,7 @@ ready: format lint test
 
 test:
 	stack test
+	bash test/integration/all.sh
 
 format:
 	stylish-haskell -i */*.hs
