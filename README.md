@@ -5,48 +5,49 @@ Unix core utilities implemented in Haskell.
 Goals are:
 * idiomatic implementations
 * fast, lazy IO
-* feature parity with GNU utils
+* feature parity with BSD utils
 * fully tested
 * platform independent
 
-| Utility | Idiomatic | Complete | Fast | Lazy | Tests |
-|---------|-----------|----------|------|------|-------|
-| awk     | ✓         | 40       |      | ✓    | ✓     |
-| basename| ✓         | ✓        | -    | -    | ✓     |
-| cat     | ✓         | ✓        | ✓    | ✓    |       |
-| cmp     | ✓         | 50       |      |      | ✓     |
-| cut     |           | 90       | 75   | ✓    | 90    |
-| dirname | ✓         | ✓        | -    | -    | ✓     |
-| echo    | ✓         | ✓        | -    | -    | -     |
-| env     | ✓         | ✓        | -    | -    | ✓     |
-| exit    | ✓         | ✓        | -    | -    | ✓     |
-| false   | ✓         | ✓        | -    | -    | ✓     |
-| head    | ✓         | ✓        | ✓    | ✓    | ✓     |
-| ls      | ✓         | 50       | ✓    | -    | ✓     |
-| mkdir   | ✓         | ✓        | -    | -    | ✓     |
-| nl      | ✓         | ✓        | ✓    | ✓    | ✓     |
-| nologin | ✓         | ✓        | -    | -    | -     |
-| pwd     | ✓         | ✓        | -    | -    | -     |
-| random  | ✓         | ✓        | -    | -    | ✓     |
-| realpath| ✓         | ✓        | -    | -    | ✓     |
-| rev     | ✓         | ✓        | ✓    | ✓    | ✓     |
-| seq     | ✓         | ✓        | 75   | ✓    | ✓     |
-| sleep   | ✓         | ✓        | -    | -    | ✓     |
-| split   | ✓         | ✓        | ✓    | ✓    | ✓     |
-| sponge  | ✓         | ✓        | ✓    | -    | ✓     |
-| strings | ✓         | 80       | ✓    | ✓    | ✓     |
-| sum     | ✓         | ✓        | ✓    | ✓    | ✓     |
-| tac     | ✓         | 90       | ✓    | ✓    | ✓     |
-| tee     | ✓         | ✓        | ✓    | ✓    | ✓     |
-| test    | ✓         | ✓        | ✓    | ✓    | ✓     |
-| tr      | ✓         | ✓        | 75   | ✓    | ✓     |
-| truncate| ✓         | ✓        | ✓    | -    | ✓     |
-| true    | ✓         | ✓        | -    | -    | ✓     |
-| uniq    | ✓         | ✓        | ✓    | ✓    | ✓     |
-| wc      | ✓         | ✓        | ✓    | ✓    |       |
-| which   | ✓         | ✓        | -    | -    | -     |
-| whoami  | ✓         | ✓        | -    | -    | -     |
-| yes     | ✓         | ✓        | ✓    | ✓    | -     |
+| Utility  | Idiomatic | Fast | Lazy | Tests | Complete |
+|----------|-----------|------|------|-------|----------|
+| addrinfo | ✓         | -    | -    | ✓     | 90       |
+| awk      | ✓         |      | ✓    | ✓     | 40       |
+| basename | ✓         | -    | -    | ✓     | ✓        |
+| cat      | ✓         | ✓    | ✓    |       | ✓        |
+| cmp      | ✓         |      |      | ✓     | 50       |
+| cut      |           | 75   | ✓    | 90    | 90       |
+| dirname  | ✓         | -    | -    | ✓     | ✓        |
+| echo     | ✓         | -    | -    | -     | ✓        |
+| env      | ✓         | -    | -    | ✓     | ✓        |
+| exit     | ✓         | -    | -    | ✓     | ✓        |
+| false    | ✓         | -    | -    | ✓     | ✓        |
+| head     | ✓         | ✓    | ✓    | ✓     | ✓        |
+| ls       | ✓         | ✓    | -    | ✓     | 50       |
+| mkdir    | ✓         | -    | -    | ✓     | ✓        |
+| nl       | ✓         | ✓    | ✓    | ✓     | ✓        |
+| nologin  | ✓         | -    | -    | -     | ✓        |
+| pwd      | ✓         | -    | -    | -     | ✓        |
+| random   | ✓         | -    | -    | ✓     | ✓        |
+| realpath | ✓         | -    | -    | ✓     | ✓        |
+| rev      | ✓         | ✓    | ✓    | ✓     | ✓        |
+| seq      | ✓         | 75   | ✓    | ✓     | ✓        |
+| sleep    | ✓         | -    | -    | ✓     | ✓        |
+| split    | ✓         | ✓    | ✓    | ✓     | ✓        |
+| sponge   | ✓         | ✓    | -    | ✓     | ✓        |
+| strings  | ✓         | ✓    | ✓    | ✓     | 80       |
+| sum      | ✓         | ✓    | ✓    | ✓     | ✓        |
+| tac      | ✓         | ✓    | ✓    | ✓     | 90       |
+| tee      | ✓         | ✓    | ✓    | ✓     | ✓        |
+| test     | ✓         | ✓    | ✓    | ✓     | ✓        |
+| tr       | ✓         | 75   | ✓    | ✓     | ✓        |
+| truncate | ✓         | ✓    | -    | ✓     | ✓        |
+| true     | ✓         | -    | -    | ✓     | ✓        |
+| uniq     | ✓         | ✓    | ✓    | ✓     | ✓        |
+| wc       | ✓         | ✓    | ✓    |       | ✓        |
+| which    | ✓         | -    | -    | -     | ✓        |
+| whoami   | ✓         | -    | -    | -     | ✓        |
+| yes      | ✓         | ✓    | ✓    | -     | ✓        |
 
 | Symbol | Meaning            |
 |--------|--------------------|

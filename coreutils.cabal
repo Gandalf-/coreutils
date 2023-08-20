@@ -45,6 +45,7 @@ library
     Coreutils.Env
     Coreutils.Exit
     Coreutils.Fold
+    Coreutils.GetAddrInfo
     Coreutils.Head
     Coreutils.Jot
     Coreutils.Ls
@@ -151,6 +152,7 @@ test-suite test
     DirnameSpec
     EnvSpec
     FoldSpec
+    GetAddrInfoSpec
     HeadSpec
     JotSpec
     LsSpec
