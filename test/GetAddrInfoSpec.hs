@@ -57,7 +57,6 @@ spec = do
             display info      `shouldBe` body
             display canonInfo `shouldBe` "example.com\n" <> body
 
-    -- No support for -s service[/protocol] syntax
     where
         os = defaultOptions
 

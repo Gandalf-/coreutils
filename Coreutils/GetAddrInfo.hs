@@ -95,7 +95,6 @@ parseFlags os =
         ]
 
 parseProtocol :: Maybe String -> Either String ProtocolNumber
--- Consider parsing /etc/protocols on Unix
 parseProtocol (Just "tcp") = pure 6
 parseProtocol (Just "udp") = pure 17
 parseProtocol p = case p of

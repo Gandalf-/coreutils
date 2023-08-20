@@ -11,7 +11,7 @@ Goals are:
 
 | Utility  | Idiomatic | Fast | Lazy | Tests | Complete |
 |----------|-----------|------|------|-------|----------|
-| addrinfo | ✓         | -    | -    | ✓     | 90       |
+| addrinfo | ✓         | -    | -    | ✓     | 80       |
 | awk      | ✓         |      | ✓    | ✓     | 40       |
 | basename | ✓         | -    | -    | ✓     | ✓        |
 | cat      | ✓         | ✓    | ✓    |       | ✓        |

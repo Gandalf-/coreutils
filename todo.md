@@ -3,15 +3,12 @@
 # Future commands to implement
 
 * jot
-* fold
 * column
 * dc
 * du
 * shuf
 * sort
-* strings
 * watch
-* nc
 
 * expr
 * sh
@@ -36,9 +33,6 @@
 ## head
 - [ ] Doesn't suppport byte suffixes like MB, K
 
-## uniq
-- [ ] Needs a rewrite to make it idiomatic
-
 ## cat
 - [ ] some sort of encoding bug on windows with binary files (.jpg)
 
@@ -54,6 +48,15 @@
 
 ## nl
 - [ ] slow, probably unnecessary bytestring copying
+
+## addrinfo
+- [ ] No support for `-s service[/protocol]` syntax
+- [ ] Could use more tests for `display`
+- [ ] Address:port formatting isn't right, probably difficult to fix though
+- [ ] Canonical name prints on every output instead of just the first
+- [ ] Socket type display is still different
+- [ ] Consider parsing /etc/protocols for parsing and display
+- [ ] Error messages are pretty ugly
 
 # Notes
 
