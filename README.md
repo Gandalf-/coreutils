@@ -27,6 +27,7 @@ Goals are:
 | mkdir    | ✓         | -    | -    | ✓     | ✓        |
 | nl       | ✓         | ✓    | ✓    | ✓     | ✓        |
 | nologin  | ✓         | -    | -    | -     | ✓        |
+| paste    | ✓         | ✓✓   | ✓    | ✓     | ✓        |
 | pwd      | ✓         | -    | -    | -     | ✓        |
 | random   | ✓         | -    | -    | ✓     | ✓        |
 | realpath | ✓         | -    | -    | ✓     | ✓        |
@@ -51,9 +52,10 @@ Goals are:
 
 | Symbol | Meaning            |
 |--------|--------------------|
-| ✓      | Fully complete     |
+| ✓✓     | Superior           |
+| ✓      | Complete           |
+| %      | % Partial          |
 | -      | Not applicable     |
-| %      | % feature complete |
 
 # Usage
 
