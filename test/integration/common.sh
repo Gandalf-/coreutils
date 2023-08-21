@@ -1,5 +1,8 @@
 #!/bin/bash
 
+command -v timeout >/dev/null || timeout() { gtimeout "$@"; }
+command -v md5sum >/dev/null  || md5sum() { md5 "$@"; }
+
 die() {
     echo "$*" >&2
     exit 1

@@ -305,6 +305,6 @@ optionDesc =
 
     , Option "" ["help"]
         (NoArg
-            (\_ -> Left $ usageInfo "awk" optionDesc))
+            (\_ -> Left $ usageInfo "nl" optionDesc))
         "show this help text"
     ]

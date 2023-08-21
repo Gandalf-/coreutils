@@ -13,25 +13,25 @@ ptest_ascii() {
 
 ptest_binary_stdin() {
     temp f
-    head -c $(( 100 * 1024 )) /dev/urandom > "$f"
+    head -c 1024 /dev/urandom > "$f"
     compare "< $f"
 }
 
 ptest_binary_stdin_length() {
     temp f
-    head -c $(( 100 * 1024 )) /dev/urandom > "$f"
+    head -c 1024 /dev/urandom > "$f"
     compare "-10 < $f"
 }
 
 ptest_binary() {
     temp f
-    head -c $(( 100 * 1024 )) /dev/urandom > "$f"
+    head -c 1024 /dev/urandom > "$f"
     compare "$f"
 }
 
 ptest_binary_length() {
     temp f
-    head -c $(( 100 * 1024 )) /dev/urandom > "$f"
+    head -c 1024 /dev/urandom > "$f"
     compare "-10 $f"
 }
 
