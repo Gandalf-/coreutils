@@ -17,6 +17,10 @@ spec = do
             strings 1 "a\0\0d" `shouldBe` ["a", "d"]
             strings 1 "a\0\1d" `shouldBe` ["a", "d"]
 
+            strings 2 "ab\n\ncd" `shouldBe` ["ab", "cd"]
+
+            strings 1 "ab\0\0\0cd" `shouldBe` ["ab", "cd"]
+
         it "by length" $ do
             strings 1 "hello" `shouldBe` ["hello"]
             strings 4 "hello" `shouldBe` ["hello"]

@@ -64,12 +64,13 @@ compare() {
 }
 
 skip() {
-    :
+    exit 111
 }
 
 run_tests() {
     local suite="$1"
     local executed=0
+    local skipped=0
     local failures=0
     declare -A pids
 
@@ -84,21 +85,30 @@ run_tests() {
     done < <( declare -F | awk '{ print $3 }' )
 
     for pid in "${!pids[@]}"; do
-        wait "$pid" || {
+        wait "$pid"
+        case $? in
+        0)
+            ;;
+        111)
+            (( skipped++ ))
+            ;;
+        *)
             (( failures++ ))
 
             local test=${pids[$pid]}
             _name="${test/ptest_/}"
             _name="${_name//_/ }"
             printf "\tfailure: $_name\n"
-            ( $test )
-        }
+            (( SKIP_REPLAY )) || ( $test )
+            ;;
+        esac
     done
 
-    printf '%s\tpass: %3d fail: %3d\n' \
+    printf '%s\tpass: %3d fail: %3d skip: %3d\n' \
         "$suite" \
         $(( executed - failures )) \
-        $failures
+        $failures \
+        $skipped
 }
 
 TEMPORARIES=()

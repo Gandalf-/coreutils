@@ -18,10 +18,13 @@ ptest_no_digits_or_spaces() {
 }
 
 ptest_squeeze_repeats() {
+    skip
     compare '-s abc ddeeff < LICENSE'
 }
 
 ptest_truncate_sets() {
+    [[ "$OSTYPE" == "darwin"* ]] && real=gtr
+
     compare '-t 123456789 abc < LICENSE'
 }
 

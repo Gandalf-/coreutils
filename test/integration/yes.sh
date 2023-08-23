@@ -14,7 +14,8 @@ ptest_string() {
 }
 
 ptest_long() {
-    compare '$(cat LICENSE) | head -n 50'
+    # BSD yes only takes the first argument so we need quotes
+    compare '"$(cat LICENSE)" | head -n 50'
 }
 
 run_tests yes

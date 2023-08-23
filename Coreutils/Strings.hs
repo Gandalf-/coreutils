@@ -28,21 +28,19 @@ stringsMain args = do
 
 strings :: Int -> ByteString -> [ByteString]
 strings len =
-        filter valid . B.splitWith dirt
+        filter valid . B.splitWith (not . printable)
     where
         valid bs = B.length bs >= fromIntegral len
 
-dirt :: Char -> Bool
--- BSD 4.3
--- https://opensource.apple.com/source/cctools/cctools-822/misc/strings.c.auto.html
-dirt '\n' = False
-dirt '\f' = False
-dirt '\DEL' = True
-dirt x
-    | v > 0o200 || v < 32 = True
-    | otherwise = False
+printable :: Char -> Bool
+-- FreeBSD contrib/elftoolchain/strings/strings.c
+printable c
+        | v < 0     = False
+        | v > 255   = False
+        | c == '\t' = True
+        | otherwise = isPrint c
     where
-        v = ord x
+        v = ord c
 
 -- | Options
 
