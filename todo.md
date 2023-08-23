@@ -52,8 +52,8 @@
 ## addrinfo
 - [ ] No support for `-s service[/protocol]` syntax
 - [ ] Could use more tests for `display`
-- [ ] Address:port formatting isn't right, probably difficult to fix though
-- [ ] Canonical name prints on every output instead of just the first
+- [x] Address:port formatting isn't right, probably difficult to fix though
+- [x] Canonical name prints on every output instead of just the first
 - [ ] Socket type display is still different
 - [ ] Consider parsing /etc/protocols for parsing and display
 - [ ] Error messages are pretty ugly

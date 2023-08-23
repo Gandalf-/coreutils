@@ -6,8 +6,8 @@ import           Test.Hspec
 
 spec :: Spec
 spec = do
-    describe "socketType" $
-        it "works" $ do
+    describe "parses" $ do
+        it "socketType" $ do
             parseSocketType Nothing            `shouldBe` Right (addrSocketType defaultHints)
             parseSocketType (Just "stream")    `shouldBe` Right Stream
             parseSocketType (Just "dgram")     `shouldBe` Right Datagram
@@ -16,8 +16,7 @@ spec = do
             parseSocketType (Just "seqpacket") `shouldBe` Right SeqPacket
             parseSocketType (Just "invalid")   `shouldBe` Left "Invalid socket type"
 
-    describe "parseFamily" $
-        it "works" $ do
+        it "family" $ do
             parseFamily Nothing          `shouldBe` Right (addrFamily defaultHints)
             parseFamily (Just "inet")    `shouldBe` Right AF_INET
             parseFamily (Just "inet6")   `shouldBe` Right AF_INET6
@@ -25,8 +24,7 @@ spec = do
             parseFamily (Just "netbios") `shouldBe` Right AF_NETBIOS
             parseFamily (Just "invalid") `shouldBe` Left "Invalid address family"
 
-    describe "parseFlags" $
-        it "works" $ do
+        it "flags" $ do
             parseFlags os `shouldBe` []
             parseFlags os { optCanoncial = True }      `shouldBe` [AI_CANONNAME]
             parseFlags os { optNumericHost = True }    `shouldBe` [AI_NUMERICHOST]
@@ -38,13 +36,20 @@ spec = do
             parseFlags os { optNumericService = True, optPassive = True }
                 `shouldBe` [AI_NUMERICSERV, AI_PASSIVE]
 
-    describe "parseProtocol" $
-        it "works" $ do
+        it "protocol" $ do
             parseProtocol Nothing      `shouldBe` Right defaultProtocol
             parseProtocol (Just "17")  `shouldBe` Right 17
             parseProtocol (Just "udp") `shouldBe` Right 17
             parseProtocol (Just "tcp") `shouldBe` Right 6
             parseProtocol (Just "invalid") `shouldBe` Left "Invalid protocol"
+
+        it "address" $ do
+            cleanAddress "[2601:600:c400:30c0:d250:99ff:fec3:2321]:443"
+                `shouldBe` "2601:600:c400:30c0:d250:99ff:fec3:2321 443"
+
+            cleanAddress "[::1]:0"           `shouldBe` "::1 0"
+            cleanAddress "127.0.0.1:0"       `shouldBe` "127.0.0.1 0"
+            cleanAddress "192.168.122.62:80" `shouldBe` "192.168.122.62 80"
 
     describe "display" $
         {-
@@ -53,7 +58,7 @@ spec = do
         stream inet tcp 149.20.53.67 0
         -}
         it "works" $ do
-            let body = "stream inet udp 127.0.0.1:0"
+            let body = "stream inet udp 127.0.0.1 0"
             display info      `shouldBe` body
             display canonInfo `shouldBe` "example.com\n" <> body
 

@@ -4,6 +4,7 @@ import           Control.Monad
 import           Coreutils.Util
 import           Data.Char
 import           Data.Either.Extra
+import           Data.List
 import           Network.Socket
 import           System.Console.GetOpt
 import           System.Exit
@@ -32,29 +33,45 @@ addrInfoMain args = do
 runAddrInfo :: Options -> Maybe String -> IO ()
 runAddrInfo os host = do
     hints <- either die return $ getHints os
-    ais <- getAddrInfo (Just hints) host (optService os)
+    ais <- cleanCanonical <$> getAddrInfo (Just hints) host (optService os)
     mapM_ (putStrLn . display) ais
+
+-- | Formatting Output
 
 display :: AddrInfo -> String
 display ai = canonical <> unwords
     [ map toLower $ show $ addrSocketType ai
     , cleanFamily $ show $ addrFamily ai
-    , protocolToName $ addrProtocol ai
-    , show $ addrAddress ai
+    , cleanProtocol $ addrProtocol ai
+    , cleanAddress $ show $ addrAddress ai
     ]
     where
         canonical = maybe "" (++ "\n") (addrCanonName ai)
 
-        cleanFamily :: String -> String
-        cleanFamily ('A':'F':'_':xs) = map toLower xs
-        cleanFamily xs               = xs
+cleanCanonical :: [AddrInfo] -> [AddrInfo]
+cleanCanonical []     = []
+cleanCanonical (a:as) = a : map (\ai -> ai { addrCanonName = Nothing }) as
 
-protocolToName :: ProtocolNumber -> String
-protocolToName 6  = "tcp"
-protocolToName 17 = "udp"
-protocolToName p  = show p
+cleanFamily :: String -> String
+cleanFamily ('A':'F':'_':xs) = map toLower xs
+cleanFamily xs               = xs
 
--- | Parsing
+cleanAddress :: String -> String
+cleanAddress addr
+    | "[" `isPrefixOf` addr =
+        case break (== ']') <$> stripPrefix "[" addr of
+            Just (ipv6, _:_:port) -> unwords [ipv6, port]
+            _                     -> error "Invalid format"
+    | otherwise =
+        let (ipv4, port) = break (== ':') addr in
+        unwords [ipv4, tail port]
+
+cleanProtocol :: ProtocolNumber -> String
+cleanProtocol 6  = "tcp"
+cleanProtocol 17 = "udp"
+cleanProtocol p  = show p
+
+-- | Parsing Options
 
 getHints :: Options -> Either String AddrInfo
 getHints os = do
