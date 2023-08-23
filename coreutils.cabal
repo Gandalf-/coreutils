@@ -35,6 +35,7 @@ library
   exposed-modules:
     Coreutils.Util
 
+    Coreutils.AddrInfo
     Coreutils.Awk
     Coreutils.Basename
     Coreutils.Cat
@@ -45,7 +46,6 @@ library
     Coreutils.Env
     Coreutils.Exit
     Coreutils.Fold
-    Coreutils.GetAddrInfo
     Coreutils.Head
     Coreutils.Jot
     Coreutils.Ls
@@ -83,6 +83,7 @@ library
     bytestring,
     containers,
     directory,
+    extra,
     mtl,
     network,
     parsec,
@@ -144,6 +145,7 @@ test-suite test
     word8
 
   other-modules:
+    AddrInfoSpec
     AwkParseSpec
     AwkSpec
     BasenameSpec
@@ -152,7 +154,6 @@ test-suite test
     DirnameSpec
     EnvSpec
     FoldSpec
-    GetAddrInfoSpec
     HeadSpec
     JotSpec
     LsSpec

@@ -1,8 +1,9 @@
-module Coreutils.GetAddrInfo where
+module Coreutils.AddrInfo where
 
 import           Control.Monad
 import           Coreutils.Util
 import           Data.Char
+import           Data.Either.Extra
 import           Network.Socket
 import           System.Console.GetOpt
 import           System.Exit
@@ -11,12 +12,12 @@ import           Text.Read             (readMaybe)
 data GetAddrInfo = GetAddrInfo
 
 instance Util GetAddrInfo where
-    run _ = getAddrInfoMain
+    run _ = addrInfoMain
 
 -- | IO
 
-getAddrInfoMain :: [String] -> IO ()
-getAddrInfoMain args = do
+addrInfoMain :: [String] -> IO ()
+addrInfoMain args = do
         unless (null errors) $
             die $ unlines errors
         either die (`runAddrInfo` host) $
@@ -68,40 +69,37 @@ getHints os = do
         }
 
 parseSocketType :: Maybe String -> Either String SocketType
-parseSocketType t = case t of
-    Nothing          -> pure $ addrSocketType defaultHints
-    Just "stream"    -> pure Stream
-    Just "dgram"     -> pure Datagram
-    Just "raw"       -> pure Raw
-    Just "rdm"       -> pure RDM
-    Just "seqpacket" -> pure SeqPacket
-    Just _           -> Left "Invalid socket type"
+parseSocketType Nothing  = pure $ addrSocketType defaultHints
+parseSocketType (Just s) = case map toLower s of
+    "stream"    -> pure Stream
+    "dgram"     -> pure Datagram
+    "raw"       -> pure Raw
+    "rdm"       -> pure RDM
+    "seqpacket" -> pure SeqPacket
+    _           -> Left "Invalid socket type"
 
 parseFamily :: Maybe String -> Either String Family
-parseFamily f = case f of
-    Nothing -> pure $ addrFamily defaultHints
-    Just fam -> do
-        case readMaybe ("AF_" ++ map toUpper fam) of
-            (Just family) -> pure family
-            Nothing       -> Left "Invalid address family"
+parseFamily Nothing  = pure $ addrFamily defaultHints
+parseFamily (Just f) = maybeToEither "Invalid address family" $ readMaybe family
+    where
+        family = "AF_" ++ map toUpper f
 
 parseFlags :: Options -> [AddrInfoFlag]
-parseFlags os =
-    foldr (\(f, m) acc -> if m then f:acc else acc) []
-        [ (AI_CANONNAME,   optCanoncial      os)
-        , (AI_NUMERICHOST, optNumericHost    os)
-        , (AI_NUMERICSERV, optNumericService os)
-        , (AI_PASSIVE,     optPassive        os)
-        ]
+parseFlags os = [ flag | (flag, condition) <- flagConditions os, condition]
+
+flagConditions :: Options -> [(AddrInfoFlag, Bool)]
+flagConditions os =
+    [ (AI_CANONNAME,   optCanoncial      os)
+    , (AI_NUMERICHOST, optNumericHost    os)
+    , (AI_NUMERICSERV, optNumericService os)
+    , (AI_PASSIVE,     optPassive        os)
+    ]
 
 parseProtocol :: Maybe String -> Either String ProtocolNumber
+parseProtocol Nothing      = pure $ addrProtocol defaultHints
 parseProtocol (Just "tcp") = pure 6
 parseProtocol (Just "udp") = pure 17
-parseProtocol p = case p of
-    Nothing -> pure defaultProtocol
-    Just p' -> case readMaybe p' of
-        (Just protocol) -> pure protocol
-        Nothing         -> Left "Invalid protocol"
+parseProtocol (Just p)     = maybeToEither "Invalid protocol" $ readMaybe p
 
 -- | Options
 

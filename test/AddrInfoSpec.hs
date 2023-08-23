@@ -1,6 +1,6 @@
-module GetAddrInfoSpec where
+module AddrInfoSpec where
 
-import           Coreutils.GetAddrInfo
+import           Coreutils.AddrInfo
 import           Network.Socket
 import           Test.Hspec
 
