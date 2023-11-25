@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+
 module Coreutils.AddrInfo where
 
 import           Control.Monad
@@ -32,32 +34,51 @@ addrInfoMain args = do
 
 runAddrInfo :: Options -> Maybe String -> IO ()
 runAddrInfo os host = do
-    hints <- either die return $ getHints os
-    ais <- cleanCanonical <$> getAddrInfo (Just hints) host (optService os)
-    mapM_ (putStrLn . display) ais
+        hints <- either die return $ getHints os
+        ais <- stripCanonical <$> getAddrInfo (Just hints) host (optService os)
+        mapM_ (putStrLn . display) ais
+
+stripCanonical :: [AddrInfo] -> [AddrInfo]
+stripCanonical []     = []
+stripCanonical (a:as) = a : [ai { addrCanonName = Nothing } | ai <- as]
 
 -- | Formatting Output
 
-display :: AddrInfo -> String
-display ai = canonical <> unwords
-    [ map toLower $ show $ addrSocketType ai
-    , cleanFamily $ show $ addrFamily ai
-    , cleanProtocol $ addrProtocol ai
-    , cleanAddress $ show $ addrAddress ai
-    ]
-    where
-        canonical = maybe "" (++ "\n") (addrCanonName ai)
+class Display a where
+    display :: a -> String
 
-cleanCanonical :: [AddrInfo] -> [AddrInfo]
-cleanCanonical []     = []
-cleanCanonical (a:as) = a : map (\ai -> ai { addrCanonName = Nothing }) as
+instance Display AddrInfo where
+    display ai = canonical <> unwords
+        [ display $ addrSocketType ai
+        , display $ addrFamily ai
+        , display $ addrProtocol ai
+        , display $ addrAddress ai
+        ]
+        where
+            canonical = maybe "" fmtCanon (addrCanonName ai)
+            fmtCanon n = unwords ["canonname", n ++ "\n"]
 
-cleanFamily :: String -> String
-cleanFamily ('A':'F':'_':xs) = map toLower xs
-cleanFamily xs               = xs
+instance Display SocketType where
+    display Datagram = "dgram"
+    display st       = map toLower $ show st
 
-cleanAddress :: String -> String
-cleanAddress addr
+instance Display ProtocolNumber where
+    display 6  = "tcp"
+    display 17 = "udp"
+    display p  = show p
+
+instance Display Family where
+    display AF_INET    = "inet"
+    display AF_INET6   = "inet6"
+    display AF_UNIX    = "unix"
+    display AF_NETBIOS = "netbios"
+    display f          = show f
+
+instance Display SockAddr where
+    display sa = fmtAddress $ show sa
+
+fmtAddress :: String -> String
+fmtAddress addr
     | "[" `isPrefixOf` addr =
         case break (== ']') <$> stripPrefix "[" addr of
             Just (ipv6, _:_:port) -> unwords [ipv6, port]
@@ -65,11 +86,6 @@ cleanAddress addr
     | otherwise =
         let (ipv4, port) = break (== ':') addr in
         unwords [ipv4, tail port]
-
-cleanProtocol :: ProtocolNumber -> String
-cleanProtocol 6  = "tcp"
-cleanProtocol 17 = "udp"
-cleanProtocol p  = show p
 
 -- | Parsing Options
 

@@ -44,29 +44,43 @@ spec = do
             parseProtocol (Just "invalid") `shouldBe` Left "Invalid protocol"
 
         it "address" $ do
-            cleanAddress "[2601:600:c400:30c0:d250:99ff:fec3:2321]:443"
+            fmtAddress "[2601:600:c400:30c0:d250:99ff:fec3:2321]:443"
                 `shouldBe` "2601:600:c400:30c0:d250:99ff:fec3:2321 443"
 
-            cleanAddress "[::1]:0"           `shouldBe` "::1 0"
-            cleanAddress "127.0.0.1:0"       `shouldBe` "127.0.0.1 0"
-            cleanAddress "192.168.122.62:80" `shouldBe` "192.168.122.62 80"
+            fmtAddress "[::1]:0"           `shouldBe` "::1 0"
+            fmtAddress "127.0.0.1:0"       `shouldBe` "127.0.0.1 0"
+            fmtAddress "192.168.122.62:80" `shouldBe` "192.168.122.62 80"
 
-    describe "display" $
+        it "strips extra canonical names" $ do
+            let [a, b, c] = stripCanonical [sCanonInfo, sCanonInfo, sCanonInfo]
+            addrCanonName a `shouldBe` Just "example.com"
+            addrCanonName b `shouldBe` Nothing
+            addrCanonName c `shouldBe` Nothing
+
+    describe "display" $ do
         {-
         $ getaddrinfo www.NetBSD.org
         dgram inet6 udp 2001:4f8:3:7:2e0:81ff:fe52:9ab6 0
         stream inet tcp 149.20.53.67 0
         -}
-        it "works" $ do
-            let body = "stream inet udp 127.0.0.1 0"
-            display info      `shouldBe` body
-            display canonInfo `shouldBe` "example.com\n" <> body
+        it "tcp works" $ do
+            let body = "stream inet tcp 127.0.0.1 0"
+            display sInfo      `shouldBe` body
+            display sCanonInfo `shouldBe` "canonname example.com\n" <> body
+
+        it "udp works" $ do
+            let body = "dgram inet udp 127.0.0.1 0"
+            display dInfo      `shouldBe` body
+            display dCanonInfo `shouldBe` "canonname example.com\n" <> body
 
     where
         os = defaultOptions
 
-        info = AddrInfo [] AF_INET Stream 17 addr Nothing
-        canonInfo = info { addrCanonName = Just "example.com" }
+        sInfo = AddrInfo [] AF_INET Stream 6 addr Nothing
+        sCanonInfo = sInfo { addrCanonName = Just "example.com" }
+
+        dInfo = AddrInfo [] AF_INET Datagram 17 addr Nothing
+        dCanonInfo = dInfo { addrCanonName = Just "example.com" }
 
         addr = SockAddrInet 0 host
         host = tupleToHostAddress (127, 0, 0, 1)
