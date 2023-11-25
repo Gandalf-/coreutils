@@ -20,10 +20,11 @@ instance Util Sum where
 runSum :: [String] -> IO ()
 runSum []    = runSum ["-"]
 runSum ["-"] = execute "" Q.stdin
-runSum [f]   = withFile f ReadMode $ execute "" . Q.fromHandle
-runSum fs    = mapM_ go fs
-    where
-        go f = withFile f ReadMode $ execute f . Q.fromHandle
+runSum [f]   = fExecute f
+runSum fs    = mapM_ fExecute fs
+
+fExecute :: FilePath -> IO ()
+fExecute f = withFile f ReadMode $ execute f . Q.fromHandle
 
 execute :: FilePath -> Q.ByteStream IO () -> IO ()
 execute f s = bsdSum s >>= (putStrLn . uncurry (display f))
