@@ -1,6 +1,6 @@
-{-# LANGUAGE TupleSections #-}
 module Coreutils.Jot where
 
+import           Control.Monad
 import           Coreutils.Util
 import           Data.Char
 import           System.Console.GetOpt
@@ -15,83 +15,77 @@ data Generator = Sequential | Random | Word String
     deriving (Show, Eq)
 
 data Range = Range
-    { reps  :: Integer
-    , rLow  :: Double
-    , rHigh :: Double
-    , rStep :: Double
+    { start :: Double
+    , step  :: Double
+    , count :: Integer
     }
     deriving (Show, Eq)
 
-data RangeHole = RangeHole
-    (Maybe Integer)
-    (Maybe Double)
-    (Maybe Double)
-    (Maybe Double)
+-- | Parsing
 
-{-
-ranger :: [String] -> Either String RangeHole
-ranger xs = do
-    (a, b, c, d) <- normalizeRange xs
-    r <- go parseInteger a
+jotParse :: (Maybe Integer, Maybe Double, Maybe Double, Maybe Double) -> Either String Range
+jotParse (Nothing, Nothing, Nothing, Nothing) =
+    Left "One value must be provided"
 
-    l <- go parseBound   1 b
-    h <- go parseBound 100 c
+-- | Missing three values
+jotParse (Just n,  Nothing, Nothing, Nothing) = Right $ Range 1         1  n
+jotParse (Nothing, Just lb, Nothing, Nothing) = Right $ Range lb        1  100
+jotParse (Nothing, Nothing, Just ub, Nothing) = Right $ Range (ub - 99) 1  100
+jotParse (Nothing, Nothing, Nothing, Just ss) = Right $ Range 1         ss 100
 
-    s <- parseDefault parseDouble 1 d
-    Left "!"
--}
+-- | Missing two values
+jotParse (Nothing, lb, ub, Nothing) = jotParse (Nothing, lb, ub, Just 1)
+jotParse (n,  lb, Nothing, Nothing) = jotParse (n,  lb, Nothing, Just 1)
+jotParse (n,  Nothing, ub, Nothing) = jotParse (n,  Nothing, ub, Just 1)
 
-go :: (String -> Either String a) -> String -> Either String (Maybe a)
-go _     ""  = Right Nothing
-go _     "-" = Right Nothing
-go parse xs  = Just <$> parse xs
+-- !
+jotParse (Nothing, lb, Nothing, ss) = jotParse (Just 100, lb, Nothing, ss)
+jotParse (Nothing, Nothing, ub, ss) = jotParse (Just 100, Nothing, ub, ss)
+jotParse (n, Nothing, Nothing, ss)  = jotParse (n, Just 1, Nothing, ss)
 
-defaultRange :: Range
-defaultRange = Range 100 1 100 1
+-- | Missing a single value
+jotParse (Nothing, Just lb, Just ub, Just ss) = do
+    -- Missing count
+    let n = 1 + floor ((ub - lb) / ss)
+    Right $ Range lb ss n
 
-data Options = Options
-    { optGenerator    :: Generator
-    , optFormat       :: Maybe String
-    , optSeparator    :: String
-    , optFinalNewline :: Bool
-    , optPrecision    :: Maybe Integer
-    }
-    deriving (Show, Eq)
+jotParse (Just n, Nothing, Just ub, Just ss) = do
+    -- Missing lower
+    let lb = ss + ub - fromIntegral n * ss
+    jotParse (Just n, Just lb, Just ub, Just ss)
 
-defaultStep :: Integer -> Double -> Double -> Double
--- if reps are omitted, this is always 1 or -1
-defaultStep n low high
-    | low <= high = (high - low) / fromIntegral (n - 1)
-    | otherwise   = negate $ defaultStep n high low
+jotParse (Just n, Just lb, Nothing, Just ss) = do
+    -- Missing upper
+    let ub = lb + fromIntegral n * ss
+    jotParse (Just n, Just lb, Just ub, Just ss)
 
-normalizeRange :: [String] -> Either String (String, String, String, String)
-normalizeRange []           = Left $ usageInfo "jot" options
-normalizeRange [a]          = Right (a, "-", "-", "-")
-normalizeRange [a, b]       = Right (a,   b, "-", "-")
-normalizeRange [a, b, c]    = Right (a,   b,   c, "-")
-normalizeRange [a, b, c, d] = Right (a,   b,   c,   d)
-normalizeRange _            = Left "Too many arguments"
+jotParse (Just n, Just lb, Just ub, Nothing) = do
+    -- Missing step
+    let ss = if lb <= ub then 1 else (-1)
+    jotParse (Just n, Just lb, Just ub, Just ss)
+
+-- | Missing nothing
+jotParse (Just n, Just lb, Just ub, Just ss) = do
+    let count = min n (1 + floor ((ub - lb) / ss))
+    when (count < 0) $
+        Left "Range must be non-negative"
+    Right $ Range lb ss count
+
 
 parseRange :: [String] -> Either String Range
 parseRange xs = do
-    (a, b, c, d) <- normalizeRange xs
-    (reps, defReps) <- parseDefault parseInteger 100 a
+        n  <- parseMaybe parseInteger sn
+        lu <- parseMaybe parseBound sl
+        lb <- parseMaybe parseBound su
+        ss <- parseMaybe parseDouble sc
+        jotParse (n, lu, lb, ss)
+    where
+        [sn, sl, su, sc] = take 4 (xs <> repeat "")
 
-    (rLow,  _) <- parseDefault parseBound   1 b
-    (rHigh, _) <- parseDefault parseBound 100 c
-
-    let dStep = if defReps
-        then if rLow < rHigh then 1 else -1
-        else defaultStep reps rLow rHigh
-    (pStep, _) <- parseDefault parseDouble dStep d
-    let rStep = min dStep pStep
-
-    Right $ Range {..}
-
-parseDefault :: (String -> Either String a) -> a -> String -> Either String (a, Bool)
-parseDefault _     d ""  = Right (d, True)
-parseDefault _     d "-" = Right (d, True)
-parseDefault parse _ xs  = (, False) <$> parse xs
+parseMaybe :: (String -> Either String a) -> String -> Either String (Maybe a)
+parseMaybe _ ""  = Right Nothing
+parseMaybe _ "-" = Right Nothing
+parseMaybe f xs  = Just <$> f xs
 
 parseBound :: String -> Either String Double
 -- ASCII character or double
@@ -114,6 +108,17 @@ parseInteger xs =
     case readMaybe xs of
         Nothing  -> Left $ xs <> " is not an integer"
         (Just d) -> Right d
+
+-- | Options
+
+data Options = Options
+    { optGenerator    :: Generator
+    , optFormat       :: Maybe String
+    , optSeparator    :: String
+    , optFinalNewline :: Bool
+    , optPrecision    :: Maybe Integer
+    }
+    deriving (Show, Eq)
 
 defaultOptions :: Options
 defaultOptions = Options
