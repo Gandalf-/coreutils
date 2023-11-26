@@ -192,4 +192,9 @@ optionDesc =
     , Option "t" []
         (ReqArg (\x o -> Right o { optSockType = Just x }) "socktype")
         "Specify a socket type: stream, dgram"
+
+    , Option "h" ["help"]
+        (NoArg
+            (\_ -> Left $ usageInfo "addrinfo [OPTION]... host" optionDesc))
+        "Show this help text"
     ]

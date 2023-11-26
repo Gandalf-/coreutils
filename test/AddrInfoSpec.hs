@@ -2,6 +2,7 @@ module AddrInfoSpec where
 
 import           Coreutils.AddrInfo
 import           Network.Socket
+import           System.IO.Silently
 import           Test.Hspec
 
 spec :: Spec
@@ -72,6 +73,38 @@ spec = do
             let body = "dgram inet udp 127.0.0.1 0"
             display dInfo      `shouldBe` body
             display dCanonInfo `shouldBe` "canonname example.com\n" <> body
+
+    describe "system" $ do
+        it "canonical" $ do
+            (stdout, _) <- capture $ addrInfoMain ["-c", "localhost"]
+            stdout `shouldBe` unlines
+                [ "canonname localhost"
+                , "dgram inet6 udp ::1 0"
+                , "stream inet6 tcp ::1 0"
+                , "dgram inet udp 127.0.0.1 0"
+                , "stream inet tcp 127.0.0.1 0"
+                ]
+
+        it "family" $ do
+            (stdout, _) <- capture $ addrInfoMain ["-f", "inet", "localhost"]
+            stdout `shouldBe` unlines
+                [ "dgram inet udp 127.0.0.1 0"
+                , "stream inet tcp 127.0.0.1 0"
+                ]
+
+        it "protocol" $ do
+            (stdout, _) <- capture $ addrInfoMain ["-p", "udp", "localhost"]
+            stdout `shouldBe` unlines
+                [ "dgram inet6 udp ::1 0"
+                , "dgram inet udp 127.0.0.1 0"
+                ]
+
+        it "socktype" $ do
+            (stdout, _) <- capture $ addrInfoMain ["-t", "stream", "localhost"]
+            stdout `shouldBe` unlines
+                [ "stream inet6 tcp ::1 0"
+                , "stream inet tcp 127.0.0.1 0"
+                ]
 
     where
         os = defaultOptions
