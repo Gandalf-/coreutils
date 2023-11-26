@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module JotSpec where
 
 import           Coreutils.Jot
@@ -5,6 +7,7 @@ import           Coreutils.Random (parse)
 import           Data.Either
 import           GHC.Conc.Sync    (par)
 import           Test.Hspec
+import           Test.QuickCheck
 
 spec :: Spec
 spec = do
@@ -14,12 +17,53 @@ spec = do
     missingThree
     missingOther
 
+    describe "properties" $ do
+        it "non negative count" $
+            withMaxSuccess 500 $ property $ \params -> do
+                let r = jotParse params
+                case r of
+                    Left _ -> discard
+                    Right (Range _ _ count) -> count >= 0
+
+        it "correct start" $
+            property $ \(n, lb, ub, ss) -> do
+                let r = jotParse (n, Just lb, ub, ss)
+                case r of
+                    Left _ -> discard
+                    Right (Range start _ _) -> start == lb
+
+        it "respects bounds" $
+            withMaxSuccess 500 $ property $ \(n, lb, ub, ss) -> do
+                let r = jotParse (n, Just lb, Just ub, ss)
+                case r of
+                    Left _ -> discard
+                    Right (Range start step count) -> do
+                        let end = start + fromIntegral (count - 1) * step
+                        (step >= 0 && end <= ub) || (step < 0 && end >= ub)
+
+        xit "consistent with count" $
+            withMaxSuccess 500 $ property $ \(n, lb, ub, ss) -> do
+                let r = jotParse (n, lb, Just ub, ss)
+                case r of
+                    Left _ -> discard
+                    Right (Range start step count) ->
+                        let calculatedEnd = start + fromIntegral (count - 1) * step
+                        in (calculatedEnd == ub) || (count == 1 && start == ub)
+
 missingOther :: Spec
 missingOther = do
     -- count, lower bound, upper bound, step size
     describe "parse" $
-        it "errors" $
+        it "errors" $ do
             jotParse (Nothing, Nothing, Nothing, Nothing) `shouldSatisfy` isLeft
+
+            jotParse (Just 0, Nothing, Just 9, Nothing) `shouldBe`
+                Left "Start must be provided for infinite sequence"
+            jotParse (Just 0, Nothing, Just 9, Just 1) `shouldBe`
+                Left "Start must be provided for infinite sequence"
+
+            jotParse (Just 0, Just 1, Just 10, Nothing) `shouldBe`
+                Left "Infinite sequences may not be bounded"
 
     describe "everything" $ do
         it "normal" $
@@ -45,6 +89,20 @@ missingOther = do
         it "impossible step" $
             jotParse (Just 100, Just 10, Just 1, Just 1) `shouldSatisfy` isLeft
 
+    describe "bugs" $ do
+        it "negative count" $ do
+            jotParse (Just (-1), Nothing, Nothing, Nothing) `shouldSatisfy` isLeft
+            jotParse (Just (-1), Just 1, Just 10, Just 1) `shouldSatisfy` isLeft
+
+            jotParse (Just 5, Just 0, Just (-2), Nothing) `shouldBe`
+                Right Range { start = 0, step = -1, count = 3 }
+            jotParse (Nothing, Just 0, Just (-2), Nothing) `shouldBe`
+                Right Range { start = 0, step = -1, count = 3 }
+
+        it "equal bounds" $
+            jotParse (Nothing, Just 0, Just 0, Nothing) `shouldBe`
+                Right Range { start = 0, step = 1, count = 1 }
+
 missingOne :: Spec
 missingOne = do
     describe "missing count" $ do
@@ -63,6 +121,12 @@ missingOne = do
         it "calculate negative" $
             jotParse (Nothing, Just 1, Just 10, Just 1) `shouldBe`
                 Right Range { start = 1, step = 1, count = 10 }
+
+        it "impossible step size" $ do
+            jotParse (Nothing, Just 0, Just (-2), Just 1) `shouldBe`
+                Left "Impossible step size"
+            jotParse (Nothing, Just 0, Just 0, Just 0) `shouldBe`
+                Left "Impossible step size"
 
     describe "missing lower" $ do
         it "normal" $
@@ -124,7 +188,7 @@ missingOne = do
                 Right Range { start = 1, step = 1, count = 10 }
 
 missingTwo :: Spec
-missingTwo =
+missingTwo = do
     describe "missing step and" $ do
         it "count" $ do
             jotParse (Nothing, Just 1, Just 100, Nothing) `shouldBe`

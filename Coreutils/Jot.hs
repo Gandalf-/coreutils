@@ -26,6 +26,12 @@ data Range = Range
 jotParse :: (Maybe Integer, Maybe Double, Maybe Double, Maybe Double) -> Either String Range
 jotParse (Nothing, Nothing, Nothing, Nothing) =
     Left "One value must be provided"
+jotParse (Just n, _, _, _) | n < 0 =
+    Left "Count must be non-negative"
+jotParse (Just 0, Nothing, Just _, _) =
+    Left "Start must be provided for infinite sequence"
+jotParse (Just 0, Just _, Just _, _) =
+    Left "Infinite sequences may not be bounded"
 
 -- | Missing three values
 jotParse (Just n,  Nothing, Nothing, Nothing) = Right $ Range 1         1  n
@@ -34,7 +40,9 @@ jotParse (Nothing, Nothing, Just ub, Nothing) = Right $ Range (ub - 99) 1  100
 jotParse (Nothing, Nothing, Nothing, Just ss) = Right $ Range 1         ss 100
 
 -- | Missing two values
-jotParse (Nothing, lb, ub, Nothing) = jotParse (Nothing, lb, ub, Just 1)
+jotParse (Nothing, Just lb, Just ub, Nothing) = do
+    let ss = if lb <= ub then 1 else (-1)
+    jotParse (Nothing, Just lb, Just ub, Just ss)
 jotParse (n,  lb, Nothing, Nothing) = jotParse (n,  lb, Nothing, Just 1)
 jotParse (n,  Nothing, ub, Nothing) = jotParse (n,  Nothing, ub, Just 1)
 
@@ -46,8 +54,10 @@ jotParse (n, Nothing, Nothing, ss)  = jotParse (n, Just 1, Nothing, ss)
 -- | Missing a single value
 jotParse (Nothing, Just lb, Just ub, Just ss) = do
     -- Missing count
-    let n = 1 + floor ((ub - lb) / ss)
-    Right $ Range lb ss n
+    when (ss == 0) $ Left "Impossible step size"
+    let count = 1 + floor ((ub - lb) / ss)
+    when (count <= 0) $ Left "Impossible step size"
+    Right $ Range lb ss count
 
 jotParse (Just n, Nothing, Just ub, Just ss) = do
     -- Missing lower
@@ -67,8 +77,7 @@ jotParse (Just n, Just lb, Just ub, Nothing) = do
 -- | Missing nothing
 jotParse (Just n, Just lb, Just ub, Just ss) = do
     let count = min n (1 + floor ((ub - lb) / ss))
-    when (count < 0) $
-        Left "Range must be non-negative"
+    when (count < 0) $ Left "Range must be non-negative"
     Right $ Range lb ss count
 
 
