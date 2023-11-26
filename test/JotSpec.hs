@@ -3,9 +3,11 @@
 module JotSpec where
 
 import           Coreutils.Jot
-import           Coreutils.Random (parse)
+import           Coreutils.Random   (parse)
+import           Coreutils.Util
 import           Data.Either
-import           GHC.Conc.Sync    (par)
+import           GHC.Conc.Sync      (par)
+import           System.IO.Silently
 import           Test.Hspec
 import           Test.QuickCheck
 
@@ -16,20 +18,67 @@ spec = do
     missingTwo
     missingThree
     missingOther
+    properties
+    execution
+    system
 
+system :: Spec
+system = do
+    describe "system" $ do
+        it "basic" $ do
+            (stdout, _) <- capture $ jot ["5"]
+            stdout `shouldBe` unlines ["1", "2", "3", "4", "5"]
+
+        it "basic format" $ do
+            (stdout, _) <- capture $ jot ["-ns", "!", "5"]
+            stdout `shouldBe` "1!2!3!4!5"
+
+        it "word" $ do
+            (stdout, _) <- capture $ jot ["-b", "abc", "3"]
+            stdout `shouldBe` unlines ["abc", "abc", "abc"]
+
+        it "word format" $ do
+            (stdout, _) <- capture $ jot ["-ns", "!", "-b", "abc", "3"]
+            stdout `shouldBe` "abc!abc!abc"
+    where
+        jot = run Jot
+
+execution :: Spec
+execution = do
+    describe "format" $ do
+        it "defaults" $
+            format defaultOptions show [1, 2, 3] `shouldBe` "1\n2\n3\n"
+
+        it "no final" $ do
+            let os = defaultOptions { optFinalNewline = False }
+            format os show [1, 2, 3] `shouldBe` "1\n2\n3"
+
+        it "separator" $ do
+            let os = defaultOptions { optSeparator = "!" }
+            format os show [1, 2, 3] `shouldBe` "1!2!3!"
+
+    describe "series" $
+        it "works" $ do
+            series (Range 1 1  5) `shouldBe` [1, 2, 3, 4, 5]
+            series (Range 1 10 5) `shouldBe` [1, 11, 21, 31, 41]
+            series (Range 1 1 10) `shouldBe` [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            series (Range 10 1 5) `shouldBe` [10, 11, 12, 13, 14]
+
+properties :: Spec
+properties = do
     describe "properties" $ do
         it "non negative count" $
             withMaxSuccess 500 $ property $ \params -> do
                 let r = jotParse params
                 case r of
-                    Left _ -> discard
+                    Left _                  -> discard
                     Right (Range _ _ count) -> count >= 0
 
         it "correct start" $
             property $ \(n, lb, ub, ss) -> do
                 let r = jotParse (n, Just lb, ub, ss)
                 case r of
-                    Left _ -> discard
+                    Left _                  -> discard
                     Right (Range start _ _) -> start == lb
 
         it "respects bounds" $

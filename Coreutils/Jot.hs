@@ -3,16 +3,14 @@ module Coreutils.Jot where
 import           Control.Monad
 import           Coreutils.Util
 import           Data.Char
+import           Data.List             (intercalate)
 import           System.Console.GetOpt
-import           Text.Read
+import           System.Exit
+import           Text.Read             (readMaybe)
 
 data Jot = Jot
 instance Util Jot where
-    run _ _ = undefined
-
-
-data Generator = Sequential | Random | Word String
-    deriving (Show, Eq)
+    run _ = jotMain
 
 data Range = Range
     { start :: Double
@@ -20,6 +18,52 @@ data Range = Range
     , count :: Integer
     }
     deriving (Show, Eq)
+
+-- | IO
+
+jotMain :: [String] -> IO ()
+jotMain args = do
+        unless (null errors) $
+            die $ unlines errors
+        either die (`runJot` other) $
+            foldM (flip id) defaultOptions opts
+    where
+        (opts, other, errors) = getOpt RequireOrder options args
+
+runJot :: Options -> [String] -> IO ()
+runJot os = either die putStr . execute os
+
+-- | Runtime
+
+execute :: Options -> [String] -> Either String String
+execute os rs =
+        case optGenerator os of
+        Sequential -> do
+            range <- parseRange rs
+            Right $ format os numFmt $ series range
+
+        Word w -> do
+            (Range _ _ count) <- parseRange rs
+            Right $ format os id $ replicate (fromIntegral count) w
+
+        _ -> undefined
+    where
+        numFmt =  (show :: Integer -> String) . floor
+
+format :: Options -> (a -> String) -> [a] -> String
+format os fmt xs =
+        intercalate sep (map fmt xs) <> end
+    where
+        sep = optSeparator os
+        end = if optFinalNewline os then sep else ""
+
+series :: Range -> [Double]
+series (Range _ _ 0) = []
+series (Range value step count) =
+        value : series (Range next step limit)
+    where
+        next = value + step
+        limit = count - 1
 
 -- | Parsing
 
@@ -120,6 +164,9 @@ parseInteger xs =
 
 -- | Options
 
+data Generator = Sequential | Random | Word String
+    deriving (Show, Eq)
+
 data Options = Options
     { optGenerator    :: Generator
     , optFormat       :: Maybe String
@@ -131,11 +178,11 @@ data Options = Options
 
 defaultOptions :: Options
 defaultOptions = Options
-    { optGenerator = Sequential
-    , optFormat = Nothing
-    , optSeparator = "\n"
+    { optGenerator    = Sequential
+    , optFormat       = Nothing
+    , optSeparator    = "\n"
     , optFinalNewline = True
-    , optPrecision = Nothing
+    , optPrecision    = Nothing
     }
 
 options :: [OptDescr (Options -> Either String Options)]
@@ -170,12 +217,12 @@ options =
 
     , Option "n" []
         (NoArg
-            (\opt -> Right opt { optFormat = Just "%c" }))
+            (\opt -> Right opt { optFinalNewline = False }))
         "Do not print a final newline"
 
     , Option "p" []
         (ReqArg
             (\arg opt -> (\v -> opt { optPrecision = Just v }) <$> parseInteger arg)
-            "string")
-        "Separate output with `string` instead of a newline"
+            "precision")
+        "Print only as many digits as the provided precision"
     ]
