@@ -3,11 +3,11 @@
 Unix core utilities implemented in Haskell.
 
 Goals are:
-* idiomatic implementations
-* fast, lazy IO
-* feature parity with BSD utils
-* fully tested
-* platform independent
+* Idiomatic implementations
+* Fast, lazy IO
+* Feature parity with BSD utils
+* Fully tested
+* Platform independent
 
 | Utility  | Idiomatic | Fast | Lazy | Tests | Complete |
 |----------|-----------|------|------|-------|----------|
@@ -18,7 +18,7 @@ Goals are:
 | cmp      | ✓         |      |      | ✓     | 50       |
 | cut      |           | 75   | ✓    | 90    | 90       |
 | dirname  | ✓         | -    | -    | ✓     | ✓        |
-| echo     | ✓         | -    | -    | -     | ✓        |
+| echo     | ✓         | -    | -    | ✓     | ✓        |
 | env      | ✓         | -    | -    | ✓     | ✓        |
 | exit     | ✓         | -    | -    | ✓     | ✓        |
 | false    | ✓         | -    | -    | ✓     | ✓        |
