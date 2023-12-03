@@ -126,14 +126,16 @@ jotParse (Just n, Just lb, Just ub, Just ss) = do
 
 
 parseRange :: [String] -> Either String Range
-parseRange xs = do
-        n  <- parseMaybe parseInteger sn
-        lu <- parseMaybe parseBound sl
-        lb <- parseMaybe parseBound su
-        ss <- parseMaybe parseDouble sc
-        jotParse (n, lu, lb, ss)
+parseRange xs = case args of
+        [sn, sl, su, sc] -> do
+            n  <- parseMaybe parseInteger sn
+            lu <- parseMaybe parseBound sl
+            lb <- parseMaybe parseBound su
+            ss <- parseMaybe parseDouble sc
+            jotParse (n, lu, lb, ss)
+        _ -> undefined
     where
-        [sn, sl, su, sc] = take 4 (xs <> repeat "")
+        args = take 4 (xs <> repeat "")
 
 parseMaybe :: (String -> Either String a) -> String -> Either String (Maybe a)
 parseMaybe _ ""  = Right Nothing
