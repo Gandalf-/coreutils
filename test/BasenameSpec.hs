@@ -1,13 +1,26 @@
 module BasenameSpec where
 
+import           Control.Exception
 import           Coreutils.Basename
+import           Coreutils.Util
 import           Data.Either
+import           System.IO.Silently
 import           Test.Hspec
 
 -- | https://pubs.opengroup.org/onlinepubs/9699919799/utilities/basename.html
 
 spec :: Spec
 spec = parallel $ do
+    describe "system" $ do
+        let bname = run Basename
+        it "basic" $ do
+            (stdout, _) <- capture $ bname ["some/file.txt"]
+            stdout `shouldBe` unlines ["file.txt"]
+
+        it "suffix" $ do
+            (stdout, _) <- capture $ bname ["some/file.txt", ".txt"]
+            stdout `shouldBe` unlines ["file"]
+
     describe "runner" $
         it "works" $ do
             runner []              `shouldSatisfy` isLeft
