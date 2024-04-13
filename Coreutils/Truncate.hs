@@ -116,13 +116,19 @@ options =
         (ReqArg
             (\arg opt -> Right opt { optSize = Reference arg })
             "rfile")
-        "Truncate or extend files to the length of `rfile`"
+        "Truncate or extend files to the length of reference `rfile`"
 
     , Option "s" []
         (ReqArg
             (\arg opt -> (\s -> opt { optSize = s }) <$> parseSize arg)
-            "width")
-        "Line width to use instead of the default of 80"
+            "N")
+        (unlines
+            [ " N: Set the size of the file to N bytes"
+            , "+N: Extend the file by N bytes"
+            , "-N: Shrink the file by N bytes"
+            , "%N: Round up to the nearest multiple of N"
+            , "/N: Round down to the nearest multiple of N"
+            ])
 
     , Option "h" ["help"]
         (NoArg
