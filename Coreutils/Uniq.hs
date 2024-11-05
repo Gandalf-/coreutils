@@ -7,6 +7,7 @@ module Coreutils.Uniq where
 -- Functionally equivalent to BSD uniq except for nonsense option combinations
 -- like --unique --repeated
 
+import           Control.Monad              (foldM, unless)
 import           Control.Monad.State.Strict
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString.Char8      as C
