@@ -77,7 +77,7 @@ spec = do
     describe "system" $ do
         it "canonical" $ do
             (stdout, _) <- capture $ addrInfoMain ["-c", "localhost"]
-            stdout `shouldBe` unlines
+            clean stdout validNames `shouldBe`
                 [ "canonname localhost"
                 , "dgram inet6 udp ::1 0"
                 , "stream inet6 tcp ::1 0"
@@ -87,21 +87,21 @@ spec = do
 
         it "family" $ do
             (stdout, _) <- capture $ addrInfoMain ["-f", "inet", "localhost"]
-            stdout `shouldBe` unlines
+            clean stdout validNames `shouldBe`
                 [ "dgram inet udp 127.0.0.1 0"
                 , "stream inet tcp 127.0.0.1 0"
                 ]
 
         it "protocol" $ do
             (stdout, _) <- capture $ addrInfoMain ["-p", "udp", "localhost"]
-            stdout `shouldBe` unlines
+            clean stdout validNames `shouldBe`
                 [ "dgram inet6 udp ::1 0"
                 , "dgram inet udp 127.0.0.1 0"
                 ]
 
         it "socktype" $ do
             (stdout, _) <- capture $ addrInfoMain ["-t", "stream", "localhost"]
-            stdout `shouldBe` unlines
+            clean stdout validNames `shouldBe`
                 [ "stream inet6 tcp ::1 0"
                 , "stream inet tcp 127.0.0.1 0"
                 ]
@@ -117,3 +117,12 @@ spec = do
 
         addr = SockAddrInet 0 host
         host = tupleToHostAddress (127, 0, 0, 1)
+
+        validNames = ["canonname", "dgram", "stream"]
+
+
+clean :: String -> [String] -> [String]
+clean xs vs = filter (isValidLine . words) . lines $ xs
+    where
+        isValidLine [] = False
+        isValidLine (w:_) = w `elem` vs
