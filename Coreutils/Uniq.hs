@@ -8,7 +8,7 @@ module Coreutils.Uniq where
 -- like --unique --repeated
 
 import           Control.Monad              (foldM, unless)
-import           Control.Monad.State.Strict
+import           Control.Monad.State.Strict (StateT, get, put, runStateT)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString.Char8      as C
 import           Data.Char                  (toLower)
