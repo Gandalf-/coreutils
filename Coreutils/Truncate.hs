@@ -60,10 +60,10 @@ execute os@(Options _ size) path = do
 
 adjust :: Size -> Integer -> Integer
 adjust (Adjustment n) size = size + n
-adjust (RoundUp 0) _       = 0
-adjust (RoundUp n) size    = ceilDiv size n * n
-adjust (RoundDown 0) _     = 0
-adjust (RoundDown n) size  = floorDiv size n * n
+adjust (RoundUp    0) _    = 0
+adjust (RoundUp    n) size = ceilDiv size n * n
+adjust (RoundDown  0) _    = 0
+adjust (RoundDown  n) size = floorDiv size n * n
 adjust _ _                 = undefined
 
 ceilDiv :: Integer -> Integer -> Integer
