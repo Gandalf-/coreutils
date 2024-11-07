@@ -55,6 +55,8 @@ parseArgs = parser defaultOptions
 
 parser :: Options -> [String] -> Either String (Options, [String])
 parser o [] = Right (o, [])
+parser o ("--":xs) =
+    Right (o, xs)
 parser o ("-n":n:xs) = do
     v <- getNumber n
     parser (o { optLength = v }) xs

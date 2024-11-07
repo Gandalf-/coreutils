@@ -42,6 +42,12 @@ spec = do
             parseArgs ["-n", ".4"] `shouldSatisfy` isLeft
             parseArgs ["-b", "a"]  `shouldSatisfy` isLeft
 
+        it "respects --" $ do
+            parseArgs ["--", "4"]             `shouldBe` Right (Options 4, ["4"])
+            parseArgs ["--", "--"]            `shouldBe` Right (Options 4, ["--"])
+            parseArgs ["-n", "9", "--", "-n"] `shouldBe` Right (Options 9, ["-n"])
+            parseArgs ["a", "--", "-n"]       `shouldBe` Right (Options 4, ["a", "-n"])
+
         it "invalid option formats" $ do
             parseArgs ["--n", "9", "file"] `shouldSatisfy` isLeft
             parseArgs ["-n9", "file"]      `shouldSatisfy` isLeft
