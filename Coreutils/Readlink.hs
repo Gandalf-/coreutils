@@ -16,13 +16,13 @@ readlinkMain :: [String] -> IO ()
 readlinkMain args = do
         unless (null errors) $
             die $ unlines errors
-        either die (`runReadlink` other) $
+        either die (`runReadlink` paths) $
             foldM (flip id) defaultRuntime opts
     where
-        (opts, other, errors) = getOpt RequireOrder optionDesc args
+        (opts, paths, errors) = getOpt RequireOrder optionDesc args
 
-runReadlink :: Runtime -> [String] -> IO ()
-runReadlink o = mapM_ (execute o >=> display o)
+runReadlink :: Runtime -> [FilePath] -> IO ()
+runReadlink rt = mapM_ (execute rt >=> display rt)
 
 data Runtime = Runtime
     { display :: FilePath -> IO ()
@@ -39,12 +39,12 @@ optionDesc :: [OptDescr (Runtime -> Either String Runtime)]
 optionDesc =
     [ Option "f" []
         (NoArg
-            (\opt -> Right opt { execute = canonicalizePath }))
+            (\rt -> Right rt { execute = canonicalizePath }))
         "canonicalize to a full path"
 
     , Option "n" []
         (NoArg
-            (\opt -> Right opt { display = putStr }))
+            (\rt -> Right rt { display = putStr }))
         "do not output a trailing newline"
 
     , Option "h" ["help"]
