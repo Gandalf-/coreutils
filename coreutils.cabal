@@ -57,6 +57,7 @@ library
     Coreutils.Paste
     Coreutils.Pwd
     Coreutils.Random
+    Coreutils.Readlink
     Coreutils.Realpath
     Coreutils.Rev
     Coreutils.Seq
