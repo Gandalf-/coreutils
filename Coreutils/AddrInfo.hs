@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Coreutils.AddrInfo where
 
@@ -35,7 +36,7 @@ addrInfoMain args = do
 runAddrInfo :: Options -> Maybe String -> IO ()
 runAddrInfo os host = do
         hints <- either die return $ getHints os
-        ais <- stripCanonical <$> getAddrInfo (Just hints) host (optService os)
+        ais <- sort . stripCanonical <$> getAddrInfo (Just hints) host (optService os)
         mapM_ (putStrLn . display) ais
 
 stripCanonical :: [AddrInfo] -> [AddrInfo]
@@ -57,6 +58,9 @@ instance Display AddrInfo where
         where
             canonical = maybe "" fmtCanon (addrCanonName ai)
             fmtCanon n = unwords ["canonname", n ++ "\n"]
+
+instance Ord AddrInfo where
+    compare a b = compare (display a) (display b)
 
 instance Display SocketType where
     display Datagram = "dgram"
