@@ -194,7 +194,7 @@ expand st r NumFields     =
 expand st _ NumRecords    =
     H.findWithDefault (Number 0) "NR" $ sVariables st
 
-expand _  _ (Expression _)  = undefined
+expand st r (Expression expr) = evalExpression st r expr
 expand st _ (Variable name) =
     H.findWithDefault (String T.empty) name $ sVariables st
 
@@ -206,6 +206,14 @@ expand st r (FieldVar n)
         fs = fields st r
         value = fs !! (n - 1)
         primitive = parse (pPrimitive <* eof) "fieldVar" value
+
+-- Evaluate expressions with numeric operations
+evalExpression :: AwkState -> Record -> Expression -> Primitive
+evalExpression st r (Val v) = expand st r v
+evalExpression st r (Add e1 e2) =
+    Number $ toInt (evalExpression st r e1) + toInt (evalExpression st r e2)
+evalExpression st r (Sub e1 e2) =
+    Number $ toInt (evalExpression st r e1) - toInt (evalExpression st r e2)
 
 
 data Expression =
@@ -384,9 +392,9 @@ pRelation = choice [try eq, try ne, try lt, try le, try gt, ge]
 
 pExpr :: Parser Expr
 pExpr = ActionExpr <$> between
-    (spaces >> char '{' >> spaces)
-    (spaces >> char '}')
-    (sepEndBy1 pAction spaces)
+    (spaces >> char '{' >> optional spaces)
+    (optional spaces >> char '}')
+    (sepEndBy1 pAction (optional spaces))
 
 pAction :: Parser Action
 pAction = do
@@ -396,7 +404,7 @@ pAction = do
     where
         pAll = string "print" >> pure PrintAll
         pVar = do
-            string "print" >> spaces
+            string "print" >> optional spaces
             PrintValue <$> sepEndBy1 pValue spaces
 
 pAssign :: Parser Action
@@ -440,15 +448,30 @@ pAny :: Parser Primitive
 pAny = String . T.pack <$> many1 anyChar
 
 pExpression :: Parser Expression
-pExpression = do
-    v1 <- Val <$> pValue
-    void spaces
-    op <- anyChar
-    void spaces
-    v2 <- pExpression
-    case op of
-        '+' -> pure $ Add v1 v2
-        c   -> unexpected $ "Unsupported operator: " <> [c]
+pExpression = pAddSub
+
+-- Parse addition and subtraction with proper precedence
+pAddSub :: Parser Expression
+pAddSub = do
+    left <- pTerm
+    rest left
+  where
+    rest left =
+        (do
+            spaces
+            op <- oneOf "+-"
+            spaces
+            right <- pTerm
+            let expr = case op of
+                    '+' -> Add left right
+                    '-' -> Sub left right
+                    _   -> error "Unexpected operator"
+            rest expr
+        ) <|> return left
+
+-- Term is just a value for now, but could be expanded for multiplication/division
+pTerm :: Parser Expression
+pTerm = Val <$> pValue
 
 pPrimitive :: Parser Primitive
 pPrimitive = num <|> quote
@@ -468,7 +491,7 @@ pKeywords :: Parser String
 pKeywords = string "print"
 
 pValue :: Parser Value
-pValue = choice [try sep, try field, try nf, try nr, try pr, var]
+pValue = choice [try sep, try pExprValue, try field, try nf, try nr, try pr, var]
     where
         nf = NumFields <$ string "NF"
         nr = NumRecords <$ string "NR"
@@ -481,6 +504,18 @@ pValue = choice [try sep, try field, try nf, try nr, try pr, var]
         sep = do
             _ <- char ','
             pure $ Primitive $ String " "
+
+        -- Parse expressions in values (for print statements)
+        pExprValue = do
+            v1 <- choice [try field, try nf, try nr, try pr, var]
+            spaces
+            op <- oneOf "+-"
+            spaces
+            v2 <- choice [try field, try nf, try nr, try pr, var]
+            case op of
+                '+' -> pure $ Expression $ Add (Val v1) (Val v2)
+                '-' -> pure $ Expression $ Sub (Val v1) (Val v2)
+                _   -> unexpected $ "Unsupported operator: " <> [op]
 
 
 -- | Options

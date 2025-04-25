@@ -141,6 +141,35 @@ execution = parallel $ do
                 (Variable "x")
                 `shouldBe` Number 1
 
+        it "evaluates expressions" $ do
+            let expVal = Expression . Val . Primitive . Number
+            let expAdd a b = Expression (Add (Val (Primitive (Number a))) (Val (Primitive (Number b))))
+            let expSub a b = Expression (Sub (Val (Primitive (Number a))) (Val (Primitive (Number b))))
+
+            -- Basic expressions
+            expa "" (expVal 42) `shouldBe` Number 42
+            expa "" (expAdd 2 3) `shouldBe` Number 5
+            expa "" (expSub 7 3) `shouldBe` Number 4
+
+            -- Nested expressions
+            let nestedExp = Expression (Add
+                                (Add (Val (Primitive (Number 1))) (Val (Primitive (Number 2))))
+                                (Val (Primitive (Number 3))))
+            expa "" nestedExp `shouldBe` Number 6
+
+            -- Using field variables
+            let fieldExp = Expression (Add
+                                (Val (FieldVar 1))
+                                (Val (FieldVar 2)))
+            expa "5 7" fieldExp `shouldBe` Number 12
+
+            -- Using state variables
+            let st = emptyState { sVariables = H.fromList [("x", Number 10)]}
+            let varExp = Expression (Add
+                                (Val (Variable "x"))
+                                (Val (Primitive (Number 5))))
+            expand st "" varExp `shouldBe` Number 15
+
     describe "execute" $ do
         it "action" $ do
             exec PrintAll "apple" `shouldBe` "apple\n"

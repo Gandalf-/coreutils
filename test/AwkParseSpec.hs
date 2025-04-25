@@ -47,13 +47,20 @@ spec = parallel $ do
             pRun pValue "x" `shouldBe` Right (Variable "x")
             pRun pValue "abc2" `shouldBe` Right (Variable "abc2")
 
-    xdescribe "expression" $
-        it "works" $ do
-            let vNum = Val . Primitive . Number
-            pRun pExpression "1 + 2"
-                `shouldBe` Right (Add (vNum 1) (vNum 2))
-            pRun pExpression "1 + 2 + 3"
-                `shouldBe` Right (Add (vNum 1) (Add (vNum 2) (vNum 3)))
+    describe "expression" $ do
+        it "works with addition" $ do
+            pRun pValue "1 + 2"
+                `shouldBe` Right (Expression (Add (Val (Primitive (Number 1))) (Val (Primitive (Number 2)))))
+
+        it "works with subtraction" $ do
+            pRun pValue "1 - 2"
+                `shouldBe` Right (Expression (Sub (Val (Primitive (Number 1))) (Val (Primitive (Number 2)))))
+
+        it "works with variables and fields" $ do
+            pRun pValue "x + 1"
+                `shouldBe` Right (Expression (Add (Val (Variable "x")) (Val (Primitive (Number 1)))))
+            pRun pValue "$1 + $2"
+                `shouldBe` Right (Expression (Add (Val (FieldVar 1)) (Val (FieldVar 2))))
 
     describe "pattern" $ do
         it "basics" $ do
@@ -106,6 +113,7 @@ spec = parallel $ do
     describe "action" $ do
         it "works" $ do
             pRun pAction "print $1"    `shouldBe` Right (PrintValue [FieldVar 1])
+            pRun pAction "print$1"     `shouldBe` Right (PrintValue [FieldVar 1]) -- No space
             pRun pAction "print $1;"   `shouldBe` Right (PrintValue [FieldVar 1])
             pRun pAction "print \"a\"" `shouldBe` Right (PrintValue [Primitive (String "a")])
 
@@ -120,6 +128,14 @@ spec = parallel $ do
 
             pRun pAction "print $1, print" `shouldSatisfy` isLeft
             pRun pAction ";" `shouldSatisfy` isLeft
+
+        it "works with expressions" $ do
+            pRun pAction "print $1 + $2" `shouldBe`
+                Right (PrintValue [Expression (Add (Val (FieldVar 1)) (Val (FieldVar 2)))])
+            pRun pAction "print 1 + 2" `shouldBe`
+                Right (PrintValue [Expression (Add (Val (Primitive (Number 1))) (Val (Primitive (Number 2))))])
+            pRun pAction "print x + 5" `shouldBe`
+                Right (PrintValue [Expression (Add (Val (Variable "x")) (Val (Primitive (Number 5))))])
 
         it "assignment" $ do
             pRun pAction "x=3"
@@ -194,6 +210,19 @@ spec = parallel $ do
                 Right (ActionExpr [PrintValue [FieldVar 1], PrintValue [FieldVar 2]])
             pRun pExpr "{ print $1; print $2; }" `shouldBe`
                 Right (ActionExpr [PrintValue [FieldVar 1], PrintValue [FieldVar 2]])
+
+        it "expr with varying spaces" $ do
+            pRun pExpr "{print}" `shouldBe` Right (ActionExpr [PrintAll])
+            pRun pExpr "{ print}" `shouldBe` Right (ActionExpr [PrintAll])
+            pRun pExpr "{print }" `shouldBe` Right (ActionExpr [PrintAll])
+            pRun pExpr "{print$1}" `shouldBe` Right (ActionExpr [PrintValue [FieldVar 1]])
+            pRun pExpr "{print $1+$2}" `shouldBe`
+                Right (ActionExpr [PrintValue [Expression (Add (Val (FieldVar 1)) (Val (FieldVar 2)))]])
+            pRun pExpr "{x=5;print x+$1}" `shouldBe`
+                Right (ActionExpr [
+                    Assign "x" (Primitive (Number 5)),
+                    PrintValue [Expression (Add (Val (Variable "x")) (Val (FieldVar 1)))]
+                ])
 
     describe "program" $ do
         it "empty" $ do

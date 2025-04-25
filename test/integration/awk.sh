@@ -95,4 +95,10 @@ ptest_assignment_expressions() {
     echo | awk 'END { x += 1; x *= 5; x -= 0; x **= 5; print x }' | expect 25
 }
 
+ptest_arithmetic_expressions() {
+    echo "1 2 3" | awk '{ print $1 + $2 + $3 }'  | expect 6
+    echo "5 3"   | awk '{ print $1 - $2 }'       | expect 2
+    echo "2 3 4" | awk '{ x = 5; print x + $1 }' | expect 7
+}
+
 run_tests awk
