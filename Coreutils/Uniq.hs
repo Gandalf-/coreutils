@@ -234,7 +234,7 @@ optionDesc =
     , Option "i" ["ignore-case"]
         (NoArg
             (\opt -> Right opt { optIgnoreCase = True }))
-        "Case insenstive comparision of lines"
+        "Case insenstive comparison of lines"
 
     , Option "f" ["skip-fields"]
         (ReqArg
