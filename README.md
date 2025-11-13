@@ -89,8 +89,8 @@ shell to these implementations. The testing done is mostly thorough, but there's
 some crazy usage of the coreutils out in the wild; like `cat - - -` in
 build scripts. Who needs to read `stdin` three separate times? The standard
 Haskell IO libraries make some sane assumptions that things like this don't
-happen, so this project has balance ugly workarounds with idomatic behavior.
-Where reasonable, idomatic is preferred. Further, this project relies on the
+happen, so this project has balance ugly workarounds with idiomatic behavior.
+Where reasonable, idiomatic is preferred. Further, this project relies on the
 Haskell IO libraries for platform independence - where they decided to simplify
 (permissions, file types), this project does also.
 
