@@ -8,7 +8,7 @@ import           Coreutils.Util
 import           Data.Char
 import           Data.Either.Extra
 import           Data.List
-import           Data.Maybe              (listToMaybe)
+import           Data.Maybe            (listToMaybe)
 import           Network.Socket
 import           System.Console.GetOpt
 import           System.Exit

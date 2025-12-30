@@ -8,7 +8,7 @@ import           Test.Hspec
 import           Coreutils.Strings
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "filters" $ do
         it "by printable" $ do
             strings 1 "ab"     `shouldBe` ["ab"]

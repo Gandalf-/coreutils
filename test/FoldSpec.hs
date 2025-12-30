@@ -6,7 +6,7 @@ import           Test.Hspec
 import           Text.Parsec    (space)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "axioms" $
         it "isSpace" $ do
             isSpace ' ' `shouldBe` True

@@ -10,7 +10,7 @@ import qualified Streaming.ByteString.Char8 as Q
 import           Test.Hspec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "parse" $ do
         it "positiveInt" $ do
             parseNumber "123" `shouldBe` Right 123

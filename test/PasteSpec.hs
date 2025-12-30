@@ -8,7 +8,7 @@ import           System.IO
 import           Test.Hspec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "separators" $
         it "works" $ do
             separators "abc"       `shouldBe` ["a", "b", "c"]

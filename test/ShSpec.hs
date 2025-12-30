@@ -3,7 +3,7 @@ module ShSpec where
 import           Test.Hspec
 
 spec :: Spec
-spec =
+spec = parallel $
     describe "sh" $
         it "works" $
             True `shouldBe` True

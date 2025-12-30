@@ -9,7 +9,7 @@ import qualified Streaming.ByteString.Char8 as Q
 import           Test.Hspec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "prepare" $ do
         it "ignore case" $ do
             let os = defaultOptions { optIgnoreCase = True }

@@ -4,7 +4,7 @@ import           Coreutils.Ed
 import           Test.Hspec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "printLine" $ do
         it "works" $ do
             let s = State ["a", "b", "c"] 1 ""

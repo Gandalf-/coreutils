@@ -5,7 +5,7 @@ import           System.Directory
 import           Test.Hspec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "execute" $ do
         it "works" $ do
             execute cleanRt "foo" `shouldReturn` Right "foo/abc"

@@ -13,7 +13,7 @@ import qualified Streaming.ByteString  as Q
 import           Test.Hspec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "translationTable" $ do
         it "works" $ do
             let (Translator t) = translationTable False "abc" "ABC"
