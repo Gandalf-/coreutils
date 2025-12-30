@@ -25,3 +25,4 @@ uniq
 cat
 *.lock
 .DS_Store
+coreutils.cabal

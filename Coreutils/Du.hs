@@ -1,4 +1,4 @@
-module Control.Du where
+module Coreutils.Du where
 
 import           Control.Monad
 import           System.Console.GetOpt
