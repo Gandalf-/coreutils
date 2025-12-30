@@ -1,16 +1,16 @@
+cabal-version:       2.4
 name:                coreutils
 version:             0.5.0.0
 synopsis:            Unix core utilities implemented in Haskell
 description:         Please see README.md
 homepage:            https://public.anardil.net/code/coreutils
-license:             BSD3
+license:             BSD-3-Clause
 license-file:        LICENSE
 author:              Austin
 maintainer:          austin@anardil.net
 copyright:           2022, Austin
 category:            Utility
 build-type:          Simple
-cabal-version:       >=1.10
 
 flag release
   description:         for installation
@@ -184,4 +184,4 @@ test-suite test
     WcSpec
     YesSpec
 
-  build-tool-depends: hspec-discover:hspec-discover == 2.*
+  build-tool-depends: hspec-discover:hspec-discover >= 2.11

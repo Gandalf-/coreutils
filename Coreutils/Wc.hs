@@ -10,7 +10,7 @@ module Coreutils.Wc where
 
 import           Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as L
-import           Data.List                  (foldl', transpose)
+import           Data.List                  (transpose)
 import           GHC.Int                    (Int64)
 import           System.Console.GetOpt
 import           System.Exit

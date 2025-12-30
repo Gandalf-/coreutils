@@ -1,4 +1,4 @@
-resolver: lts-20.25
+resolver: lts-24.24
 with-gcc: /usr/bin/clang
 
 packages:
