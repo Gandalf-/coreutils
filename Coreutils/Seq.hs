@@ -117,7 +117,9 @@ parse s
     where
         integerish = all isDigit
         doubleish  = all (\c -> isDigit c || c == '.')
-        width      = length $ tail $ dropWhile (/= '.') s
+        width      = case dropWhile (/= '.') s of
+            (_:rest) -> length rest
+            []       -> 0
 
 -- | Options
 

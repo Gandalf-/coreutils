@@ -101,16 +101,16 @@ parsePort p = do
 
 parsePortRange :: String -> Either String [PortNumber]
 parsePortRange ps
-        | length is /= 1 = Left "No port range provided"
-        | otherwise = do
-            lp <- parsePort ls
-            hp <- parsePort $ tail hs
-            when (lp > hp) $
-                Left "Port ranges cannot be reversed"
-            Right [lp .. hp]
-    where
-        is = elemIndices '-' ps
-        (ls, hs) = splitAt (head is) ps
+        | [idx] <- elemIndices '-' ps =
+            case splitAt idx ps of
+                (ls, _:hs) -> do
+                    lp <- parsePort ls
+                    hp <- parsePort hs
+                    when (lp > hp) $
+                        Left "Port ranges cannot be reversed"
+                    Right [lp .. hp]
+                _ -> Left "Invalid port range format"
+        | otherwise = Left "No port range provided"
 
 
 data Action = Listener | Connector

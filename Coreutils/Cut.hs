@@ -289,8 +289,8 @@ chooseDelimiter :: Options -> String -> [String] -> Either String Options
 -- ^ gnu cut only allows a single character delimiter; we could do strings, but the
 -- result ends up being pretty weird
 chooseDelimiter o d xs
-        | length d == 1 = parseOptions (o { delimiter = head d, outputDelimiter = Just [head d]}) xs
-        | otherwise     = Left "the delimiter may only be a single character"
+        | [c] <- d  = parseOptions (o { delimiter = c, outputDelimiter = Just [c]}) xs
+        | otherwise = Left "the delimiter may only be a single character"
 
 
 chooseSelector :: Options -> String -> ([Field] -> Selector) -> [String] -> Either String Options
@@ -316,18 +316,18 @@ parseField :: String -> Maybe Field
 --   n-m == [n..m]
 --   n   == [n]
 parseField f
-        | null f                     = Nothing
-        | splitOkay && head f == '-' = checkOrdering $ Range 1 <$> second
-        | splitOkay && last f == '-' = (`Range` infinity) <$> first
-        | splitOkay                  = checkOrdering $ Range <$> first <*> second
-        | otherwise                  = Exact <$> num
+        | null f                          = Nothing
+        | splitOkay, (c:_) <- f, c == '-' = checkOrdering $ Range 1 <$> second
+        | splitOkay, last f == '-'        = (`Range` infinity) <$> first
+        | splitOkay                       = checkOrdering $ Range <$> first <*> second
+        | otherwise                       = Exact <$> num
     where
         -- try taking the input as a whole
         num = checkPositive $ readMaybe f
 
         -- try breaking it up
         parts     = splitOn "-" f
-        first     = checkPositive $ readMaybe (head parts)
+        first     = listToMaybe parts >>= checkPositive . readMaybe
         second    = checkPositive $ readMaybe (last parts)
         splitOkay = length parts == 2
 

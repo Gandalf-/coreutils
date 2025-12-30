@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Coreutils.Split where
@@ -166,7 +167,7 @@ filenameGenerator prefix numeric width suffix =
     where
         initial =
             map (\i -> prefix <> i <> suffix)
-            $ filter (\i -> head i /= next)
+            $ filter (\case (c:_) -> c /= next; _ -> False)
             $ replicateM width characters
         more = filenameGenerator (prefix <> [next]) numeric (width + 1) suffix
 

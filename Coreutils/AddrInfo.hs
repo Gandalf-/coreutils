@@ -8,6 +8,7 @@ import           Coreutils.Util
 import           Data.Char
 import           Data.Either.Extra
 import           Data.List
+import           Data.Maybe              (listToMaybe)
 import           Network.Socket
 import           System.Console.GetOpt
 import           System.Exit
@@ -28,9 +29,7 @@ addrInfoMain args = do
             foldM (flip id) defaultOptions opts
     where
         (opts, other, errors) = getOpt RequireOrder optionDesc args
-        host
-            | null other = Nothing
-            | otherwise  = Just $ head other
+        host = listToMaybe other
 
 
 runAddrInfo :: Options -> Maybe String -> IO ()
@@ -88,8 +87,9 @@ fmtAddress addr
             Just (ipv6, _:_:port) -> unwords [ipv6, port]
             _                     -> error "Invalid format"
     | otherwise =
-        let (ipv4, port) = break (== ':') addr in
-        unwords [ipv4, tail port]
+        case break (== ':') addr of
+            (ipv4, ':':port) -> unwords [ipv4, port]
+            (ipv4, _)        -> ipv4
 
 -- | Parsing Options
 

@@ -35,5 +35,7 @@ spec = do
         errorRt = Runtime {
             defaultPath = pure "/cwd",
             realpath = getSymbolicLinkTarget,
-            onError = \p -> head (words $ show p) <> " error"
+            onError = \p -> case words (show p) of
+                (w:_) -> w <> " error"
+                []    -> "error"
         }
