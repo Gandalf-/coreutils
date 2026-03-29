@@ -142,7 +142,7 @@ getRuntime os = Runtime { .. }
 
         increment = (+ optLineIncrement os)
 
-        noNumber = C.replicate (optNumberWidth os + C.length sep) ' '
+        noNumber = C.replicate (optNumberWidth os) ' ' <> sep
         number i = format (optNumberFormat os) (optNumberWidth os) i <> sep
         sep = C.pack $ optNumberSeparator os
 

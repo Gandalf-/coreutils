@@ -121,7 +121,14 @@ spec = parallel $ do
             position st `shouldBe` Body
             value st `shouldBe` 1
             blanks st `shouldBe` 0
-            s `shouldBe` Just "       hello"
+            s `shouldBe` Just "      \thello"
+
+        it "noNumber uses separator" $ do
+            let rt = getRuntime defaultOptions {
+                optBodyNumbering = NoLines, optNumberSeparator = ":::"
+                }
+            let (_, s) = execute (getState rt) "hello"
+            s `shouldBe` Just "      :::hello"
 
         it "counts blanks" $ do
             let (st1, _) = execute dState ""
@@ -137,7 +144,7 @@ spec = parallel $ do
             let (st1, s1) = execute (getState rt) ""
             blanks st1 `shouldBe` 1
             value  st1 `shouldBe` 1
-            s1 `shouldBe` Just "       "
+            s1 `shouldBe` Just "      \t"
 
             let (st2, s2) = execute st1 ""
             blanks st2 `shouldBe` 2
@@ -157,7 +164,7 @@ spec = parallel $ do
 
             let (st2, s2) = execute st1 "hello"
             position st2 `shouldBe` Header
-            s2 `shouldBe` Just "       hello"
+            s2 `shouldBe` Just "      \thello"
 
             let (st3, s3) = execute st2 "!!"
             position st3 `shouldBe` Body

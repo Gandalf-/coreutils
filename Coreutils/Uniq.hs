@@ -49,8 +49,7 @@ runUniq os fs = mapM_ runner fs
 
 unique :: Options -> Q.ByteStream IO () -> IO ()
 unique os bs = do
-        (st, _) <- Q.stdout $ Q.unlines $ S.subst Q.chunk
-                  $ S.for inner S.each
+        (st, _) <- Q.stdout $ Q.unlines $ S.subst Q.chunk $ S.for inner S.each
         C.putStr $ C.concat (finalize st)
     where
         inner = mapAccum execute initial $ mapped Q.toStrict $ Q.lines bs
