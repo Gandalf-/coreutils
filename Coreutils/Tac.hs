@@ -17,8 +17,6 @@ data Tac = Tac
 instance Util Tac where
     run _ = tacMain
 
-type SeekPosition = Integer
-
 tacMain :: [String] -> IO ()
 tacMain args
         | null args = switch "-"
@@ -27,34 +25,47 @@ tacMain args
         switch "-"  = stdinTac
         switch path = liftIO (withFile path ReadMode (Q.stdout . fileTac))
 
+reverseLines :: C.ByteString -> C.ByteString
+reverseLines bs
+        | C.null bs          = bs
+        | C.last bs == '\n'  = C.unlines (reverse (C.lines bs))
+        | otherwise          = C.intercalate (C.singleton '\n') (reverse (C.lines bs))
+
 stdinTac :: IO ()
-stdinTac = C.getContents >>= C.putStr . C.unlines . reverse . C.lines
+stdinTac = C.getContents >>= C.putStr . reverseLines
+
+endsWithLF :: Handle -> Integer -> IO Bool
+endsWithLF _ 0    = pure False
+endsWithLF h size = do
+        hSeek h AbsoluteSeek (size - 1)
+        (== C.singleton '\n') <$> C.hGet h 1
 
 fileTac :: MonadIO m => Handle -> Q.ByteStream m ()
-fileTac = Q.unlines            -- Q.ByteString m ()
-        . S.subst Q.chunk      -- Stream (Q.ByteString m) m ()
-        . S.map C.reverse      -- back to readable lines
-        . mapped Q.toStrict    -- Stream (Of C.ByteString) m ()
-        . Q.lines              -- Stream (Q.ByteString m) m ()
-        . readBackwards        -- Q.ByteString m ()
-
-readBackwards :: MonadIO m => Handle -> Q.ByteStream m ()
--- read the file backwards by characters, the handle must be seek-able
-readBackwards h = do
+fileTac h = do
         size <- liftIO (hFileSize h)
-        mapM_ (uncurry $ seeker h) $ locations size block
+        if size == 0 then pure ()
+        else do
+            endsLF <- liftIO (endsWithLF h size)
+            let readSize = if endsLF then size - 1 else size
+                combine  = if endsLF then Q.unlines
+                           else Q.intercalate (Q.chunk (C.singleton '\n'))
+            combine . inner . Q.split '\n' $ readBackwards h readSize
+    where
+        inner = S.subst Q.chunk . S.map C.reverse . mapped Q.toStrict
+
+readBackwards :: MonadIO m => Handle -> Integer -> Q.ByteStream m ()
+-- read the file backwards by characters, the handle must be seek-able
+readBackwards h size =
+        mapM_ seek $ locations size block
     where
         block = 1024 * 32 :: Integer
+        seek (pos, amount) = do
+            liftIO (hSeek h AbsoluteSeek pos)
+            liftIO (C.reverse <$> C.hGetSome h amount) >>= Q.chunk
 
-seeker :: MonadIO m => Handle -> SeekPosition -> Int -> Q.ByteStream m ()
--- seek to the location, read 'amount' bytes into a streaming bytestring
-seeker h location amount = do
-        liftIO (hSeek h AbsoluteSeek location)
-        liftIO (C.reverse <$> C.hGetSome h amount) >>= Q.chunk
-
-locations :: Integer -> Integer -> [(SeekPosition, Int)]
--- generate the range of seeks + amounts that we'll use with seeker. these work
--- backwards in steps of 'block' size, with a final smaller block if needed
+locations :: Integer -> Integer -> [(Integer, Int)]
+-- generate the range of seeks + amounts that we'll use to read backwards. these
+-- work backwards in steps of 'block' size, with a final smaller block if needed
 locations size block
         | size < block = [(0, fromIntegral size)]
         | rest > 0     = most <> [(0, rest)]
