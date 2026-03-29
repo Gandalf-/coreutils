@@ -49,11 +49,11 @@ runUniq os fs = mapM_ runner fs
 
 unique :: Options -> Q.ByteStream IO () -> IO ()
 unique os bs = do
-        (st, _) <- Q.stdout . Q.unlines . S.subst Q.chunk . S.catMaybes
-                  $ mapAccum execute initial
-                  $ mapped Q.toStrict $ Q.lines bs
-        C.putStr $ fromMaybe C.empty (finalize st)
+        (st, _) <- Q.stdout $ Q.unlines $ S.subst Q.chunk
+                  $ S.for inner S.each
+        C.putStr $ C.concat (finalize st)
     where
+        inner = mapAccum execute initial $ mapped Q.toStrict $ Q.lines bs
         initial = getState $ getRuntime os
 
 mapAccum :: Monad m => (s -> a -> (s, b)) -> s -> Stream (Of a) m r -> Stream (Of b) m (s, r)
@@ -73,13 +73,14 @@ data UniqState = UniqState {
       count    :: Int
     , previous :: Maybe (Prepped, Line)
     , leader   :: Maybe Line
+    , groupNum :: Int
     , runtime  :: Runtime
 }
 
-execute :: UniqState -> Line -> (UniqState, Maybe Line)
+execute :: UniqState -> Line -> (UniqState, [Line])
 execute st line
-    | match rt same n = (newState, emit st)
-    | otherwise       = (newState, Nothing)
+    | match rt same n = (newState { groupNum = newGroupNum }, sep <> emit st)
+    | otherwise       = (newState, [])
     where
         newState = st
             { previous = Just (prepped, line)
@@ -94,28 +95,41 @@ execute st line
             | same                  = leader st
             | otherwise             = Just line
 
-        prepped = prepare rt line -- We'll only prepare each line once
+        -- A new repeated group starts when we first detect repetition
+        groupStart = same && n == 1
+        newGroupNum
+            | groupStart = groupNum st + 1
+            | otherwise  = groupNum st
+        sep = separator (sepType rt) newGroupNum groupStart
+
+        prepped = prepare rt line
         same = (Just prepped ==) $ fst <$> previous st
 
         rt = runtime st
         n = count st
 
-emit :: UniqState -> Maybe Line
-emit st = format rt n <$> emitLine rt st
+emit :: UniqState -> [Line]
+emit st = maybe [] (\l -> [format rt n l]) (emitLine rt st)
     where
         rt = runtime st
         n = count st
 
-finalize :: UniqState -> Maybe Line
+separator :: Maybe SepType -> Int -> Bool -> [Line]
+separator (Just SepPrepend)  _ True         = [""]
+separator (Just SepSeparate) g True | g > 1 = [""]
+separator _                  _ _            = []
+
+finalize :: UniqState -> [Line]
 finalize st
-    | emitFinal (runtime st) (count st) = (<> "\n") <$> emit st
-    | otherwise = Nothing
+    | emitFinal (runtime st) (count st) = map (<> "\n") (emit st)
+    | otherwise = []
 
 getState :: Runtime -> UniqState
 getState rt = UniqState {
       count = 0
     , previous = Nothing
     , leader = Nothing
+    , groupNum = 0
     , runtime = rt
     }
 
@@ -125,26 +139,31 @@ data Runtime = Runtime {
     , match     :: Bool -> Int -> Bool
     , emitFinal :: Int -> Bool
     , emitLine  :: UniqState -> Maybe Line
+    , sepType   :: Maybe SepType
 }
 
 getRuntime :: Options -> Runtime
 getRuntime os = Runtime { .. }
     where
+        useAllRepeated = isJust (optAllRepeated os)
+
         match
-            | optUnique os      = matcher Unique
-            | optRepeated os    = matcher Repeat1
-            | optAllRepeated os = matcher RepeatA
-            | otherwise         = matcher Dedupe
+            | optUnique os   = matcher Unique
+            | useAllRepeated = matcher RepeatA
+            | optRepeated os = matcher Repeat1
+            | otherwise      = matcher Dedupe
 
         emitFinal nPrev
-            | optUnique os      = nPrev == 1
-            | optRepeated os    = nPrev > 1
-            | optAllRepeated os = nPrev > 1
-            | otherwise         = True
+            | optUnique os   = nPrev == 1
+            | useAllRepeated = nPrev > 1
+            | optRepeated os = nPrev > 1
+            | otherwise      = True
 
         emitLine st
-            | optAllRepeated os = snd <$> previous st
-            | otherwise         = leader st
+            | useAllRepeated = snd <$> previous st
+            | otherwise      = leader st
+
+        sepType = optAllRepeated os
 
         prepare = preparer os
 
@@ -170,6 +189,9 @@ preparer os =
                 C.unwords . drop (optSkipFields os) . C.words
             | otherwise = id
 
+data SepType = SepNone | SepPrepend | SepSeparate
+    deriving (Show, Eq)
+
 data Matcher = Unique | Repeat1 | RepeatA | Dedupe
 
 matcher :: Matcher -> Bool -> Int -> Bool
@@ -184,7 +206,7 @@ data Options = Options {
       optCount       :: Bool
 
     , optRepeated    :: Bool
-    , optAllRepeated :: Bool
+    , optAllRepeated :: Maybe SepType
     , optUnique      :: Bool
 
     , optSkipFields  :: Int
@@ -199,7 +221,7 @@ defaultOptions = Options {
 
     , optRepeated = False
     , optUnique = False
-    , optAllRepeated = False
+    , optAllRepeated = Nothing
 
     , optSkipFields = 0
     , optSkipChars = 0
@@ -210,6 +232,13 @@ getInt :: String -> Either String Int
 getInt s
     | not (null s) && all isDigit s = Right $ read s
     | otherwise                     = Left $ s <> " is not a number"
+
+parseSeparator :: Maybe String -> Either String SepType
+parseSeparator Nothing           = Right SepNone
+parseSeparator (Just "none")     = Right SepNone
+parseSeparator (Just "prepend")  = Right SepPrepend
+parseSeparator (Just "separate") = Right SepSeparate
+parseSeparator (Just s)          = Left $ "unknown separator type: " <> s
 
 optionDesc :: [OptDescr (Options -> Either String Options)]
 optionDesc =
@@ -224,9 +253,10 @@ optionDesc =
         "Output a single copy of each repeated line"
 
     , Option "D" ["all-repeated"]
-        (NoArg
-            (\opt -> Right opt { optAllRepeated = True }))
-        "Output all lines that are repeated"
+        (OptArg
+            (\arg opt -> (\s -> opt { optAllRepeated = Just s }) <$> parseSeparator arg)
+            "septype")
+        "Output all lines that are repeated (none, prepend, separate)"
 
     , Option "i" ["ignore-case"]
         (NoArg

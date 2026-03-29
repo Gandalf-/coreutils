@@ -53,3 +53,34 @@ BSD coreutils reimplemented in Haskell. ~40 utilities in a single dispatch binar
 - **Integration**: bash scripts in `test/integration/`; compare output against system utilities
 - Test helpers in `test/integration/common.sh` — `compare()`, `expect()`, `expect-not()`
 - Name test functions `ptest_*()` for parallel execution
+
+## TDD Workflow
+
+When adding features or fixing bugs, use strict test-driven development:
+
+### Red — write a failing test that shows the behavior gap
+1. **High-level test first.** In `test/<Name>Spec.hs`, write an integration-
+   style test exercising the missing/broken behavior. Use existing helpers
+   (e.g. `run`, `test`) so the test reads as a spec. The test must **run and
+   produce wrong output** — a compile error doesn't count.
+2. **Stub to compile if needed.** Add types, constructors, or record fields
+   with defaults. Use `func :: Type; func = undefined` for functions that
+   don't exist yet. All *existing* tests must still pass; only the new test
+   should be red.
+3. **Low-level unit tests.** Write focused tests for the new pure logic
+   (matchers, formatters, state transitions). These also fail.
+
+### Green — write the minimal code to pass
+4. Implement just enough to make every test green. Follow existing patterns.
+
+### Refactor — clean up with confidence
+5. With all tests green, simplify, extract helpers, improve names.
+   `make ready` (format, lint, test) must pass before committing.
+
+### Rules
+- One behavioral change per red-green-refactor cycle.
+- A "failing test" means wrong output, not a compile error. Compile errors
+  block *all* tests and give no signal about the behavior under test.
+- Prefer pure-function unit tests over IO tests. Use integration tests
+  (`test/integration/`) only for IO-heavy features (file args, handles).
+- Run the full test suite (`make test`) after each green step.

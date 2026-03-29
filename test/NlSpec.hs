@@ -3,12 +3,12 @@
 module NlSpec where
 
 import           Coreutils.Nl
-import           Data.ByteString.Char8 (ByteString)
-import qualified Data.ByteString.Char8 as B
+import           Data.ByteString.Char8      (ByteString)
+import qualified Data.ByteString.Char8      as B
 import           Data.Either
-import           Streaming hiding (run)
+import           Streaming                  hiding (run)
 import qualified Streaming.ByteString.Char8 as Q
-import qualified Streaming.Prelude     as S
+import qualified Streaming.Prelude          as S
 
 import           Test.Hspec
 

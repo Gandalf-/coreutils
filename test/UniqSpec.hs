@@ -5,8 +5,7 @@ import           Coreutils.Uniq
 import           Data.ByteString.Char8      (ByteString)
 import qualified Data.ByteString.Char8      as C
 import           Data.Either
-import           Data.Maybe
-import           Streaming hiding (run)
+import           Streaming                  hiding (run)
 import qualified Streaming.ByteString.Char8 as Q
 import qualified Streaming.Prelude          as S
 import           Test.Hspec
@@ -67,7 +66,7 @@ spec = parallel $ do
             match rt False 2 `shouldBe` True
 
         it "all repeated" $ do
-            let rt = getRuntime defaultOptions { optAllRepeated = True }
+            let rt = getRuntime defaultOptions { optAllRepeated = Just SepNone }
             -- not repeated
             match rt False 1 `shouldBe` False
             -- repeating
@@ -101,6 +100,14 @@ spec = parallel $ do
             uniquely art ["a", "a", "a"] `shouldReturn` ["a", "a", "a"]
             uniquely art ["b", "a", "a"] `shouldReturn` ["a", "a"]
 
+        it "all repeated, prepend separator" $ do
+            let rt = getRuntime defaultOptions { optAllRepeated = Just SepPrepend }
+            uniquely rt ["a", "a", "b", "c", "c"] `shouldReturn` ["", "a", "a", "", "c", "c"]
+
+        it "all repeated, separate separator" $ do
+            let rt = getRuntime defaultOptions { optAllRepeated = Just SepSeparate }
+            uniquely rt ["a", "a", "b", "c", "c"] `shouldReturn` ["a", "a", "", "c", "c"]
+
     describe "formatting" $ do
         it "defaults" $ do
             let rt = getRuntime defaultOptions
@@ -130,7 +137,7 @@ spec = parallel $ do
             test os ["a", "cd", "ed"]
 
         it "all repeated" $ do
-            let os = defaultOptions { optAllRepeated = True }
+            let os = defaultOptions { optAllRepeated = Just SepNone }
             test os ["a", "a", "cd", "cd", "ed", "ed"]
 
         it "skip chars" $ do
@@ -142,11 +149,11 @@ spec = parallel $ do
             test os ["   1 A", "   1 b", "   1 "]
 
         it "all repeated, skip char" $ do
-            let os = defaultOptions { optAllRepeated = True, optSkipChars = 1 }
+            let os = defaultOptions { optAllRepeated = Just SepNone, optSkipChars = 1 }
             test os ["A", "a", "a", "b", "", "cd", "cd", "ed", "ed"]
 
         it "all repeated, ignore case" $ do
-            let os = defaultOptions { optAllRepeated = True, optIgnoreCase = True }
+            let os = defaultOptions { optAllRepeated = Just SepNone, optIgnoreCase = True }
             test os ["A", "a", "a", "cd", "cd", "ed", "ed"]
 
         it "repeated, ignore case, count" $ do
@@ -158,11 +165,27 @@ spec = parallel $ do
         it "unique, ignore case" $ do
             let os = defaultOptions { optUnique = True, optIgnoreCase = True }
             test os ["b", ""]
+
+        it "repeated ignored when all-repeated specified" $ do
+            let os = defaultOptions { optRepeated = True, optAllRepeated = Just SepNone }
+            test os ["a", "a", "cd", "cd", "ed", "ed"]
+
+        it "all repeated, prepend" $ do
+            let os = defaultOptions { optAllRepeated = Just SepPrepend }
+            test os ["", "a", "a", "", "cd", "cd", "", "ed", "ed"]
+
+        it "all repeated, separate" $ do
+            let os = defaultOptions { optAllRepeated = Just SepSeparate }
+            test os ["a", "a", "", "cd", "cd", "", "ed", "ed"]
+
+        it "all repeated, none explicit" $ do
+            let os = defaultOptions { optAllRepeated = Just SepNone }
+            test os ["a", "a", "cd", "cd", "ed", "ed"]
     where
         drt = getRuntime defaultOptions
         urt = getRuntime defaultOptions { optUnique = True }
         rrt = getRuntime defaultOptions { optRepeated = True }
-        art = getRuntime defaultOptions { optAllRepeated = True }
+        art = getRuntime defaultOptions { optAllRepeated = Just SepNone }
 
         dst = getState drt
 
@@ -178,7 +201,7 @@ uniquely rt is =
 
 run :: UniqState -> ByteString -> IO ByteString
 run st s = do
-    bs :> (ns, ()) <- Q.toStrict $ Q.unlines $ S.subst Q.chunk $ S.catMaybes
-                    $ mapAccum execute st
-                    $ mapped Q.toStrict $ Q.lines $ Q.fromStrict s
-    pure $ bs <> fromMaybe C.empty (finalize ns)
+    bs :> (ns, ()) <- Q.toStrict $ Q.unlines $ S.subst Q.chunk
+                    $ S.for (mapAccum execute st
+                      $ mapped Q.toStrict $ Q.lines $ Q.fromStrict s) S.each
+    pure $ bs <> C.concat (finalize ns)
