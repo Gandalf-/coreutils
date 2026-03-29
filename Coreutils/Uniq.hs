@@ -1,5 +1,7 @@
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Coreutils.Uniq where
 
 -- uniq
@@ -8,10 +10,9 @@ module Coreutils.Uniq where
 -- like --unique --repeated
 
 import           Control.Monad              (foldM, unless)
-import           Control.Monad.State.Strict (StateT, get, put, runStateT)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString.Char8      as C
-import           Data.Char                  (toLower)
+import           Data.Char                  (isDigit, toLower)
 import           Streaming
 import qualified Streaming.ByteString.Char8 as Q
 import qualified Streaming.Prelude          as S
@@ -46,28 +47,22 @@ runUniq os fs = mapM_ runner fs
         runner "-" = unique os Q.stdin
         runner f   = withFile f ReadMode (unique os . Q.fromHandle)
 
-type Op = StateT UniqState IO
-
-unique :: Options -> Q.ByteStream Op () -> IO ()
+unique :: Options -> Q.ByteStream IO () -> IO ()
 unique os bs = do
-        (_, st) <- worker Q.stdout bs initial
+        (st, _) <- Q.stdout . Q.unlines . S.subst Q.chunk . S.catMaybes
+                  $ mapAccum execute initial
+                  $ mapped Q.toStrict $ Q.lines bs
         C.putStr $ fromMaybe C.empty (finalize st)
     where
         initial = getState $ getRuntime os
 
-worker :: (Q.ByteStream Op () -> Op a) -> Q.ByteStream Op () -> UniqState -> IO (a, UniqState)
-worker sink bs = runStateT (sink $ go bs)
-    where
-        go = Q.unlines . S.subst Q.chunk
-           . S.mapMaybeM process
-           . mapped Q.toStrict . Q.lines
-
-process :: Line -> Op (Maybe Line)
-process l = do
-    st <- get
-    let (!new, !line) = execute st l
-    put new
-    return line
+mapAccum :: Monad m => (s -> a -> (s, b)) -> s -> Stream (Of a) m r -> Stream (Of b) m (s, r)
+mapAccum step = loop
+  where
+    loop !s str = lift (S.next str) >>= \case
+        Left r          -> pure (s, r)
+        Right (a, rest) -> let (!s', b) = step s a
+                           in S.yield b >> loop s' rest
 
 -- | Implementation
 
@@ -212,7 +207,9 @@ defaultOptions = Options {
 }
 
 getInt :: String -> Either String Int
-getInt = undefined
+getInt s
+    | all isDigit s = Right $ read s
+    | otherwise     = Left $ s <> " is not a number"
 
 optionDesc :: [OptDescr (Options -> Either String Options)]
 optionDesc =

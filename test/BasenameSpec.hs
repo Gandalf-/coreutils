@@ -10,7 +10,7 @@ import           Test.Hspec
 -- | https://pubs.opengroup.org/onlinepubs/9699919799/utilities/basename.html
 
 spec :: Spec
-spec = parallel $ do
+spec = do
     describe "system" $ do
         let bname = run Basename
         it "basic" $ do

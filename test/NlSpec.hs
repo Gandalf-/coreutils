@@ -6,7 +6,9 @@ import           Coreutils.Nl
 import           Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as B
 import           Data.Either
-import qualified Streaming.ByteString  as Q
+import           Streaming hiding (run)
+import qualified Streaming.ByteString.Char8 as Q
+import qualified Streaming.Prelude     as S
 
 import           Test.Hspec
 
@@ -156,4 +158,8 @@ spec = parallel $ do
 
 
 run :: NlState -> ByteString -> IO (ByteString, NlState)
-run st s = worker Q.toStrict_ (Q.fromStrict s) st
+run st s = do
+    bs :> (ns, ()) <- Q.toStrict $ Q.unlines $ S.subst Q.chunk
+                    $ mapAccum execute st
+                    $ mapped Q.toStrict $ Q.lines $ Q.fromStrict s
+    pure (bs, ns)

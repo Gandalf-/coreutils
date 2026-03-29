@@ -8,6 +8,9 @@ release:
 .PHONY: ready test format lint profile
 ready: format lint test
 
+unittest:
+	stack test
+
 test:
 	stack test
 	bash test/integration/all.sh

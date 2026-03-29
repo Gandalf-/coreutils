@@ -1,10 +1,11 @@
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 module Coreutils.Nl where
 
 import           Control.Monad
-import           Control.Monad.State.Strict
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString.Char8      as C
 import           Data.Char                  (isDigit)
@@ -45,24 +46,20 @@ runNl os fs = mapM_ runner fs
         runner "-" = nl os Q.stdin
         runner f   = withFile f ReadMode (nl os . Q.fromHandle)
 
-nl :: Options -> Q.ByteStream Op () -> IO ()
-nl os bs = void $ worker Q.stdout bs initial
+nl :: Options -> Q.ByteStream IO () -> IO ()
+nl os bs = void . Q.stdout . Q.unlines . S.subst Q.chunk
+         $ mapAccum execute initial
+         $ mapped Q.toStrict $ Q.lines bs
     where
         initial = getState $ getRuntime os
 
-type Op = StateT NlState IO
-
-worker :: (Q.ByteStream Op () -> Op a) -> Q.ByteStream Op () -> NlState -> IO (a, NlState)
-worker sink bs = runStateT (sink $ go bs)
-    where
-        go = Q.unlines . S.subst Q.chunk . S.mapM process . mapped Q.toStrict . Q.lines
-
-process :: Line -> Op Line
-process l = do
-    st <- get
-    let (!new, !line) = execute st l
-    put $! new
-    return line
+mapAccum :: Monad m => (s -> a -> (s, b)) -> s -> Stream (Of a) m r -> Stream (Of b) m (s, r)
+mapAccum step = loop
+  where
+    loop !s str = lift (S.next str) >>= \case
+        Left r          -> pure (s, r)
+        Right (a, rest) -> let (!s', b) = step s a
+                           in S.yield b >> loop s' rest
 
 -- | Implementation
 

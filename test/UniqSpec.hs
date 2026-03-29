@@ -5,7 +5,9 @@ import           Coreutils.Uniq
 import           Data.ByteString.Char8      (ByteString)
 import qualified Data.ByteString.Char8      as C
 import           Data.Maybe
+import           Streaming hiding (run)
 import qualified Streaming.ByteString.Char8 as Q
+import qualified Streaming.Prelude          as S
 import           Test.Hspec
 
 spec :: Spec
@@ -168,5 +170,7 @@ uniquely rt is =
 
 run :: UniqState -> ByteString -> IO ByteString
 run st s = do
-    (bs, ns) <- worker Q.toStrict_ (Q.fromStrict s) st
+    bs :> (ns, ()) <- Q.toStrict $ Q.unlines $ S.subst Q.chunk $ S.catMaybes
+                    $ mapAccum execute st
+                    $ mapped Q.toStrict $ Q.lines $ Q.fromStrict s
     pure $ bs <> fromMaybe C.empty (finalize ns)
