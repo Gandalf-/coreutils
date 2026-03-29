@@ -1,9 +1,10 @@
 module Coreutils.Strings where
 
-import           Control.Monad
+import           Control.Monad              (foldM, (>=>))
 import           Data.ByteString.Lazy.Char8 (ByteString)
 import qualified Data.ByteString.Lazy.Char8 as B
 import           Data.Char
+import           System.Console.GetOpt
 import           System.Exit
 
 import           Coreutils.Util
@@ -19,7 +20,6 @@ stringsMain :: [String] -> IO ()
 stringsMain args = do
     (opts, files) <- either die return $ parseArgs args
     let search = mapM_ B.putStrLn . strings (optLength opts)
-
     if null files
         then B.getContents >>= search
         else mapM_ (B.readFile >=> search) files
@@ -33,14 +33,11 @@ strings len =
         valid bs = B.length bs >= fromIntegral len
 
 printable :: Char -> Bool
--- FreeBSD contrib/elftoolchain/strings/strings.c
-printable c
-        | v < 0     = False
-        | v > 255   = False
-        | c == '\t' = True
-        | otherwise = isPrint c
+printable c = valid
     where
-        v = ord c
+        -- ASCII 32-126 only, matching C isprint()
+        valid = value >= 32 && value <= 126
+        value = ord c
 
 -- | Options
 
@@ -51,23 +48,35 @@ defaultOptions :: Options
 defaultOptions = Options 4
 
 parseArgs :: [String] -> Either String (Options, [FilePath])
-parseArgs = parser defaultOptions
+parseArgs args
+    | null errors = foldM (flip id) defaultOptions opts >>= \o -> Right (o, other)
+    | otherwise   = Left $ unlines errors
+    where
+        (opts, other, errors) = getOpt Permute optionDesc (expandArgs args)
 
-parser :: Options -> [String] -> Either String (Options, [String])
-parser o [] = Right (o, [])
-parser o ("--":xs) =
-    Right (o, xs)
-parser o ("-n":n:xs) = do
-    v <- getNumber n
-    parser (o { optLength = v }) xs
-parser o (('-':x):xs) = do
-    v <- getNumber x
-    parser (o { optLength = v }) xs
-parser o (x:xs) = do
-    (o', xs') <- parser o xs
-    return (o', x:xs')
+-- | Expand bare-number shorthand: -NUM becomes -n NUM
+expandArgs :: [String] -> [String]
+expandArgs []                = []
+expandArgs ("--":rest)       = "--" : rest
+expandArgs (('-':ds):rest)
+    | not (null ds) && all isDigit ds = "-n" : ds : expandArgs rest
+expandArgs (x:rest)          = x : expandArgs rest
 
-getNumber :: String -> Either String Int
-getNumber s
-    | all isDigit s = Right $ read s
-    | otherwise     = Left $ s <> " is not a number"
+parseNumber :: String -> Either String Int
+parseNumber s
+    | not (null s) && all isDigit s = Right $ read s
+    | otherwise                     = Left $ s <> " is not a number"
+
+optionDesc :: [OptDescr (Options -> Either String Options)]
+optionDesc =
+    [ Option "n" ["bytes"]
+        (ReqArg
+            (\arg opt -> (\v -> opt { optLength = v }) <$> parseNumber arg)
+            "NUMBER")
+        "Minimum string length (default 4)"
+
+    , Option "h" ["help"]
+        (NoArg
+            (\_ -> Left $ usageInfo "strings" optionDesc))
+        "Show this help text"
+    ]

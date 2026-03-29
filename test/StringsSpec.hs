@@ -21,6 +21,13 @@ spec = parallel $ do
 
             strings 1 "ab\0\0\0cd" `shouldBe` ["ab", "cd"]
 
+        it "treats non-ASCII and control chars as non-printable" $ do
+            strings 1 "ab\169cd" `shouldBe` ["ab", "cd"]
+            strings 1 "ab\233cd" `shouldBe` ["ab", "cd"]
+            strings 1 "hello\128world" `shouldBe` ["hello", "world"]
+            strings 1 "ab\tcd" `shouldBe` ["ab", "cd"]
+            strings 1 "ab\fcd" `shouldBe` ["ab", "cd"]
+
         it "by length" $ do
             strings 1 "hello" `shouldBe` ["hello"]
             strings 4 "hello" `shouldBe` ["hello"]
@@ -48,9 +55,19 @@ spec = parallel $ do
             parseArgs ["-n", "9", "--", "-n"] `shouldBe` Right (Options 9, ["-n"])
             parseArgs ["a", "--", "-n"]       `shouldBe` Right (Options 4, ["a", "-n"])
 
+        it "joined short option" $ do
+            parseArgs ["-n9", "file"] `shouldBe` Right (Options 9, ["file"])
+
+        it "long option" $ do
+            parseArgs ["--bytes", "9", "file"]  `shouldBe` Right (Options 9, ["file"])
+            parseArgs ["--bytes=9", "file"]     `shouldBe` Right (Options 9, ["file"])
+
+        it "help" $ do
+            parseArgs ["-h"]     `shouldSatisfy` isLeft
+            parseArgs ["--help"] `shouldSatisfy` isLeft
+
         it "invalid option formats" $ do
             parseArgs ["--n", "9", "file"] `shouldSatisfy` isLeft
-            parseArgs ["-n9", "file"]      `shouldSatisfy` isLeft
 
         it "trailing options" $ do
             parseArgs ["file", "-n", "9"] `shouldBe` Right (Options 9, ["file"])
