@@ -32,6 +32,11 @@ spec = parallel $ do
             getNumber "23938" `shouldBe` Right 23938
             getNumber "hello" `shouldSatisfy` isLeft
 
+        it "padDelimiter" $ do
+            padDelimiter "x" `shouldBe` "x:"
+            padDelimiter "ab" `shouldBe` "ab"
+            padDelimiter "\\:" `shouldBe` "\\:"
+
     describe "format" $ do
         it "left pad" $ do
             format LeftNoZeros 6 99 `shouldBe` "99    "
@@ -44,6 +49,11 @@ spec = parallel $ do
         it "right pad zeros" $ do
             format RightZeros 6 99 `shouldBe` "000099"
             format RightZeros 0 99 `shouldBe` "99"
+
+        it "overflow extends field" $ do
+            format RightNoZeros 2 999 `shouldBe` "999"
+            format LeftNoZeros 2 999 `shouldBe` "999"
+            format RightZeros 2 999 `shouldBe` "999"
 
     describe "match" $
         it "works" $ do
@@ -90,13 +100,20 @@ spec = parallel $ do
             section rt "! hello" `shouldBe` Nothing
             section rt "!!!!" `shouldBe` Nothing
 
+        it "single-char delimiter pads with colon" $ do
+            let rt = getRuntime defaultOptions { optSectionDelimiter = "x:" }
+            section rt "x:x:x:" `shouldBe` Just Header
+            section rt "x:x:" `shouldBe` Just Body
+            section rt "x:" `shouldBe` Just Footer
+            section rt "x" `shouldBe` Nothing
+
     describe "execute" $ do
         it "works" $ do
             let (st, s) = execute dState "hello"
             position st `shouldBe` Body
             value st `shouldBe` 2
             blanks st `shouldBe` 0
-            s `shouldBe` "     1\thello"
+            s `shouldBe` Just "     1\thello"
 
         it "uses select" $ do
             let rt = getRuntime defaultOptions { optBodyNumbering = NoLines }
@@ -104,7 +121,7 @@ spec = parallel $ do
             position st `shouldBe` Body
             value st `shouldBe` 1
             blanks st `shouldBe` 0
-            s `shouldBe` "       hello"
+            s `shouldBe` Just "       hello"
 
         it "counts blanks" $ do
             let (st1, _) = execute dState ""
@@ -120,37 +137,96 @@ spec = parallel $ do
             let (st1, s1) = execute (getState rt) ""
             blanks st1 `shouldBe` 1
             value  st1 `shouldBe` 1
-            s1 `shouldBe` "       "
+            s1 `shouldBe` Just "       "
 
             let (st2, s2) = execute st1 ""
             blanks st2 `shouldBe` 2
             value  st2 `shouldBe` 2
-            s2 `shouldBe` "     1\t"
+            s2 `shouldBe` Just "     1\t"
 
             let (st3, s3) = execute st2 "hello"
             blanks st3 `shouldBe` 0
             value  st3 `shouldBe` 3
-            s3 `shouldBe` "     2\thello"
+            s3 `shouldBe` Just "     2\thello"
 
-        it "sections" $ do
+        it "sections suppress delimiter lines" $ do
             let rt = getRuntime defaultOptions { optSectionDelimiter = "!" }
             let (st1, s1) = execute (getState rt) "!!!"
             position st1 `shouldBe` Header
-            s1 `shouldBe` "       "
+            s1 `shouldBe` Nothing
 
             let (st2, s2) = execute st1 "hello"
             position st2 `shouldBe` Header
-            s2 `shouldBe` "       hello"
+            s2 `shouldBe` Just "       hello"
 
             let (st3, s3) = execute st2 "!!"
             position st3 `shouldBe` Body
-            s3 `shouldBe` "       "
+            s3 `shouldBe` Nothing
 
-    describe "io" $
+        it "renumbers on section change by default" $ do
+            let rt = getRuntime defaultOptions {
+                    optBodyNumbering = AllLines, optSectionDelimiter = "!"
+                }
+            let (st1, _) = execute (getState rt) "hello"
+            value st1 `shouldBe` 2
+
+            let (st2, _) = execute st1 "world"
+            value st2 `shouldBe` 3
+
+            -- hit a section boundary (footer then body)
+            let (st3, _) = execute st2 "!"
+            let (st4, _) = execute st3 "!!"
+            value st4 `shouldBe` 1
+
+            let (st5, s5) = execute st4 "foo"
+            value st5 `shouldBe` 2
+            s5 `shouldBe` Just "     1\tfoo"
+
+        it "no renumber with -p" $ do
+            let rt = getRuntime defaultOptions {
+                    optBodyNumbering = AllLines
+                  , optSectionDelimiter = "!"
+                  , optRenumberSections = False
+                }
+            let (st1, _) = execute (getState rt) "hello"
+            value st1 `shouldBe` 2
+
+            let (st2, _) = execute st1 "!"
+            let (st3, _) = execute st2 "!!"
+            value st3 `shouldBe` 2
+
+            let (st4, s4) = execute st3 "foo"
+            value st4 `shouldBe` 3
+            s4 `shouldBe` Just "     2\tfoo"
+
+    describe "io" $ do
         it "works" $ do
             (t, st) <- run dState "a\nb\nc\n"
             B.lines t `shouldBe` ["     1\ta", "     2\tb", "     3\tc"]
             value st `shouldBe` 4
+
+        it "sections with renumbering" $ do
+            let rt = getRuntime defaultOptions {
+                    optBodyNumbering = AllLines, optSectionDelimiter = "\\:"
+                  , optStartingLineNumber = 10
+                }
+            (t, st) <- run (getState rt) "a\nb\n\\:\n\\:\\:\nc\nd\n"
+            B.lines t `shouldBe`
+                [ "    10\ta", "    11\tb"
+                , "    10\tc", "    11\td"
+                ]
+            value st `shouldBe` 12
+
+        it "sections with -p" $ do
+            let rt = getRuntime defaultOptions {
+                    optBodyNumbering = AllLines, optSectionDelimiter = "\\:"
+                  , optRenumberSections = False
+                }
+            (t, _) <- run (getState rt) "a\nb\n\\:\n\\:\\:\nc\nd\n"
+            B.lines t `shouldBe`
+                [ "     1\ta", "     2\tb"
+                , "     3\tc", "     4\td"
+                ]
 
     where
         dRuntime = getRuntime defaultOptions
@@ -159,7 +235,7 @@ spec = parallel $ do
 
 run :: NlState -> ByteString -> IO (ByteString, NlState)
 run st s = do
-    bs :> (ns, ()) <- Q.toStrict $ Q.unlines $ S.subst Q.chunk
+    bs :> (ns, ()) <- Q.toStrict $ Q.unlines $ S.subst Q.chunk $ S.catMaybes
                     $ mapAccum execute st
                     $ mapped Q.toStrict $ Q.lines $ Q.fromStrict s
     pure (bs, ns)

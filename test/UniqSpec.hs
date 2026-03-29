@@ -4,6 +4,7 @@ module UniqSpec where
 import           Coreutils.Uniq
 import           Data.ByteString.Char8      (ByteString)
 import qualified Data.ByteString.Char8      as C
+import           Data.Either
 import           Data.Maybe
 import           Streaming hiding (run)
 import qualified Streaming.ByteString.Char8 as Q
@@ -12,6 +13,13 @@ import           Test.Hspec
 
 spec :: Spec
 spec = parallel $ do
+    describe "parsing" $
+        it "getInt" $ do
+            getInt "42" `shouldBe` Right 42
+            getInt "0" `shouldBe` Right 0
+            getInt "hello" `shouldSatisfy` isLeft
+            getInt "" `shouldSatisfy` isLeft
+
     describe "prepare" $ do
         it "ignore case" $ do
             let os = defaultOptions { optIgnoreCase = True }

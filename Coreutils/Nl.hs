@@ -47,7 +47,7 @@ runNl os fs = mapM_ runner fs
         runner f   = withFile f ReadMode (nl os . Q.fromHandle)
 
 nl :: Options -> Q.ByteStream IO () -> IO ()
-nl os bs = void . Q.stdout . Q.unlines . S.subst Q.chunk
+nl os bs = void . Q.stdout . Q.unlines . S.subst Q.chunk . S.catMaybes
          $ mapAccum execute initial
          $ mapped Q.toStrict $ Q.lines bs
     where
@@ -65,13 +65,13 @@ mapAccum step = loop
 
 type Line = ByteString
 
-execute :: NlState -> Line -> (NlState, Line)
+execute :: NlState -> Line -> (NlState, Maybe Line)
 execute !st !s = (newState, newLine)
     where
         blank = C.null s
         newLine
-            | isJust newSection = prefix
-            | otherwise         = prefix <> s
+            | isJust newSection = Nothing
+            | otherwise         = Just $ prefix <> s
         matched
             | blank && skipBlank rt newBlanks = False
             | isJust newSection               = False
@@ -80,8 +80,9 @@ execute !st !s = (newState, newLine)
             | matched   = number rt (value st)
             | otherwise = noNumber rt
         newValue
-            | matched   = increment rt $ value st
-            | otherwise = value st
+            | isJust newSection && renumber rt = start rt
+            | matched                          = increment rt $ value st
+            | otherwise                        = value st
         newBlanks
             | blank     = blanks st + 1
             | otherwise = 0
@@ -123,6 +124,7 @@ data Runtime = Runtime {
     , select    :: Section -> Line -> Bool
     , section   :: Line -> Maybe Section
     , skipBlank :: Int -> Bool
+    , renumber  :: Bool
     }
 
 getRuntime :: Options -> Runtime
@@ -130,6 +132,7 @@ getRuntime os = Runtime { .. }
     where
         section = getSection (optSectionDelimiter os)
         skipBlank n = n < optJoinBlankLines os
+        renumber = optRenumberSections os
 
         start = optStartingLineNumber os
 
@@ -149,7 +152,7 @@ format f w i = case f of
         RightNoZeros -> C.replicate size ' ' <> num
         RightZeros   -> C.replicate size '0' <> num
     where
-        size = w - C.length num
+        size = max 0 (w - C.length num)
         num = C.pack $ show i
 
 match :: Style -> Line -> Bool
@@ -165,6 +168,10 @@ getSection d l
     | d <> d <> d == l = Just Header
     | otherwise = Nothing
 
+
+padDelimiter :: String -> String
+padDelimiter [c] = [c, ':']
+padDelimiter s   = s
 
 -- | Options
 -- https://www.ibm.com/docs/en/aix/7.2?topic=n-nl-command
@@ -243,7 +250,7 @@ optionDesc =
 
     , Option "d" ["section-delimiter"]
         (ReqArg
-            (\arg opt -> Right opt { optSectionDelimiter = C.pack arg })
+            (\arg opt -> Right opt { optSectionDelimiter = C.pack $ padDelimiter arg })
             "CC")
         "use CC for logical page delimiters"
 
@@ -280,7 +287,7 @@ optionDesc =
     , Option "p" ["no-renumber"]
         (NoArg
             (\opt -> Right opt { optRenumberSections = False }))
-        "show this help text"
+        "do not reset line numbers at logical pages"
 
     , Option "s" ["number-separator"]
         (ReqArg

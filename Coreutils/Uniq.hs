@@ -208,8 +208,8 @@ defaultOptions = Options {
 
 getInt :: String -> Either String Int
 getInt s
-    | all isDigit s = Right $ read s
-    | otherwise     = Left $ s <> " is not a number"
+    | not (null s) && all isDigit s = Right $ read s
+    | otherwise                     = Left $ s <> " is not a number"
 
 optionDesc :: [OptDescr (Options -> Either String Options)]
 optionDesc =
