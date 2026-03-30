@@ -2,6 +2,13 @@
 
 BSD coreutils reimplemented in Haskell. ~40 utilities in a single dispatch binary.
 
+Goals are:
+* Idiomatic implementations
+* Fast, lazy IO
+* Feature parity with BSD utils
+* Fully tested
+* Platform independent
+
 ## Build & Dev Commands
 - `make all` — build (no optimization)
 - `make release` — build + install with `-O2 -threaded`
