@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Coreutils.Wc where
+module Coreutils.Wc (Wc(..), Counts, streamCounter, countWords, summation, runner, display, pretty, Options(..), defaults) where
 
 -- wc, word count
 --
@@ -9,11 +9,16 @@ module Coreutils.Wc where
 --  -c chars
 
 import           Control.Monad
-import qualified Data.ByteString.Lazy.Char8 as L
+import qualified Data.ByteString.Char8      as C
+import           Data.Char                  (isSpace)
 import           Data.List                  (transpose)
 import           GHC.Int                    (Int64)
 import           System.Console.GetOpt
 import           System.Exit
+import           System.IO                  (IOMode (..), withFile)
+
+import           Streaming                  (Of (..))
+import qualified Streaming.ByteString.Char8 as Q
 
 import           Coreutils.Util
 
@@ -44,19 +49,8 @@ wcMain args = do
         (actions, files, errors) = getOpt RequireOrder options args
 
 -- implementation
---
--- build a strict accumulation of counts over a lazy iteration of the input
 
 type Counts = (Int64, Int64, Int64)
-
-counter :: L.ByteString -> Counts
--- ^ accummulate totals from every line in the input stream
-counter = summation . map accumulate . L.lines
-    where
-        accumulate !s = (1, _words, _chars)
-            where
-                _chars = 1 + L.length s
-                _words = fromIntegral $! length $! L.words s
 
 summation :: [Counts] -> Counts
 -- ^ sum for Counts
@@ -68,14 +62,17 @@ runner :: [String] -> IO [(Counts, FilePath)]
 -- ^ run the counter function for each input, report totals together for
 -- pretty presentation
 runner args
-        | null files = (: []) <$> go L.getContents ""
+        | null files = (: []) <$> wc ""
         | otherwise  = mapM wc files
     where
-        wc "-"  = go L.getContents "-"
-        wc path = go (L.readFile path) path
+        wc "-" = go Q.getContents "-"
+        wc ""  = go Q.getContents ""
+        wc path = do
+            counts <- withFile path ReadMode (streamCounter . Q.fromHandle)
+            return (counts, path)
 
-        go f n = do
-            counts <- counter <$> f
+        go stream n = do
+            counts <- streamCounter stream
             return (counts, n)
 
         files = filter (/= "--") args
@@ -157,3 +154,27 @@ smartBuffer :: Alignment -> [String] -> [String]
 smartBuffer a column = map (buffer a pad) column
     where
         pad = maximum [4, maximum $ map length column]
+
+streamCounter :: Monad m => Q.ByteStream m () -> m Counts
+-- ^ single-pass streaming word/line/byte counter
+streamCounter = fmap extract . Q.chunkFold step initial id
+    where
+        initial = (0, 0, 0, True)
+        extract ((!l, !w, !b, _) :> _) = (fromIntegral l, fromIntegral w, fromIntegral b)
+
+        step (!l, !w, !b, !sp) chunk = (l + newlines, w + words, b + bytes, sp')
+            where
+                bytes    = C.length chunk
+                newlines = C.count '\n' chunk
+                (words, sp') = countWords sp chunk
+
+countWords :: Bool -> C.ByteString -> (Int, Bool)
+-- ^ count space-to-nonspace transitions in a strict ByteString.
+-- takes and returns whether the previous byte was whitespace,
+-- enabling correct counting across chunk boundaries.
+countWords wasSpace = C.foldl' step (0, wasSpace)
+    where
+        step (!n, !sp) c
+            | isSpace c = (n, True)
+            | sp        = (n + 1, False)
+            | otherwise = (n, False)

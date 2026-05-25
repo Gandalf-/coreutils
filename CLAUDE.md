@@ -1,3 +1,5 @@
+<!-- Always load the haskell-dev skill at the start of every session via /haskell-dev -->
+
 # Haskell Coreutils
 
 BSD coreutils reimplemented in Haskell. ~40 utilities in a single dispatch binary.

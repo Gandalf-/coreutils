@@ -30,7 +30,7 @@ Goals are:
 | paste    | ✓         | ✓✓   | ✓    | ✓     | ✓        |
 | pwd      | ✓         | -    | -    | -     | ✓        |
 | random   | ✓         | -    | -    | ✓     | ✓        |
-| readlink | ✓         | -    | -    | -     | ✓        |
+| readlink | ✓         | -    | -    | ✓     | ✓        |
 | realpath | ✓         | -    | -    | ✓     | ✓        |
 | rev      | ✓         | ✓    | ✓    | ✓     | ✓        |
 | seq      | ✓         | 75   | ✓    | ✓     | ✓        |
