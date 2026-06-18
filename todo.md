@@ -31,7 +31,7 @@
 - [ ] Need tests, not sure how to do this in a platform independent way
 
 ## head
-- [ ] Doesn't suppport byte suffixes like MB, K
+- [ ] Doesn't support byte suffixes like MB, K
 
 ## cat
 - [ ] some sort of encoding bug on windows with binary files (.jpg)
