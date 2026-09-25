@@ -16,8 +16,17 @@ work=$(mktemp -d)
 cd "$work"
 
 # --- apt: native libs GHC links against (in background) ---
-( apt-get update -qq && apt-get install -y -qq libgmp-dev libnuma-dev zlib1g-dev libffi-dev ) \
-    > apt.log 2>&1 &
+# `apt-get update` can fail on third-party PPAs in the base image that the
+# network policy blocks; the Ubuntu archive still refreshes, so ignore that.
+(
+    missing=$(for p in libgmp-dev libnuma-dev zlib1g-dev libffi-dev; do
+        dpkg -s "$p" > /dev/null 2>&1 || echo "$p"
+    done)
+    if [ -n "$missing" ]; then
+        apt-get update -qq || true
+        apt-get install -y -qq $missing
+    fi
+) > apt.log 2>&1 &
 apt_pid=$!
 
 # --- stack, hlint, stylish-haskell: prebuilt GitHub release binaries ---
