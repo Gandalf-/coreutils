@@ -25,9 +25,17 @@ Goals are:
 - `stack unpack <package> --to /tmp/haskell-src` — download package source (with haddock docs inline) for reference
 
 ## Toolchain
-- Stack, resolver LTS 24.24 (GHC 9.8.3)
+- Stack, resolver LTS 24.24 (GHC 9.10.3)
 - Formatter: stylish-haskell
 - Linter: hlint
+
+## Cloud Sessions
+- `scripts/cloud-setup.sh` is the environment setup script for Claude Code
+  cloud sessions (paste it into the environment's Setup script field). It
+  installs stack, GHC, hlint, stylish-haskell and pre-builds dependencies.
+  Keep its `GHC_VERSION`/`RESOLVER` in sync with `stack.yaml`.
+- Expected unit test failures in the cloud container: `AddrInfo` and `Netcat`
+  IPv6 tests (no IPv6), and `Mkdir.runtime permssions` (runs as root).
 
 ## Architecture
 - `Coreutils/Util.hs` — `Util` typeclass + existential `Utility` wrapper for dispatch
